@@ -139,7 +139,7 @@ void StatusTextHandler::resetErrorLevelMessages()
 
 void StatusTextHandler::handleTextMessage(MAV_COMPONENT compId, MAV_SEVERITY severity, const QString &text, const QString &description)
 {
-    QString htmlText(text);
+    QString htmlText(text.toHtmlEscaped());
     (void) htmlText.replace("\n", "<br/>");
 
     // TODO: handle text + description separately in the UI
@@ -335,7 +335,7 @@ void StatusTextHandler::_chunkedStatusTextCompleted(MAV_COMPONENT compId)
 
     (void) m_chunkedStatusTextInfoMap.remove(compId);
 
-    emit textMessageReceived(compId, severity, messageText.toHtmlEscaped(), "");
+    emit textMessageReceived(compId, severity, messageText, "");
 }
 
 void StatusTextHandler::_handleTextMessage(uint32_t newCount, MessageType messageType)
