@@ -4047,7 +4047,8 @@ void Vehicle::_textMessageReceived(MAV_COMPONENT componentid, MAV_SEVERITY sever
         _say(text);
     }
 
-    m_statusTextHandler->handleTextMessage(componentid, severity, text.toHtmlEscaped(), description);
+    emit textMessageReceived(id(), componentid, severity, text, description);
+    m_statusTextHandler->handleTextMessage(componentid, severity, text, description);
 }
 
 void Vehicle::_errorMessageReceived(QString message)
