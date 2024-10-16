@@ -4,9 +4,6 @@ inputs:
   host:
     description: Host
     required: true
-  arch:
-    description: Arch
-    required: true
   version:
     description: Qt Version
     required: false
@@ -31,6 +28,10 @@ runs:
         packages: 'platform-tools platforms;android-34 build-tools;34.0.0' # ndk;25.1.8937393'
         log-accepted-android-sdk-licenses: false
 
+    - name: Update Android SDK / NDK / Tools
+      run: sdkmanager --update
+      shell: bash
+
     - name: Install Android NDK
       uses: nttld/setup-ndk@v1
       id: setup-ndk
@@ -44,15 +45,10 @@ runs:
         echo "ANDROID_NDK=${{ steps.setup-ndk.outputs.ndk-path }}" >> "$GITHUB_ENV"
       shell: bash
 
-    - name: Update Android SDK / NDK / Tools
-      if: ${{ runner.os != 'Windows' }}
-      run: sdkmanager --update
-      shell: bash
-
     - name: Set Up Cache
       uses: hendrikmuhs/ccache-action@v1.2
       with:
-        create-symlink: ${{ runner.os != 'Windows' }}
+        create-symlink: true
         key: ${{ runner.os }}-Android-${{ matrix.BuildType }}
         restore-keys: ${{ runner.os }}-Android-${{ matrix.BuildType }}
         max-size: 1G
@@ -66,7 +62,6 @@ runs:
         aqtversion: ==3.1.*
         host: ${{ inputs.host }}
         target: desktop
-        arch: ${{ inputs.arch }}
         dir: ${{ runner.temp }}
         modules: qtcharts qtlocation qtpositioning qtspeech qt5compat qtmultimedia qtserialport qtimageformats qtshadertools qtconnectivity qtquick3d qtsensors
         cache: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
