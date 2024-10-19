@@ -34,33 +34,36 @@ DEBIAN_FRONTEND=noninteractive apt-get -y --quiet install \
 
 # Qt Required - https://doc.qt.io/qt-6/linux-requirements.html
 DEBIAN_FRONTEND=noninteractive apt-get -y --quiet install \
-    libfontconfig1 \
-    libfreetype6 \
-    libx11-6 \
-    libx11-xcb1 \
-    libxcb-cursor0 \
-    libxcb-glx0 \
-    libxcb-icccm4 \
-    libxcb-image0 \
-    libxcb-keysyms1 \
-    libxcb-present0 \
-    libxcb-randr0 \
-    libxcb-render-util0 \
-    libxcb-render0 \
-    libxcb-shape0 \
-    libxcb-shm0 \
-    libxcb-sync1 \
-    libxcb-util1 \
-    libxcb-xfixes0 \
-    libxcb-xinerama0 \
-    libxcb-xkb1 \
-    libxcb1 \
-    libxext6 \
-    libxfixes3 \
-    libxi6 \
-    libxkbcommon-x11-0 \
-    libxkbcommon0 \
-    libxrender1
+    libatspi2.0-dev \
+    libfontconfig1-dev \
+    libfreetype-dev \
+    libglib2.0-dev \
+    libsm-dev \
+    libx11-dev \
+    libx11-xcb-dev \
+    libxcb-cursor-dev \
+    libxcb-glx0-dev \
+    libxcb-icccm4-dev \
+    libxcb-image0-dev \
+    libxcb-keysyms1-dev \
+    libxcb-present-dev \
+    libxcb-randr0-dev \
+    libxcb-render-util0-dev \
+    libxcb-render0-dev \
+    libxcb-shape0-dev \
+    libxcb-shm0-dev \
+    libxcb-sync-dev \
+    libxcb-util-dev \
+    libxcb-xfixes0-dev \
+    libxcb-xinerama0-dev \
+    libxcb-xkb-dev \
+    libxcb1-dev \
+    libxext-dev \
+    libxfixes-dev \
+    libxi-dev \
+    libxkbcommon-dev \
+    libxkbcommon-x11-dev \
+    libxrender-dev
 
 DEBIAN_FRONTEND=noninteractive apt-get -y --quiet install \
     libunwind-dev
@@ -101,15 +104,20 @@ DEBIAN_FRONTEND=noninteractive apt-get -y --quiet install \
 
 # Speech
 DEBIAN_FRONTEND=noninteractive apt-get -y --quiet install \
+    flite \
     flite1-dev \
+    libflite1 \
     libspeechd-dev \
     speech-dispatcher \
+    speech-dispatcher-audio-plugins \
     speech-dispatcher-espeak \
     speech-dispatcher-espeak-ng \
     speech-dispatcher-flite \
 
 # Additional
 DEBIAN_FRONTEND=noninteractive apt-get -y --quiet install \
+    bison \
+    flex \
     gvfs \
     intel-media-va-driver \
     libasound2-dev \
@@ -125,7 +133,6 @@ DEBIAN_FRONTEND=noninteractive apt-get -y --quiet install \
     libgles2-mesa-dev \
     libglew-dev \
     libglfw3-dev \
-    libglib2.0-dev \
     libglu1-mesa-dev \
     libglvnd-dev \
     libglx-dev \
@@ -151,7 +158,9 @@ DEBIAN_FRONTEND=noninteractive apt-get -y --quiet install \
     libvpx-dev \
     libwayland-dev \
     libwxgtk3.*-dev \
-    libx11-dev \
+    libxcb-dri2-0-dev \
+    libxcb-dri3-dev \
+    libxcb-xf86dri0-dev \
     libxml2-dev \
     libzstd-dev \
     mesa-common-dev \
@@ -159,7 +168,12 @@ DEBIAN_FRONTEND=noninteractive apt-get -y --quiet install \
     mesa-va-drivers \
     mesa-vdpau-drivers \
     mesa-vulkan-drivers \
+    va-driver-all \
     vainfo
+
+if apt-cache show libdav1d-dev >/dev/null 2>&1 && apt-cache show libdav1d-dev 2>/dev/null | grep -q "^Package: libdav1d-dev"; then
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --quiet libdav1d-dev
+fi
 
 if apt-cache show libvpl-dev >/dev/null 2>&1 && apt-cache show libvpl-dev 2>/dev/null | grep -q "^Package: libvpl-dev"; then
     DEBIAN_FRONTEND=noninteractive apt-get install -y --quiet libvpl-dev
