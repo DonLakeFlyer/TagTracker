@@ -1,0 +1,79 @@
+{
+    "version":  1,
+    "fileType": "FactMetaData",
+    "QGC.MetaData.Facts":
+[
+{
+    "name":             "altitude",
+    "shortDesc":        "Altitude to perform VHF scan",
+    "type":             "double",
+    "units":            "m",
+    "decimalPlaces":    1,
+    "default":          121.92
+},
+{
+    "name":         "k",
+    "shortDesc":    "K value for detectors",
+    "type":         "UInt32",
+    "default":      3
+},
+{
+    "name":         "rotationKWaitCount",
+    "shortDesc":    "Number f K groups to wait for at each rotation pause",
+    "type":         "UInt32",
+    "default":      2
+},
+{
+    "name":             "falseAlarmProbability",
+    "shortDesc":        "Detector false alarm probability in percent. Example: 1 percent = 1.0",
+    "type":             "double",
+    "units":            "%",
+    "decimalPlaces":    2,
+    "default":          1.0
+},
+{
+    "name":         "divisions",
+    "shortDesc":    "Number of divisions to stop rotation at",
+    "type":         "Int32",
+    "default":      16
+},
+{
+    "name":         "sdrType",
+    "shortDesc":    "SDR type used for collection",
+    "type":         "uint32",
+    "enumStrings":  "AirSpy Mini,AirSpy HF",
+    "enumValues":   "1,2",
+    "default":      1
+},
+{
+    "name":         "showPulseOnMap",
+    "shortDesc":    "Show pulse strength on Fly View map",
+    "type":         "bool",
+    "default":      false
+},
+{
+    "name":         "useSNRForPulseStrength",
+    "shortDesc":    "true: Use snr for pulse string, false: use stft_score",
+    "type":         "bool",
+    "default":      true
+},
+{
+    "name":             "maxPulseStrength",
+    "shortDesc":        "Maximum pulse value",
+    "type":             "double",
+    "min":              0,
+    "decimalPlaces":    1,
+    "default":          70
+},
+{
+    "name":             "antennaOffset",
+    "shortDesc":        "Antenna rotation offset from vehicle heading",
+    "type":             "double",
+    "min":              0,
+    "max":              360,
+    "decimalPlaces":    0,
+    "units":            "deg",
+    "default":          0
+}
+]
+}

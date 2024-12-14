@@ -5,8 +5,16 @@ find_package(Qt6 REQUIRED COMPONENTS Core)
 set_property(DIRECTORY ${CMAKE_SOURCE_DIR}
     APPEND PROPERTY COMPILE_DEFINITIONS
     QGC_CUSTOM_BUILD
-    CUSTOMHEADER="HerelinkCorePlugin.h"
-    CUSTOMCLASS=HerelinkCorePlugin
+    CUSTOMHEADER="CustomPlugin.h"
+    CUSTOMCLASS=CustomPlugin
+)
+
+add_compile_definitions(
+    QGC_HERELINK_AIRUNIT_VIDEO
+)
+
+add_compile_definitions(
+    HERELINK_BUILD
 )
 
 # Our own, custom resources
@@ -20,29 +28,57 @@ set(QGC_RESOURCES ${CUSTOM_RESOURCES} PARENT_SCOPE)
 
 set(QML_IMPORT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/res" CACHE STRING "Extra qml import paths" PARENT_SCOPE)
 
+FILE(GLOB BearingHeaders uavrt_bearing/codegen/exe/bearing/*.h)
+FILE(GLOB BearingSources uavrt_bearing/codegen/exe/bearing/*.cpp)
+FILE(GLOB BearingSourcesC uavrt_bearing/codegen/exe/bearing/*.c)
+
 qt_add_library(CustomPlugin STATIC
     src/HerelinkCorePlugin.cc
     src/HerelinkCorePlugin.h
     src/HerelinkOptions.cc
     src/HerelinkOptions.h
+    src/CustomOptions.cc
+    src/CustomOptions.h
+    src/CustomPlugin.cc
+    src/CustomPlugin.h
+    src/CustomSettings.cc
+    src/CustomSettings.h
+    src/DetectorInfo.cc
+    src/DetectorInfo.h
+    src/DetectorInfoListModel.cc
+    src/DetectorInfoListModel.h
+    src/TagDatabase.cc
+    src/TagDatabase.h
+    src/PulseInfoList.cc
+    src/PulseInfoList.h
+    ${BearingHeaders}
+    ${BearingSources}
+    ${BearingSourcesC}
 )
+
+# $$files(uavrt_bearing/codegen/exe/bearing/*.cpp)
+# $$files(uavrt_bearing/codegen/exe/bearing/*.c)
 
 target_link_libraries(CustomPlugin
     PRIVATE
-        FactSystem
         FirmwarePlugin
         PX4AutoPilotPlugin
         PX4FirmwarePlugin
         QmlControls
         Vehicle
+        Audio
     PUBLIC
         Qt6::Core
         MAVLink
         QGC
         Settings
+        FactSystem
 )
 
 target_include_directories(CustomPlugin
     PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        src
+        matlab-coder-utils/coder-headers
+        uavrt_bearing/codegen/exe/bearing
+        uavrt_interfaces/include/uavrt_interfaces
 )

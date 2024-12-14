@@ -22,3 +22,12 @@
 [submodule "resources/SDL_GameControllerDB"]
 	path = resources/SDL_GameControllerDB
 	url = https://github.com/mdqinc/SDL_GameControllerDB.git
+[submodule "custom/uavrt_interfaces"]
+	path = custom/uavrt_interfaces
+	url = https://github.com/dynamic-and-active-systems-lab/uavrt_interfaces.git
+[submodule "custom/uavrt_bearing"]
+	path = custom/uavrt_bearing
+	url = https://github.com/dynamic-and-active-systems-lab/uavrt_bearing.git
+[submodule "custom/matlab-coder-utils"]
+	path = custom/matlab-coder-utils
+	url = https://github.com/DonLakeFlyer/matlab-coder-utils.git
