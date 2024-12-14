@@ -1,2 +1,22 @@
 <RCC>
+    <qresource prefix="/qml">
+        <file alias="ControllerIndicator.qml">src/ControllerIndicator.qml</file>
+        <file alias="LogDownloadIndicator.qml">src/LogDownloadIndicator.qml</file>
+        <file alias="CustomPulseRoseMapItem.qml">src/CustomPulseRoseMapItem.qml</file>
+        <file alias="PulseMapItem.qml">src/PulseMapItem.qml</file>
+        <file alias="QGroundControl/FlightDisplay/FlyViewToolStripActionList.qml">src/CustomFlyViewToolStripActionList.qml</file>
+        <file alias="QGroundControl/FlightDisplay/CustomGuidedActionSendTags.qml">src/CustomGuidedActionSendTags.qml</file>
+        <file alias="QGroundControl/FlightDisplay/CustomGuidedActionStartStopDetection.qml">src/CustomGuidedActionStartStopDetection.qml</file>
+        <file alias="QGroundControl/FlightDisplay/CustomGuidedActionStartRotation.qml">src/CustomGuidedActionStartRotation.qml</file>
+        <file alias="QGroundControl/FlightDisplay/CustomGuidedActionDownloadLogs.qml">src/CustomGuidedActionDownloadLogs.qml</file>
+        <file alias="QGroundControl/FlightDisplay/CustomGuidedActionRawCapture.qml">src/CustomGuidedActionRawCapture.qml</file>
+    </qresource>
+    <qresource prefix="/res">
+        <file alias="TagInfo.txt">TagInfo.txt</file>
+    </qresource>
+    <qresource prefix="/json">
+        <file alias="Custom.SettingsGroup.json">src/Custom.SettingsGroup.json</file>
+        <file alias="TagInfo.json">src/TagInfo.json</file>
+        <file alias="TagManufacturer.json">src/TagManufacturer.json</file>
+    </qresource>
 </RCC>

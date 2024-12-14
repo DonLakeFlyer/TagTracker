@@ -285,7 +285,7 @@ void QGCCorePlugin::createRootWindow(QQmlApplicationEngine* qmlEngine)
     qmlEngine->load(QUrl(QStringLiteral("qrc:/qml/MainRootWindow.qml")));
 }
 
-QmlObjectListModel *QGCCorePlugin::customMapItems() const
+QmlObjectListModel *QGCCorePlugin::customMapItems()
 {
     return &_p->_emptyCustomMapItems;
 }
