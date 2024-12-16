@@ -9,9 +9,10 @@ set_property(DIRECTORY ${CMAKE_SOURCE_DIR}
     CUSTOMCLASS=CustomPlugin
 )
 
-add_compile_definitions(
-    QGC_HERELINK_AIRUNIT_VIDEO
-)
+# Tag Tracker does not support video
+#add_compile_definitions(
+#    QGC_HERELINK_AIRUNIT_VIDEO
+#)
 
 add_compile_definitions(
     HERELINK_BUILD
