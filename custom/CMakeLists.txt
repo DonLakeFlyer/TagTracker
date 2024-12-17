@@ -18,6 +18,10 @@ add_compile_definitions(
     HERELINK_BUILD
 )
 
+add_compile_definitions(
+    QGC_HERELINK_AIRUNIT_VIDEO
+)
+
 # Our own, custom resources
 list(APPEND CUSTOM_RESOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/qgcimages.qrc

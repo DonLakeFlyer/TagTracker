@@ -9,33 +9,25 @@
 
 #pragma once
 
-#include "QGCPalette.h"
-#include "MAVLinkLib.h"
-
-#include <QtCore/QFile>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QObject>
 #include <QtCore/QVariantList>
 
-/// @file
-/// @brief Core Plugin Interface for QGroundControl
-/// @author Gus Grubba <gus@auterion.com>
+#include "QGCPalette.h"
 
-class QGCOptions;
-class QGCSettings;
-class QGCCorePlugin_p;
 class FactMetaData;
-class QGeoPositionInfoSource;
-class QQmlApplicationEngine;
-class Vehicle;
 class LinkInterface;
+class PlanMasterController;
+class QFile;
+class QGCOptions;
+class QGeoPositionInfoSource;
 class QmlObjectListModel;
+class QQmlApplicationEngine;
+class QQuickItem;
+class Vehicle;
 class VideoReceiver;
 class VideoSink;
-class PlanMasterController;
-class QGCCameraManager;
-class MavlinkCameraControl;
-class QQuickItem;
+typedef struct __mavlink_message mavlink_message_t;
 
 Q_DECLARE_LOGGING_CATEGORY(QGCCorePluginLog)
 
@@ -44,18 +36,19 @@ class QGCCorePlugin : public QObject
     Q_OBJECT
     Q_MOC_INCLUDE("QGCOptions.h")
     Q_MOC_INCLUDE("QmlObjectListModel.h")
-    Q_PROPERTY(bool                 showAdvancedUI                  READ showAdvancedUI                     WRITE _setShowAdvancedUI    NOTIFY showAdvancedUIChanged)
-    Q_PROPERTY(bool                 showTouchAreas                  READ showTouchAreas                     WRITE _setShowTouchAreas    NOTIFY showTouchAreasChanged)
-    Q_PROPERTY(int                  defaultSettings                 READ defaultSettings                                                CONSTANT)
-    Q_PROPERTY(int                  offlineVehicleFirstRunPromptId  MEMBER kOfflineVehicleFirstRunPromptId                              CONSTANT)
-    Q_PROPERTY(int                  unitsFirstRunPromptId           MEMBER kUnitsFirstRunPromptId                                       CONSTANT)
-    Q_PROPERTY(QGCOptions           *options                        READ options                                                        CONSTANT)
-    Q_PROPERTY(QmlObjectListModel   *customMapItems                 READ customMapItems                                                 CONSTANT)
-    Q_PROPERTY(QString              brandImageIndoor                READ brandImageIndoor                                               CONSTANT)
-    Q_PROPERTY(QString              brandImageOutdoor               READ brandImageOutdoor                                              CONSTANT)
-    Q_PROPERTY(QString              showAdvancedUIMessage           READ showAdvancedUIMessage                                          CONSTANT)
-    Q_PROPERTY(QVariantList         analyzePages                    READ analyzePages                                                   NOTIFY analyzePagesChanged)
-    Q_PROPERTY(QVariantList         toolBarIndicators               READ toolBarIndicators                                              NOTIFY toolBarIndicatorsChanged)
+    Q_PROPERTY(bool showAdvancedUI                      READ showAdvancedUI                     WRITE _setShowAdvancedUI    NOTIFY showAdvancedUIChanged)
+    Q_PROPERTY(bool showTouchAreas                      READ showTouchAreas                     WRITE _setShowTouchAreas    NOTIFY showTouchAreasChanged)
+    Q_PROPERTY(int defaultSettings                      READ defaultSettings                                                CONSTANT)
+    Q_PROPERTY(int offlineVehicleFirstRunPromptId       MEMBER kOfflineVehicleFirstRunPromptId                              CONSTANT)
+    Q_PROPERTY(int unitsFirstRunPromptId                MEMBER kUnitsFirstRunPromptId                                       CONSTANT)
+    Q_PROPERTY(const QGCOptions *options                READ options                                                        CONSTANT)
+    Q_PROPERTY(const QmlObjectListModel *customMapItems READ customMapItems                                                 CONSTANT)
+    Q_PROPERTY(QString brandImageIndoor                 READ brandImageIndoor                                               CONSTANT)
+    Q_PROPERTY(QString brandImageOutdoor                READ brandImageOutdoor                                              CONSTANT)
+    Q_PROPERTY(QString showAdvancedUIMessage            READ showAdvancedUIMessage                                          CONSTANT)
+    Q_PROPERTY(QVariantList analyzePages                READ analyzePages                                                   CONSTANT)
+    Q_PROPERTY(QVariantList toolBarIndicators           READ toolBarIndicators                                              CONSTANT)
+
 public:
     explicit QGCCorePlugin(QObject *parent = nullptr);
     ~QGCCorePlugin();
@@ -65,11 +58,9 @@ public:
 
     virtual void init() { };
 
-    Q_INVOKABLE bool guidedActionsControllerLogging() const;
-
     /// The list of pages/buttons under the Analyze Menu
     /// @return A list of QmlPageInfo
-    virtual QVariantList &analyzePages();
+    virtual const QVariantList &analyzePages();
 
     /// The default settings panel to show
     /// @return The settings index
@@ -126,7 +117,7 @@ public:
     virtual bool mavlinkMessage(Vehicle *vehicle, LinkInterface *link, const mavlink_message_t &message) { Q_UNUSED(vehicle); Q_UNUSED(link); Q_UNUSED(message); return true; }
 
     /// Allows custom builds to add custom items to the FlightMap. Objects put into QmlObjectListModel should derive from QmlComponentInfo and set the url property.
-    virtual QmlObjectListModel *customMapItems();
+    virtual const QmlObjectListModel *customMapItems();
 
     /// Allows custom builds to add custom items to the plan file before the document is created.
     virtual void preSaveToJson(PlanMasterController *pController, QJsonObject &json) { Q_UNUSED(pController); Q_UNUSED(json); }
@@ -136,7 +127,7 @@ public:
     /// Allows custom builds to add custom items to the mission section of the plan file before the item is created.
     virtual void preSaveToMissionJson(PlanMasterController *pController, QJsonObject &missionJson) { Q_UNUSED(pController); Q_UNUSED(missionJson); }
     /// Allows custom builds to add custom items to the mission section of the plan file after the item is created.
-    virtual void postSaveToMissionJson(PlanMasterController *pController, QJsonObject& missionJson) { Q_UNUSED(pController); Q_UNUSED(missionJson); }
+    virtual void postSaveToMissionJson(PlanMasterController *pController, QJsonObject &missionJson) { Q_UNUSED(pController); Q_UNUSED(missionJson); }
 
     /// Allows custom builds to load custom items from the plan file before the document is parsed.
     virtual void preLoadFromJson(PlanMasterController *pController, QJsonObject &json) { Q_UNUSED(pController); Q_UNUSED(json); }
@@ -149,7 +140,11 @@ public:
     /// The contents of this file should be a single line in the form:
     ///     v3.4.4
     /// This indicates the latest stable version number.
-    virtual QString stableVersionCheckFileUrl() const;
+#ifdef QGC_CUSTOM_BUILD
+    virtual QString stableVersionCheckFileUrl() const { return QString(); }
+#else
+    virtual QString stableVersionCheckFileUrl() const { return QStringLiteral("https://s3-us-west-2.amazonaws.com/qgroundcontrol/latest/QGC.version.txt"); }
+#endif
 
     /// Returns the user visible url to show user where to download new stable builds from.
     /// Custom builds must override to provide their own location.
@@ -171,15 +166,20 @@ public:
     virtual QList<int> firstRunPromptCustomIds() { return QList<int>(); }
 
     /// Returns the resource which contains the specified first run prompt for display
-    Q_INVOKABLE virtual QString firstRunPromptResource(int id);
+    Q_INVOKABLE virtual QString firstRunPromptResource(int id) const;
 
     /// Returns the list of toolbar indicators which are not related to a vehicle
-    ///     signals toolbarIndicatorsChanged
     /// @return A list of QUrl with the indicators
     virtual const QVariantList &toolBarIndicators();
 
     /// Returns a true if xml definition file of a providen camera name exists, and loads it to file argument, to allow definition files to be loaded from resources
     virtual bool getOfflineCameraDefinitionFile(const QString &cameraName, QFile &file) { Q_UNUSED(cameraName); Q_UNUSED(file); return false; }
+
+    struct JoystickAction {
+        QString name;
+        bool canRepeat = false;
+    };
+    virtual QList<JoystickAction> joystickActions() { return {}; }
 
     /// Returns the list of first run prompt ids which need to be displayed according to current settings
     Q_INVOKABLE QVariantList firstRunPromptsToShow();
@@ -195,22 +195,17 @@ public:
     static constexpr int kFirstRunPromptIdsFirstCustomId = 10000;
 
 signals:
-    void analyzePagesChanged();
     void showTouchAreasChanged(bool showTouchAreas);
     void showAdvancedUIChanged(bool showAdvancedUI);
-    void toolBarIndicatorsChanged();
 
 protected:
     bool _showTouchAreas = false;
     bool _showAdvancedUI = true;
-    Vehicle *_activeVehicle = nullptr;
-    QGCCameraManager *_cameraManager = nullptr;
-    MavlinkCameraControl *_currentCamera = nullptr;
-    QVariantList _toolBarIndicatorList;
 
 private:
-    QGCCorePlugin_p *_p = nullptr;
-
     void _setShowTouchAreas(bool show);
     void _setShowAdvancedUI(bool show);
+
+    QGCOptions *_defaultOptions = nullptr;
+    QmlObjectListModel *_emptyCustomMapItems = nullptr;
 };
