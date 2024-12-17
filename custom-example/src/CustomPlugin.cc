@@ -44,15 +44,13 @@ bool CustomFlyViewOptions::showInstrumentPanel(void) const
 CustomOptions::CustomOptions(CustomPlugin *plugin, QObject *parent)
     : QGCOptions(parent)
     , _plugin(plugin)
+    , _flyViewOptions(new CustomFlyViewOptions(this, this))
 {
     Q_CHECK_PTR(_plugin);
 }
 
-QGCFlyViewOptions* CustomOptions::flyViewOptions(void)
+QGCFlyViewOptions* CustomOptions::flyViewOptions(void) const
 {
-    if (!_flyViewOptions) {
-        _flyViewOptions = new CustomFlyViewOptions(this, this);
-    }
     return _flyViewOptions;
 }
 

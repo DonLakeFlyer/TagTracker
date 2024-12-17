@@ -42,7 +42,7 @@ public:
     // Overrides from QGCOptions
     bool                    wifiReliableForCalibration  (void) const final;
     bool                    showFirmwareUpgrade         (void) const final;
-    QGCFlyViewOptions*      flyViewOptions(void) final;
+    QGCFlyViewOptions*      flyViewOptions(void) const final;
 
 private:
     QGCCorePlugin *_plugin = nullptr;

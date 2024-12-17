@@ -87,10 +87,11 @@ void CustomPlugin::init()
 
 const QVariantList& CustomPlugin::toolBarIndicators(void)
 {
-    QGCCorePlugin::toolBarIndicators();
-    _toolBarIndicatorList.append(QVariant::fromValue(QUrl::fromUserInput("qrc:/qml/ControllerIndicator.qml")));
-    _toolBarIndicatorList.append(QVariant::fromValue(QUrl::fromUserInput("qrc:/qml/LogDownloadIndicator.qml")));
-    return _toolBarIndicatorList;
+    QVariantList toolBarIndicatorList = QGCCorePlugin::toolBarIndicators();
+
+    toolBarIndicatorList.append(QVariant::fromValue(QUrl::fromUserInput("qrc:/qml/ControllerIndicator.qml")));
+    toolBarIndicatorList.append(QVariant::fromValue(QUrl::fromUserInput("qrc:/qml/LogDownloadIndicator.qml")));
+    return toolBarIndicatorList;
 }
 
 bool CustomPlugin::mavlinkMessage(Vehicle *vehicle, LinkInterface *link, const mavlink_message_t &message)

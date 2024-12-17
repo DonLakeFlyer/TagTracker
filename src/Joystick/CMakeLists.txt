@@ -1,4 +1,4 @@
-find_package(Qt6 REQUIRED COMPONENTS Core Qml)
+find_package(Qt6 REQUIRED COMPONENTS Core Qml QmlIntegration)
 
 qt_add_library(Joystick STATIC
     Joystick.cc
@@ -17,6 +17,7 @@ target_link_libraries(Joystick
         Vehicle
     PUBLIC
         Qt6::Core
+        Qt6::QmlIntegration
         QmlControls
 )
 
@@ -127,6 +128,10 @@ set(SDL_DBUS OFF CACHE INTERNAL "" FORCE)
 set(SDL_IBUS OFF CACHE INTERNAL "" FORCE)
 set(SDL_MMX OFF CACHE INTERNAL "" FORCE)
 set(SDL_VIRTUAL_JOYSTICK ON CACHE INTERNAL "" FORCE)
+
+if(WIN32)
+    set(SDL_DIRECTX OFF CACHE INTERNAL "" FORCE)
+endif()
 FetchContent_MakeAvailable(SDL)
 
 target_link_libraries(Joystick PRIVATE SDL2::SDL2-static)
