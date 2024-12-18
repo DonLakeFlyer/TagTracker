@@ -114,7 +114,7 @@ public:
 
     virtual bool supportsSmartRTL(void) const { return false; }
 
-    /// Returns the flight mode for Land
+    /// Returns the flight mode for Land 
     virtual QString landFlightMode(void) const { return QString(); }
 
     /// Returns the flight mode to use when the operator wants to take back control from autonomouse flight.
