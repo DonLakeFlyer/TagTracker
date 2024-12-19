@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef HERELINK_BUILD
+#ifdef TAG_TRACKER_HERELINK_BUILD
     #include "HerelinkCorePlugin.h"
 #else
     #include "QGCCorePlugin.h"
@@ -21,7 +21,7 @@
 Q_DECLARE_LOGGING_CATEGORY(CustomPluginLog)
 
 class CustomPlugin : 
-#ifdef HERELINK_BUILD
+#ifdef TAG_TRACKER_HERELINK_BUILD
     public HerelinkCorePlugin
 #else
     public QGCCorePlugin
@@ -182,6 +182,7 @@ private:
     QFile                   _csvRotationPulseLogFile;
     int                     _csvRotationCount = 1;
     TunnelProtocol::PulseInfo_t _lastPulseInfo;
+    QVariantList            _toolbarIndicators;
 
     DetectorInfoListModel   _detectorInfoListModel;
 

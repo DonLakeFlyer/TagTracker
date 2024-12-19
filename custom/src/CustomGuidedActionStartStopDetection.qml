@@ -14,14 +14,15 @@ import QGroundControl.FlightDisplay 1.0
 //  Send Tags
 //  Start/Stop Detection
 GuidedToolStripAction {
-    text:       _guidedController.startDetectionTitle
+    text:       customController.startDetectionTitle
     iconSource: "/res/action.svg"
     visible:    true
     enabled:    QGroundControl.multiVehicleManager.activeVehicle && actionEnabled
-    actionID:   _guidedController.actionStartDetection
+    actionID:   customController.actionStartDetection
 
     property bool actionEnabled: false
     property var controllerStatus: QGroundControl.corePlugin.controllerStatus
+    property var customController: _guidedController._customController
 
     onControllerStatusChanged: _update(controllerStatus)
 
@@ -29,21 +30,21 @@ GuidedToolStripAction {
         switch (controllerStatus) {
         case CustomPlugin.ControllerStatusIdle:
         case CustomPlugin.ControllerStatusReceivingTags:
-            text            = _guidedController.startDetectionTitle
+            text            = customController.startDetectionTitle
             actionEnabled   = false
             break
         case CustomPlugin.ControllerStatusHasTags:
-            text            = _guidedController.startDetectionTitle
+            text            = customController.startDetectionTitle
             actionEnabled   = true
-            actionID        = _guidedController.actionStartDetection
+            actionID        = customController.actionStartDetection
             break
         case CustomPlugin.ControllerStatusDetecting:
-            text            = _guidedController.stopDetectionTitle
+            text            = customController.stopDetectionTitle
             actionEnabled   = true
-            actionID        = _guidedController.actionStopDetection
+            actionID        = customController.actionStopDetection
             break
         case CustomPlugin.ControllerStatusCapture:
-            text            = _guidedController.startDetectionTitle
+            text            = customController.startDetectionTitle
             actionEnabled   = false
             break
         }
