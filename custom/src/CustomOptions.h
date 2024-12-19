@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef HERELINK_BUILD
+#ifdef TAG_TRACKER_HERELINK_BUILD
     #include "HerelinkOptions.h"
 #else
     #include "QGCOptions.h"
@@ -9,7 +9,7 @@
 class CustomPlugin;
 
 class CustomOptions : 
-#ifdef HERELINK_BUILD
+#ifdef TAG_TRACKER_HERELINK_BUILD
     public HerelinkOptions
 #else
     public QGCOptions

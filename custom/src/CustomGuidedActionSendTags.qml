@@ -11,14 +11,15 @@ import QGroundControl               1.0
 import QGroundControl.FlightDisplay 1.0
 
 GuidedToolStripAction {
-    text:       _guidedController.sendTagsTitle
+    text:       customController.sendTagsTitle
     iconSource: "/res/action.svg"
     visible:    true
     enabled:    QGroundControl.multiVehicleManager.activeVehicle && actionEnabled
-    actionID:   _guidedController.actionSendTags
+    actionID:   customController.actionSendTags
 
     property bool actionEnabled: true
     property var controllerStatus: QGroundControl.corePlugin.controllerStatus
+    property var customController: _guidedController._customController
 
     onControllerStatusChanged: _update(controllerStatus)
 

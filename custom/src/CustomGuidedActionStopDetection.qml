@@ -11,9 +11,11 @@ import QGroundControl               1.0
 import QGroundControl.FlightDisplay 1.0
 
 GuidedToolStripAction {
-    text:       _guidedController.stopDetectionTitle
+    text:       customController.stopDetectionTitle
     iconSource: "/res/action.svg"
     visible:    true
     enabled:    QGroundControl.multiVehicleManager.activeVehicle
-    actionID:   _guidedController.actionStopDetection
+    actionID:   customController.actionStopDetection
+
+    property var customController: _guidedController._customController
 }

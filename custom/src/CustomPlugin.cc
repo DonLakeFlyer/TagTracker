@@ -32,7 +32,7 @@ Q_DECLARE_METATYPE(CustomPlugin::ControllerStatus)
 Q_APPLICATION_STATIC(CustomPlugin, _corePluginInstance);
 
 CustomPlugin::CustomPlugin(QObject* parent)
-#ifdef HERELINK_BUILD
+#ifdef TAG_TRACKER_HERELINK_BUILD
     : HerelinkCorePlugin    (parent)
 #else
     : QGCCorePlugin         (parent)
@@ -71,7 +71,7 @@ QGCCorePlugin *CustomPlugin::instance()
 
 void CustomPlugin::init()
 {
-#ifdef HERELINK_BUILD
+#ifdef TAG_TRACKER_HERELINK_BUILD
     HerelinkCorePlugin::init();
 #else
     QGCCorePlugin::init();
@@ -87,16 +87,16 @@ void CustomPlugin::init()
 
 const QVariantList& CustomPlugin::toolBarIndicators(void)
 {
-    QVariantList toolBarIndicatorList = QGCCorePlugin::toolBarIndicators();
+    _toolbarIndicators = QGCCorePlugin::toolBarIndicators();
 
-    toolBarIndicatorList.append(QVariant::fromValue(QUrl::fromUserInput("qrc:/qml/ControllerIndicator.qml")));
-    toolBarIndicatorList.append(QVariant::fromValue(QUrl::fromUserInput("qrc:/qml/LogDownloadIndicator.qml")));
-    return toolBarIndicatorList;
+    _toolbarIndicators.append(QVariant::fromValue(QUrl::fromUserInput("qrc:/qml/ControllerIndicator.qml")));
+    _toolbarIndicators.append(QVariant::fromValue(QUrl::fromUserInput("qrc:/qml/LogDownloadIndicator.qml")));
+    return _toolbarIndicators;
 }
 
 bool CustomPlugin::mavlinkMessage(Vehicle *vehicle, LinkInterface *link, const mavlink_message_t &message)
 {
-#ifdef HERELINK_BUILD
+#ifdef TAG_TRACKER_HERELINK_BUILD
     if (!HerelinkCorePlugin::mavlinkMessage(vehicle, link, message)) {
         return false;
     }
@@ -938,7 +938,7 @@ bool CustomPlugin::adjustSettingMetaData(const QString& settingsGroup, FactMetaD
         metaData.setRawDefaultValue(false);
     }
 
-#ifdef HERELINK_BUILD
+#ifdef TAG_TRACKER_HERELINK_BUILD
     return HerelinkCorePlugin::adjustSettingMetaData(settingsGroup, metaData);
 #else
     return true;

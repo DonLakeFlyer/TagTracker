@@ -6,6 +6,7 @@ CustomGuidedActionStartRotation         1.0 CustomGuidedActionStartRotation.qml
 CustomGuidedActionDownloadLogs          1.0 CustomGuidedActionDownloadLogs.qml
 CustomGuidedActionRawCapture            1.0 CustomGuidedActionRawCapture.qml
 
+CustomGuidedActionsController   1.0 CustomGuidedActionsController.qml
 FlyView                         1.0 FlyView.qml
 FlyViewBottomRightRowLayout     1.0 FlyViewBottomRightRowLayout.qml
 FlyViewCustomLayer              1.0 FlyViewCustomLayer.qml
