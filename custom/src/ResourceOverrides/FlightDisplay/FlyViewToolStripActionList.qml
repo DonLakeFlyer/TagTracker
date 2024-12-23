@@ -18,6 +18,10 @@ ToolStripActionList {
 
     signal displayPreFlightChecklist
 
+    property var customController:  _guidedController._customController
+    property var activeVehicle:     QGroundControl.multiVehicleManager.activeVehicle
+    property bool controllerIdle:   QGroundControl.corePlugin.controllerStatus === CustomPlugin.ControllerStatusIdle || QGroundControl.corePlugin.controllerStatus === CustomPlugin.ControllerStatusHasLogs
+
     model: [
         GuidedActionTakeoff { },
         GuidedActionLand { },
@@ -25,6 +29,22 @@ ToolStripActionList {
         CustomGuidedActionSendTags { },
         CustomGuidedActionStartStopDetection { },
         CustomGuidedActionStartRotation { },
-        CustomGuidedActionRawCapture { }
+        CustomGuidedActionRawCapture { },
+
+        GuidedToolStripAction {
+            text:       customController.saveLogsTitle
+            iconSource: "/res/action.svg"
+            visible:    true
+            enabled:    activeVehicle && controllerIdle
+            actionID:   customController.actionSaveLogs
+        },
+
+        GuidedToolStripAction {
+            text:       customController.clearLogsTitle
+            iconSource: "/res/action.svg"
+            visible:    true
+            enabled:    activeVehicle && controllerIdle
+            actionID:   customController.actionClearLogs
+        }
     ]
 }

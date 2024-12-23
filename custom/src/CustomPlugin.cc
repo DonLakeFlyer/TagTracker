@@ -188,7 +188,7 @@ void CustomPlugin::_handleTunnelCommandAck(const mavlink_tunnel_t& tunnel)
 
             _say(message);
             qgcApp()->showAppMessage(message);
-
+            qCWarning(CustomPluginLog) << message << "- ack.result" << ack.result;
         }
 
     } else {
@@ -961,6 +961,10 @@ QString CustomPlugin::_tunnelCommandIdToText(uint32_t vhfCommandId)
         return QStringLiteral("start detection");
     case COMMAND_ID_STOP_DETECTION:
         return QStringLiteral("stop detection");
+    case COMMAND_ID_SAVE_LOGS:
+        return QStringLiteral("save logs");
+    case COMMAND_ID_CLEAN_LOGS:
+        return QStringLiteral("clean logs");
     default:
         return QStringLiteral("unknown command:%1").arg(vhfCommandId);
     }
@@ -1198,4 +1202,20 @@ void CustomPlugin::captureScreen(void)
 {
     // We need to delay the screen capture to allow the dialog to close
     QTimer::singleShot(500, [this]() { _captureScreen(); } );
+}
+
+void CustomPlugin::saveLogs()
+{
+    SaveLogsInfo_t saveLogsInfo;
+
+    saveLogsInfo.header.command = COMMAND_ID_SAVE_LOGS;
+    _sendTunnelCommand((uint8_t*)&saveLogsInfo, sizeof(saveLogsInfo));
+}
+
+void CustomPlugin::cleanLogs()
+{
+    CleanLogsInfo_t cleanLogsInfo;
+
+    cleanLogsInfo.header.command = COMMAND_ID_CLEAN_LOGS;
+    _sendTunnelCommand((uint8_t*)&cleanLogsInfo, sizeof(cleanLogsInfo));
 }
