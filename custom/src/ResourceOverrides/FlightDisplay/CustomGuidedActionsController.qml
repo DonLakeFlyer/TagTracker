@@ -8,7 +8,8 @@ QtObject {
     readonly property int actionStopDetection:              customActionStart + 3
     readonly property int actionStartRotation:              customActionStart + 4
     readonly property int actionRawCapture:                 customActionStart + 5
-    readonly property int actionDownloadLogs:               customActionStart + 6
+    readonly property int actionSaveLogs:                   customActionStart + 6
+    readonly property int actionClearLogs:                  customActionStart + 7
 
     readonly property string sendTagsTitle:                 qsTr("Tagsꜛ")
     readonly property string startDetectionTitle:           qsTr("Start")
@@ -16,6 +17,8 @@ QtObject {
     readonly property string startRotationTitle:            qsTr("Rotate")
     readonly property string rawCaptureTitle:               qsTr("Capture")
     readonly property string downloadLogsTitle:             qsTr("Download")
+    readonly property string saveLogsTitle:                 qsTr("Save")
+    readonly property string clearLogsTitle:                qsTr("Clear")
 
     readonly property string sendTagsMessage:               qsTr("Send tag(s) to vehicle.")
     readonly property string startDetectionMessage:         qsTr("Start pulse detection for the specified tag(s).")
@@ -23,6 +26,8 @@ QtObject {
     readonly property string startRotationMessage:          qsTr("Start rotation in place.")
     readonly property string rawCaptureMessage:             qsTr("Start sdr raw capture.")
     readonly property string downloadLogsMessage:           qsTr("Download companion logs.")
+    readonly property string saveLogsMessage:               qsTr("Save companion logs.")
+    readonly property string clearLogsMessage:              qsTr("Clear companion logs.")
 
     function customConfirmAction(actionCode, actionData, mapIndicator, confirmDialog) {
         switch (actionCode) {
@@ -51,10 +56,15 @@ QtObject {
             confirmDialog.title = rawCaptureTitle
             confirmDialog.message = rawCaptureMessage
             break
-        case actionDownloadLogs:
+        case actionSaveLogs:
             confirmDialog.hideTrigger = true
-            confirmDialog.title = downloadLogsTitle
-            confirmDialog.message = downloadLogsMessage
+            confirmDialog.title = saveLogsTitle
+            confirmDialog.message = saveLogsMessage
+            break
+        case actionClearLogs:
+            confirmDialog.hideTrigger = true
+            confirmDialog.title = clearLogsTitle
+            confirmDialog.message = clearLogsMessage
             break
         default:
             return false;
@@ -63,7 +73,7 @@ QtObject {
         return true;
     }
 
-    function customExecuteAction(actionCactionCode, actionData, sliderOutputValue, optionCheckedode) {
+    function customExecuteAction(actionCode, actionData, sliderOutputValue, optionCheckedode) {
         switch (actionCode) {
         case actionSendTags:
             QGroundControl.corePlugin.sendTags()
@@ -80,8 +90,11 @@ QtObject {
         case actionRawCapture:
             QGroundControl.corePlugin.rawCapture()
             break
-        case actionDownloadLogs:
-            QGroundControl.corePlugin.downloadLogs()
+        case actionSaveLogs:
+            QGroundControl.corePlugin.saveLogs()
+            break
+        case actionClearLogs:
+            QGroundControl.corePlugin.cleanLogs()
             break
         default:
             return false;

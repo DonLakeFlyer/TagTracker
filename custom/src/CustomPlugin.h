@@ -67,6 +67,8 @@ public:
     Q_INVOKABLE void downloadLogDirList (void);
     Q_INVOKABLE void downloadLogDirFiles(const QString& dirPath);
     Q_INVOKABLE void captureScreen      (void);
+    Q_INVOKABLE void saveLogs           (void);
+    Q_INVOKABLE void cleanLogs          (void);
 
     // Overrides from QGCCorePlugin
     void                init                    (void) final;

@@ -14,12 +14,9 @@ set_property(DIRECTORY ${CMAKE_SOURCE_DIR}
 #    QGC_HERELINK_AIRUNIT_VIDEO
 #)
 
-# You can comment this line out to build and desktop versus for testing purposes
-add_compile_definitions(TAG_TRACKER_HERELINK_BUILD)
-
-add_compile_definitions(
-    QGC_HERELINK_AIRUNIT_VIDEO
-)
+if(ANDROID)
+    add_compile_definitions(TAG_TRACKER_HERELINK_BUILD)
+endif()
 
 # Our own, custom resources
 list(APPEND CUSTOM_RESOURCES
