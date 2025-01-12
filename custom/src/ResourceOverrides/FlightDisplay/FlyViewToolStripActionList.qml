@@ -22,7 +22,7 @@ ToolStripActionList {
 
     property var customController:  _guidedController._customController
     property var activeVehicle:     QGroundControl.multiVehicleManager.activeVehicle
-    property bool controllerIdle:   QGroundControl.corePlugin.controllerStatus === CustomPlugin.ControllerStatusIdle || QGroundControl.corePlugin.controllerStatus === CustomPlugin.ControllerStatusHasLogs
+    property bool controllerIdle:   QGroundControl.corePlugin.controllerStatus == CustomPlugin.ControllerStatusIdle || QGroundControl.corePlugin.controllerStatus == CustomPlugin.ControllerStatusHasLogs
 
     model: [
         ToolStripAction {
