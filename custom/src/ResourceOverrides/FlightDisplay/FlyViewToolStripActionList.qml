@@ -45,7 +45,6 @@ ToolStripActionList {
             text:       customController.saveLogsTitle
             iconSource: "/res/action.svg"
             visible:    true
-            enabled:    activeVehicle && controllerIdle
             actionID:   customController.actionSaveLogs
         },
 
@@ -53,7 +52,6 @@ ToolStripActionList {
             text:       customController.clearLogsTitle
             iconSource: "/res/action.svg"
             visible:    true
-            enabled:    activeVehicle && controllerIdle
             actionID:   customController.actionClearLogs
         }
     ]
