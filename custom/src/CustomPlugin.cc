@@ -481,6 +481,7 @@ void CustomPlugin::startDetection(void)
 
     startDetectionInfo.header.command               = COMMAND_ID_START_DETECTION;
     startDetectionInfo.radio_center_frequency_hz    = _tagDatabase->radioCenterHz();
+    startDetectionInfo.gain                         = _customSettings->gain()->rawValue().toUInt();
 
     _sendTunnelCommand((uint8_t*)&startDetectionInfo, sizeof(startDetectionInfo));
 }
@@ -498,6 +499,7 @@ void CustomPlugin::rawCapture(void)
     RawCaptureInfo_t rawCapture;
 
     rawCapture.header.command   = COMMAND_ID_RAW_CAPTURE;
+    rawCapture.gain             = _customSettings->gain()->rawValue().toUInt();
 
     _sendTunnelCommand((uint8_t*)&rawCapture, sizeof(rawCapture));
 }

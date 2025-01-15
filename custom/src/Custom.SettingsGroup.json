@@ -38,12 +38,12 @@
     "default":      16
 },
 {
-    "name":         "sdrType",
-    "shortDesc":    "SDR type used for collection",
+    "name":         "gain",
+    "shortDesc":    "Sensitivity gain",
     "type":         "uint32",
-    "enumStrings":  "AirSpy Mini,AirSpy HF",
-    "enumValues":   "1,2",
-    "default":      1
+    "default":      7,
+    "min":          1,
+    "max":          21
 },
 {
     "name":         "showPulseOnMap",
@@ -74,6 +74,14 @@
     "decimalPlaces":    0,
     "units":            "deg",
     "default":          0
+},
+{
+    "name":             "antennaType",
+    "shortDesc":        "Antenna Type",
+    "type":             "uint32",
+    "enumStrings":      "Omni,Directional",
+    "enumValues":       "0,1",
+    "default":          1
 }
 ]
 }
