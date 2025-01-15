@@ -112,7 +112,7 @@ Item {
         ToolIndicatorPage {
             showExpand:         true
             waitForParameters:  false
-            contentComponent:   indciatorContentComponent
+            contentComponent:   indicatorContentComponent
             expandedComponent:  indicatorExpandedComponent
         }
     }
@@ -321,7 +321,7 @@ Item {
     }
 
     Component {
-        id: indciatorContentComponent
+        id: indicatorContentComponent
 
         ColumnLayout {
             spacing: ScreenTools.defaultFontPixelHeight
@@ -450,13 +450,13 @@ Item {
                     _customSettings.falseAlarmProbability,
                     _customSettings.maxPulseStrength,
                     _customSettings.antennaOffset,
+                    _customSettings.gain
                 ]
             }
 
-            FactComboBox {
-                fact:           QGroundControl.corePlugin.customSettings.sdrType
-                indexModel:     false
-                sizeToContents: true
+            LabelledFactComboBox {
+                label:          qsTr("Antenna Type")
+                fact:           QGroundControl.corePlugin.customSettings.antennaType
             }
         }
     }

@@ -25,9 +25,10 @@ public:
     DEFINE_SETTINGFACT(maxPulseStrength)
     DEFINE_SETTINGFACT(k)
     DEFINE_SETTINGFACT(falseAlarmProbability)
-    DEFINE_SETTINGFACT(sdrType)
+    DEFINE_SETTINGFACT(gain)
     DEFINE_SETTINGFACT(showPulseOnMap)
     DEFINE_SETTINGFACT(antennaOffset)
+    DEFINE_SETTINGFACT(antennaType)
     DEFINE_SETTINGFACT(rotationKWaitCount)
     DEFINE_SETTINGFACT(useSNRForPulseStrength)
 };
