@@ -54,6 +54,8 @@ public:
     Q_PROPERTY(float                controllerCPUTemp       MEMBER  _controllerCPUTemp          NOTIFY controllerCPUTempChanged)
     Q_PROPERTY(QmlObjectListModel*  detectorInfoList        READ    detectorInfoList            CONSTANT)
     Q_PROPERTY(TagDatabase*         tagDatabase             MEMBER  _tagDatabase                CONSTANT)
+    Q_PROPERTY(double               maxSNR                  MEMBER  _maxSNR                     NOTIFY maxSNRChanged)
+    Q_PROPERTY(double               minSNR                  MEMBER  _minSNR                     NOTIFY minSNRChanged)
 
     CustomSettings*     customSettings  () { return _customSettings; }
     QmlObjectListModel* detectorInfoList() { return dynamic_cast<QmlObjectListModel*>(&_detectorInfoListModel); }
@@ -69,6 +71,7 @@ public:
     Q_INVOKABLE void captureScreen      (void);
     Q_INVOKABLE void saveLogs           (void);
     Q_INVOKABLE void cleanLogs          (void);
+    Q_INVOKABLE void clearMap           (void);
 
     // Overrides from QGCCorePlugin
     void                init                    (void) final;
@@ -88,6 +91,8 @@ signals:
     void controllerCPUTempChanged       ();
     void logDirListDownloaded           (const QStringList& dirList, const QString& errorMsg);
     void downloadLogDirFilesComplete    (const QString& errorMsg);
+    void maxSNRChanged                  (double maxSNR);
+    void minSNRChanged                  (double minSNR);
 
 private slots:
     void _vehicleStateRawValueChanged   (QVariant rawValue);
@@ -124,7 +129,7 @@ private:
     } HeartbeatInfo_t;
 
     void    _handleTunnelCommandAck     (const mavlink_tunnel_t& tunnel);
-    void    _handleTunnelPulse          (const mavlink_tunnel_t& tunnel);
+    void    _handleTunnelPulse          (Vehicle* vehicle, const mavlink_tunnel_t& tunnel);
     void    _handleTunnelHeartbeat      (const mavlink_tunnel_t& tunnel);
     void    _rotateVehicle              (Vehicle* vehicle, double headingDegrees);
     void    _say                        (QString text);
@@ -196,51 +201,7 @@ private:
     int                     _curLogFileDownloadIndex;
     QString                 _logDirPathOnVehicle;
     QStringList             _logFileDownloadList;
-};
 
-class PulseRoseMapItem : public QObject
-{
-    Q_OBJECT
-
-    Q_PROPERTY(QString          url             MEMBER _url             CONSTANT)
-    Q_PROPERTY(int              rotationIndex   MEMBER _rotationIndex   CONSTANT)
-    Q_PROPERTY(QGeoCoordinate   rotationCenter  MEMBER _rotationCenter  CONSTANT)
-
-public:
-    PulseRoseMapItem(QUrl& itemUrl, int rotationIndex, QGeoCoordinate rotationCenter, QObject* parent)
-        : QObject(parent)
-        , _url(itemUrl.toString())
-        , _rotationIndex(rotationIndex)
-        , _rotationCenter(rotationCenter)
-    { }
-
-private:
-    QString         _url;
-    int             _rotationIndex;
-    QGeoCoordinate  _rotationCenter;
-};
-
-class PulseMapItem : public QObject
-{
-    Q_OBJECT
-
-    Q_PROPERTY(QString          url         MEMBER _url         CONSTANT)
-    Q_PROPERTY(QGeoCoordinate   coordinate  MEMBER _coordinate  CONSTANT)
-    Q_PROPERTY(uint             tagId       MEMBER _tagId       CONSTANT)
-    Q_PROPERTY(double           snr         MEMBER _snr         CONSTANT)
-
-public:
-    PulseMapItem(QUrl& itemUrl, QGeoCoordinate coordinate, uint tagId, double snr, QObject* parent)
-        : QObject       (parent)
-        , _url          (itemUrl.toString())
-        , _coordinate   (coordinate)
-        , _tagId        (tagId)
-        , _snr          (snr)
-    { }
-
-private:
-    QString         _url;
-    QGeoCoordinate  _coordinate;
-    uint            _tagId;
-    double          _snr;
+    double                  _maxSNR = qQNaN();
+    double                  _minSNR = qQNaN();
 };

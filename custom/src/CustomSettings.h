@@ -31,4 +31,9 @@ public:
     DEFINE_SETTINGFACT(antennaType)
     DEFINE_SETTINGFACT(rotationKWaitCount)
     DEFINE_SETTINGFACT(useSNRForPulseStrength)
+
+    enum AntennaType {
+        OmniAntenna = 0,
+        DirectionalAntenna = 1
+    };
 };
