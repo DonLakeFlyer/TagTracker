@@ -13,6 +13,8 @@
 #include "MultiVehicleManager.h"
 #include "MAVLinkProtocol.h"
 #include "AudioOutput.h"
+#include "PulseMapItem.h"
+#include "PulseRoseMapItem.h"
 
 #include "coder_array.h"
 #include "bearing.h"
@@ -114,7 +116,7 @@ bool CustomPlugin::mavlinkMessage(Vehicle *vehicle, LinkInterface *link, const m
             _handleTunnelCommandAck(tunnel);
             break;
         case COMMAND_ID_PULSE:
-            _handleTunnelPulse(tunnel);
+            _handleTunnelPulse(vehicle, tunnel);
             break;
         case COMMAND_ID_HEARTBEAT:
             _handleTunnelHeartbeat(tunnel);
@@ -198,7 +200,7 @@ void CustomPlugin::_handleTunnelCommandAck(const mavlink_tunnel_t& tunnel)
     }
 }
 
-void CustomPlugin::_handleTunnelPulse(const mavlink_tunnel_t& tunnel)
+void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& tunnel)
 {
     if (tunnel.payload_length != sizeof(PulseInfo_t)) {
         qWarning() << "_handleTunnelPulse Received incorrectly sized PulseInfo payload expected:actual" <<  sizeof(PulseInfo_t) << tunnel.payload_length;
@@ -220,9 +222,6 @@ void CustomPlugin::_handleTunnelPulse(const mavlink_tunnel_t& tunnel)
         }
 
         if (!isDetectorHeartbeat) {
-            _csvLogPulse(_csvFullPulseLogFile, pulseInfo);
-            _csvLogPulse(_csvRotationPulseLogFile, pulseInfo);
-
             qCDebug(CustomPluginLog) << Qt::fixed << qSetRealNumberPrecision(2) <<
                                         "CONFIRMED tag_id" <<
                                         pulseInfo.tag_id <<
@@ -231,10 +230,31 @@ void CustomPlugin::_handleTunnelPulse(const mavlink_tunnel_t& tunnel)
                                         "stft_score" <<
                                         pulseInfo.stft_score;
 
+            _csvLogPulse(_csvFullPulseLogFile, pulseInfo);
+            _csvLogPulse(_csvRotationPulseLogFile, pulseInfo);
+
+            if (qIsNaN(_minSNR) || pulseInfo.snr < _minSNR) {
+                _minSNR = pulseInfo.snr;
+                emit minSNRChanged(_minSNR);
+            }
+            if (qIsNaN(_maxSNR) || pulseInfo.snr > _maxSNR) {
+                _maxSNR = pulseInfo.snr;
+                emit maxSNRChanged(_maxSNR);
+            }
+
             // Add pulse to map
             if (_customSettings->showPulseOnMap()->rawValue().toBool() && pulseInfo.snr != 0) {
+                double antennaHeading = -1;
+                if (_customSettings->antennaType()->rawValue().toInt() == CustomSettings::DirectionalAntenna) {
+                    double antennaOffset = _customSettings->antennaOffset()->rawValue().toDouble();
+                    double vehicleHeading = vehicle->heading()->rawValue().toDouble();
+                    qDebug() << "vehicleHeading" << vehicleHeading;
+                    antennaHeading = fmod(vehicleHeading + antennaOffset + 360.0, 360.0);
+                    qDebug() << "antennaHeading" << antennaHeading;
+                }
+
                 QUrl url = QUrl::fromUserInput("qrc:/qml/PulseMapItem.qml");
-                PulseMapItem* mapItem = new PulseMapItem(url, QGeoCoordinate(pulseInfo.position_x, pulseInfo.position_y), pulseInfo.tag_id, _useSNRForPulseStrength() ? pulseInfo.snr : pulseInfo.stft_score, this);
+                PulseMapItem* mapItem = new PulseMapItem(url, QGeoCoordinate(pulseInfo.position_x, pulseInfo.position_y), pulseInfo.tag_id, _useSNRForPulseStrength() ? pulseInfo.snr : pulseInfo.stft_score, antennaHeading, this);
                 _customMapItems.append(mapItem);
             }
         }
@@ -1220,4 +1240,13 @@ void CustomPlugin::cleanLogs()
 
     cleanLogsInfo.header.command = COMMAND_ID_CLEAN_LOGS;
     _sendTunnelCommand((uint8_t*)&cleanLogsInfo, sizeof(cleanLogsInfo));
+}
+
+void CustomPlugin::clearMap()
+{
+    _customMapItems.clearAndDeleteContents();
+    _minSNR = qQNaN();
+    _maxSNR = qQNaN();
+    emit minSNRChanged(_minSNR);
+    emit maxSNRChanged(_maxSNR);
 }

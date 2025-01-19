@@ -52,6 +52,8 @@ qt_add_library(CustomPlugin STATIC
     src/TagDatabase.h
     src/PulseInfoList.cc
     src/PulseInfoList.h
+    src/PulseRoseMapItem.h
+    src/PulseMapItem.h
     ${BearingHeaders}
     ${BearingSources}
     ${BearingSourcesC}
