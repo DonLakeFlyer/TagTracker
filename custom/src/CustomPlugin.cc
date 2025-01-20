@@ -24,6 +24,7 @@
 #include <QLineF>
 #include <QQmlEngine>
 #include <QScreen>
+#include <QThread>
 
 using namespace TunnelProtocol;
 
@@ -556,7 +557,7 @@ void CustomPlugin::sendTags(void)
 void CustomPlugin::_sendNextTag(void)
 {
     // Don't send tags too fast
-    QGC::SLEEP::msleep(100);
+    QThread::msleep(100);
 
     auto tagInfoListModel = _tagDatabase->tagInfoListModel();
 
@@ -667,7 +668,7 @@ void CustomPlugin::_takeoff(Vehicle* vehicle, double takeoffAltRel)
 {
     double vehicleAltitudeAMSL = vehicle->altitudeAMSL()->rawValue().toDouble();
     if (qIsNaN(vehicleAltitudeAMSL)) {
-        qgcApp()->informationMessageBoxOnMainThread(tr("Error"), tr("Unable to takeoff, vehicle position not known."));
+        qgcApp()->showAppMessage(tr("Unable to takeoff, vehicle position not known."), tr("Error"));
         return;
     }
 
@@ -875,7 +876,7 @@ bool CustomPlugin::_armVehicleAndValidate(Vehicle* vehicle)
                 armedChanged = true;
                 break;
             }
-            QGC::SLEEP::msleep(100);
+            QThread::msleep(100);
             qgcApp()->processEvents(QEventLoop::ExcludeUserInputEvents);
         }
         if (armedChanged) {
@@ -910,7 +911,7 @@ bool CustomPlugin::_setRTLFlightModeAndValidate(Vehicle* vehicle)
                 flightModeChanged = true;
                 break;
             }
-            QGC::SLEEP::msleep(100);
+            QThread::msleep(100);
             qgcApp()->processEvents(QEventLoop::ExcludeUserInputEvents);
         }
         if (flightModeChanged) {

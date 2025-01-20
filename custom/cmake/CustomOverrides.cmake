@@ -1,4 +1,4 @@
-set(QGC_APP_NAME "Tag Tracker")
+set(QGC_APP_NAME "TagTracker")
 set(QGC_APP_DESCRIPTION "Tag Tracker")
 set(QGC_APP_COPYRIGHT "Copyright (C) 2025 Don Gagne. All rights reserved.")
 set(QGC_ORG_DOMAIN "org.thegagnes")
