@@ -50,21 +50,26 @@ elseif(WIN32)
     file(GLOB GST_HELPER_BINS ${GST_HELPER_BINS_PATH})
     install(FILES ${GST_HELPER_BINS} DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}/gstreamer-1.0)
 elseif(MACOS)
-    # cmake_path(CONVERT "${GSTREAMER_PREFIX}/bin/*.dylib" TO_CMAKE_PATH_LIST GST_MACOS_BINS_PATH)
-    # file(GLOB GST_MACOS_BINS ${GST_MACOS_BINS_PATH})
-    # install(FILES ${GST_MACOS_BINS} DESTINATION ${CMAKE_INSTALL_BINDIR})
-
-    # cmake_path(CONVERT "${GSTREAMER_LIB_PATH}/gio/modules/*.dylib" TO_CMAKE_PATH_LIST GST_GIO_MODULES_PATH)
-    # file(GLOB GST_GIO_MODULES ${GST_GIO_MODULES_PATH})
-    # install(FILES ${GST_GIO_MODULES} DESTINATION ${CMAKE_INSTALL_LIBDIR}/gio/modules)
-
-    # cmake_path(CONVERT "${GSTREAMER_PLUGIN_PATH}/*.dylib" TO_CMAKE_PATH_LIST GST_MACOS_PLUGINS_PATH)
-    # file(GLOB GST_MACOS_PLUGINS ${GST_MACOS_PLUGINS_PATH})
-    # install(FILES ${GST_MACOS_PLUGINS} DESTINATION ${CMAKE_INSTALL_LIBDIR}/gstreamer-1.0)
-
-    # cmake_path(CONVERT "${GSTREAMER_PREFIX}/libexec/gstreamer-1.0/*" TO_CMAKE_PATH_LIST GST_HELPER_BINS_PATH)
-    # file(GLOB GST_HELPER_BINS ${GST_HELPER_BINS_PATH})
-    # install(FILES ${GST_HELPER_BINS} DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}/gstreamer-1.0)
+    if(EXISTS "${GSTREAMER_FRAMEWORK_PATH}")
+        # install(
+        #     IMPORTED_RUNTIME_ARTIFACTS GStreamer::GStreamer
+        #     FRAMEWORK DESTINATION "${CMAKE_INSTALL_PREFIX}/${CMAKE_PROJECT_NAME}.app/Contents/Frameworks/GStreamer.framework"
+        # )
+        install(
+            DIRECTORY "${GSTREAMER_FRAMEWORK_PATH}"
+            DESTINATION "${CMAKE_INSTALL_PREFIX}/${CMAKE_PROJECT_NAME}.app/Contents/Frameworks"
+            PATTERN "*.la" EXCLUDE
+            PATTERN "*.a" EXCLUDE
+            PATTERN "*/bin" EXCLUDE
+            PATTERN "*/etc" EXCLUDE
+            PATTERN "*/gst-validate-launcher" EXCLUDE
+            PATTERN "*/Headers" EXCLUDE
+            PATTERN "*/include" EXCLUDE
+            PATTERN "*/pkgconfig" EXCLUDE
+            PATTERN "*/share" EXCLUDE
+        )
+        target_compile_definitions(gstqml6gl PUBLIC QGC_GST_MACOS_FRAMEWORK)
+    endif()
 elseif(ANDROID)
     if(CMAKE_HOST_WIN32)
         cmake_path(CONVERT "${GSTREAMER_PREFIX}/share/gst-android/ndk-build/tools/windows/*.dll" TO_CMAKE_PATH_LIST GST_WIN_TOOLS_PATH)
@@ -107,12 +112,12 @@ endif()
 ################################################################################
 
 if(GStreamer_VERSION VERSION_GREATER_EQUAL 1.22)
-    FetchContent_Declare(gstreamer_good_plugins
-        DOWNLOAD_EXTRACT_TIMESTAMP true
+    include(CPM)
+    CPMAddPackage(
+        NAME gstreamer_good_plugins
         # URL https://gitlab.freedesktop.org/gstreamer/gstreamer/-/archive/${GST_PLUGINS_VERSION}/gstreamer-${GST_PLUGINS_VERSION}.zip?path=subprojects/gst-plugins-good/ext/qt6
         URL https://gstreamer.freedesktop.org/src/gst-plugins-good/gst-plugins-good-${GST_PLUGINS_VERSION}.tar.xz
     )
-    FetchContent_MakeAvailable(gstreamer_good_plugins)
     set(QGC_GST_QT6_PLUGIN_PATH "${gstreamer_good_plugins_SOURCE_DIR}/ext/qt6")
 else()
     set(QGC_GST_QT6_PLUGIN_PATH "${CMAKE_CURRENT_SOURCE_DIR}/qt6")
