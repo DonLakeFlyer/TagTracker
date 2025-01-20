@@ -34,6 +34,7 @@ android {
      * - qtAndroidDir - holds the path to qt android files
      *                   needed to build any Qt application
      *                   on Android.
+     * - qtGradlePluginType - whether to build an app or a library
      *
      * are defined in gradle.properties file. This file is
      * updated by QtCreator and androiddeployqt tools.
@@ -62,6 +63,7 @@ android {
 
     tasks.withType(JavaCompile) {
         options.incremental = true
+        // options.compilerArgs += ['-Xlint:deprecation']
     }
 
     buildFeatures {
