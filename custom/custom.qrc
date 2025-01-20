@@ -11,6 +11,7 @@
         <file alias="QGroundControl/CustomControls/qmldir">src/qmldir</file>
 
         <!-- The following are overrides from regular QGC resources -->
+        <file alias="QGroundControl/FlightDisplay/FlyViewAdditionalCustomActionsList.qml">src/ResourceOverrides/FlightDisplay/FlyViewAdditionalCustomActionsList.qml</file>
         <file alias="QGroundControl/FlightDisplay/FlyViewCustomLayer.qml">src/ResourceOverrides/FlightDisplay/FlyViewCustomLayer.qml</file>
         <file alias="QGroundControl/FlightDisplay/FlyViewToolStripActionList.qml">src/ResourceOverrides/FlightDisplay/FlyViewToolStripActionList.qml</file>
         <file alias="QGroundControl/FlightDisplay/CustomGuidedActionsController.qml">src/ResourceOverrides/FlightDisplay/CustomGuidedActionsController.qml</file>

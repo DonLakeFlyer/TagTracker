@@ -239,7 +239,6 @@
 		<file alias="QGroundControl/FlightDisplay/GuidedActionLand.qml">../src/FlightDisplay/GuidedActionLand.qml</file>
 		<file alias="QGroundControl/FlightDisplay/FlyViewAdditionalActionsList.qml">../src/FlightDisplay/FlyViewAdditionalActionsList.qml</file>
 		<file alias="QGroundControl/FlightDisplay/FlyViewAdditionalActionsPanel.qml">../src/FlightDisplay/FlyViewAdditionalActionsPanel.qml</file>
-		<file alias="QGroundControl/FlightDisplay/FlyViewAdditionalCustomActionsList.qml">../src/FlightDisplay/FlyViewAdditionalCustomActionsList.qml</file>
 		<file alias="QGroundControl/FlightDisplay/GuidedActionTakeoff.qml">../src/FlightDisplay/GuidedActionTakeoff.qml</file>
 		<file alias="QGroundControl/FlightDisplay/GuidedActionGripper.qml">../src/FlightDisplay/GuidedActionGripper.qml</file>
 		<file alias="QGroundControl/FlightDisplay/GripperMenu.qml">../src/FlightDisplay/GripperMenu.qml</file>

@@ -36,23 +36,10 @@ ToolStripActionList {
         GuidedActionTakeoff { },
         GuidedActionLand { },
         GuidedActionRTL { },
+        GuidedActionPause { },
         CustomGuidedActionSendTags { },
         CustomGuidedActionStartStopDetection { },
         CustomGuidedActionStartRotation { },
-        CustomGuidedActionRawCapture { },
-
-        GuidedToolStripAction {
-            text:       customController.saveLogsTitle
-            iconSource: "/res/action.svg"
-            visible:    true
-            actionID:   customController.actionSaveLogs
-        },
-
-        GuidedToolStripAction {
-            text:       customController.clearLogsTitle
-            iconSource: "/res/action.svg"
-            visible:    true
-            actionID:   customController.actionClearLogs
-        }
+        FlyViewAdditionalActionsButton { }
     ]
 }

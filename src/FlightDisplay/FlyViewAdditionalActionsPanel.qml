@@ -45,6 +45,7 @@ ColumnLayout {
             Layout.fillWidth:   true
             text:               modelData.title
             visible:            modelData.visible
+            enabled:            modelData.enabled
 
             onClicked: {
                 dropPanel.hide()
