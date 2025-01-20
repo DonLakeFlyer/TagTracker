@@ -49,13 +49,6 @@ jobs:
       - uses: seanmiddleditch/gha-setup-ninja@v5
       - uses: lukka/get-cmake@latest
 
-      - name: Install CCache
-        run: |
-          wget --quiet https://github.com/ccache/ccache/releases/download/v4.10.2/ccache-4.10.2-linux-x86_64.tar.xz
-          tar -xvf ccache-*-linux-x86_64.tar.xz
-          cd ccache-*-linux-x86_64
-          sudo make install
-
       - name: Install Qt for Android
         uses: ./.github/actions/qt-android
         with:
