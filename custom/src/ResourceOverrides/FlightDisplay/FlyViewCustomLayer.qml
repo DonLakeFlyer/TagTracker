@@ -33,19 +33,21 @@ Item {
     id: _root
 
     property var parentToolInsets               // These insets tell you what screen real estate is available for positioning the controls in your overlay
-    property var totalToolInsets:   _toolInsets // These are the insets for your custom overlay additions
+    property var totalToolInsets: _toolInsets   // These are the insets for your custom overlay additions
     property var mapControl
 
-    property real _minSNR: QGroundControl.corePlugin.minSNR
-    property real _maxSNR: QGroundControl.corePlugin.maxSNR
-    property real _snrRange: _maxSNR - _minSNR
-    property real _pixelsPerSNR: snrGradient.height / _snrRange
+    property real _minSNR:          QGroundControl.corePlugin.minSNR
+    property real _maxSNR:          QGroundControl.corePlugin.maxSNR
+    property real _snrRange:        _maxSNR - _minSNR
+    property real _pixelsPerSNR:    snrGradient.height / _snrRange
 
-    property int _tickSNRIncrement: _snrRange / 5 > 3 ? 5 : 1
-    property int _maxTickSNR: Math.floor(_maxSNR / _tickSNRIncrement) * _tickSNRIncrement
-    property int _tickCount: Math.floor(_snrRange / _tickSNRIncrement)
-    property real _tickFirstPixelY: (_maxSNR - _maxTickSNR) * _pixelsPerSNR
-    property real _tickPixelIncrement: _tickSNRIncrement * _pixelsPerSNR
+    property int    _tickSNRIncrement:      _snrRange / 5 > 3 ? 5 : 1
+    property int    _maxTickSNR:            Math.floor(_maxSNR / _tickSNRIncrement) * _tickSNRIncrement
+    property int    _tickCount:             Math.floor(_snrRange / _tickSNRIncrement)
+    property real   _tickFirstPixelY:       (_maxSNR - _maxTickSNR) * _pixelsPerSNR
+    property real   _tickPixelIncrement:    _tickSNRIncrement * _pixelsPerSNR
+
+    property var _customSettings: QGroundControl.corePlugin.customSettings
 
     // since this file is a placeholder for the custom layer in a standard build, we will just pass through the parent insets
     QGCToolInsets {
@@ -70,7 +72,7 @@ Item {
         anchors.right:      parent.right
         height:             parent.height - (anchors.margins * 2) - parentToolInsets.bottomEdgeRightInset
         spacing:            ScreenTools.defaultFontPixelHeight / 4
-        visible:            QGroundControl.corePlugin.customSettings.showPulseOnMap.rawValue
+        visible:            _customSettings.showPulseOnMap.rawValue
 
         QGCButton {
             Layout.alignment: Qt.AlignHCenter
@@ -83,6 +85,7 @@ Item {
             Layout.alignment:   Qt.AlignHCenter
             width:              ScreenTools.defaultFontPixelWidth * 10
             Layout.fillHeight:  true
+            visible:            _customSettings.antennaType.rawValue == 0
 
             gradient: Gradient {
                 GradientStop { position: 0; color: "red" }

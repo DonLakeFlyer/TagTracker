@@ -421,42 +421,67 @@ Item {
     Component {
         id: indicatorExpandedComponent
 
-        ColumnLayout {
-            spacing: ScreenTools.defaultFontPixelHeight
-
+        SettingsGroupLayout {
             property var _customSettings: QGroundControl.corePlugin.customSettings
 
-            FactCheckBox {
-                text:   qsTr("Use SNR for pulse strength")
-                fact:   _customSettings.useSNRForPulseStrength
+            FactCheckBoxSlider {
+                Layout.fillWidth:   true
+                text:               qsTr("Use SNR for pulse strength")
+                fact:               _customSettings.useSNRForPulseStrength
             }
 
-            QGCLabel {
-                text:   _customSettings.useSNRForPulseStrength.rawValue ? qsTr("Using snr for pulse strength") : qsTr("Using stft_score for pulse strength")
+            FactCheckBoxSlider {
+                Layout.fillWidth:   true
+                text:               qsTr("Show pulse strength on map")
+                fact:               _customSettings.showPulseOnMap
             }
 
-            FactCheckBox {
-                text:   qsTr("Show pulse strength on map")
-                fact:   _customSettings.showPulseOnMap
+            LabelledFactTextField {
+                Layout.fillWidth:   true
+                label:              qsTr("Altitude")
+                fact:               _customSettings.altitude
             }
 
-            FactTextFieldGrid {
-                id: grid
+            LabelledFactTextField {
+                Layout.fillWidth:   true
+                label:              qsTr("Rotation Divisions")
+                fact:               _customSettings.divisions
+            }
 
-                factList: [
-                    _customSettings.altitude,
-                    _customSettings.divisions,
-                    _customSettings.k,
-                    _customSettings.falseAlarmProbability,
-                    _customSettings.maxPulseStrength,
-                    _customSettings.antennaOffset,
-                    _customSettings.gain
-                ]
+            LabelledFactTextField {
+                Layout.fillWidth:   true
+                label:              qsTr("K")
+                fact:               _customSettings.k
+            }
+
+            LabelledFactTextField {
+                Layout.fillWidth:   true
+                label:              qsTr("False Alarm Probability")
+                fact:               _customSettings.falseAlarmProbability
+            }
+
+            LabelledFactTextField {
+                Layout.fillWidth:   true
+                label:              qsTr("Max Pulse Strength")
+                fact:               _customSettings.maxPulseStrength
+            }
+
+            LabelledFactTextField {
+                Layout.fillWidth:   true
+                label:              qsTr("Antenna Offset")
+                fact:               _customSettings.antennaOffset
             }
 
             LabelledFactComboBox {
-                label:          qsTr("Antenna Type")
-                fact:           QGroundControl.corePlugin.customSettings.antennaType
+                Layout.fillWidth:   true
+                label:              qsTr("Gain")
+                fact:               _customSettings.gain
+            }
+
+            LabelledFactComboBox {
+                Layout.fillWidth:   true
+                label:              qsTr("Antenna Type")
+                fact:               _customSettings.antennaType
             }
         }
     }
