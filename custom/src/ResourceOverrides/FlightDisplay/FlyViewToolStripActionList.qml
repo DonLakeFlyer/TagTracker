@@ -25,14 +25,6 @@ ToolStripActionList {
     property bool controllerIdle:   QGroundControl.corePlugin.controllerStatus == CustomPlugin.ControllerStatusIdle || QGroundControl.corePlugin.controllerStatus == CustomPlugin.ControllerStatusHasLogs
 
     model: [
-        ToolStripAction {
-            text:           qsTr("Plan")
-            iconSource:     "/qmlimages/Plan.svg"
-            onTriggered:{
-                mainWindow.showPlanView()
-                viewer3DWindow.close()
-            }
-        },
         GuidedActionTakeoff { },
         GuidedActionLand { },
         GuidedActionRTL { },
