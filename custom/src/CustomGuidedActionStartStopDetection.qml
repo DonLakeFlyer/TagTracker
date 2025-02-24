@@ -29,24 +29,24 @@ GuidedToolStripAction {
     function _update(controllerStatus) {
         switch (controllerStatus) {
         case CustomPlugin.ControllerStatusIdle:
-        case CustomPlugin.ControllerStatusReceivingTags:
-            text            = customController.startDetectionTitle
-            actionEnabled   = false
-            break
         case CustomPlugin.ControllerStatusHasTags:
-            text            = customController.startDetectionTitle
-            actionEnabled   = true
-            actionID        = customController.actionStartDetection
+            text = customController.startDetectionTitle
+            actionEnabled = true
+            actionID = customController.actionStartDetection
+            break
+        case CustomPlugin.ControllerStatusReceivingTags:
+        case CustomPlugin.ControllerStatusCapture:
+            text = customController.startDetectionTitle
+            actionEnabled = false
             break
         case CustomPlugin.ControllerStatusDetecting:
-            text            = customController.stopDetectionTitle
-            actionEnabled   = true
-            actionID        = customController.actionStopDetection
+            text = customController.stopDetectionTitle
+            actionEnabled = true
+            actionID = customController.actionStopDetection
             break
-        case CustomPlugin.ControllerStatusCapture:
-            text            = customController.startDetectionTitle
-            actionEnabled   = false
-            break
+        default:
+            actionEnabled = false
+            breal
         }
     }
 }

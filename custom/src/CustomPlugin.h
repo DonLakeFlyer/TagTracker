@@ -93,6 +93,8 @@ signals:
     void downloadLogDirFilesComplete    (const QString& errorMsg);
     void maxSNRChanged                  (double maxSNR);
     void minSNRChanged                  (double minSNR);
+    void _sendTagsSequenceComplete      (void);
+    void _sendTagsSequenceFailed        (void);
 
 private slots:
     void _vehicleStateRawValueChanged   (QVariant rawValue);
@@ -105,6 +107,8 @@ private slots:
     void _logDirListDownloaded          (const QStringList& dirList, const QString& errorMsg);
     void _logDirDownloadedForFiles      (const QStringList& dirList, const QString& errorMsg);
     void _logFileDownloadComplete       (const QString& file, const QString& errorMsg);
+    void _startDetection                (void);
+    void _rawCapture                    (void);
 
 private:
     typedef enum {
@@ -159,6 +163,7 @@ private:
     void    _logFilesDownloadWorker     (void);
     bool    _useSNRForPulseStrength     (void) { return _customSettings->useSNRForPulseStrength()->rawValue().toBool(); }
     void    _captureScreen              (void);
+    void    _startSendTagsSequence      (void);
 
     QVariantList            _settingsPages;
     QVariantList            _instrumentPages;

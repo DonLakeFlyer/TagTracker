@@ -178,11 +178,14 @@ void CustomPlugin::_handleTunnelCommandAck(const mavlink_tunnel_t& tunnel)
                 break;
             case COMMAND_ID_END_TAGS:
                 _detectorInfoListModel.setupFromTags(_tagDatabase);
+                emit _sendTagsSequenceComplete();
                 break;
             case COMMAND_ID_START_DETECTION:
+                _say("Detectors started");
                 _csvStartFullPulseLog();
                 break;
             case COMMAND_ID_STOP_DETECTION:
+                _say("Detectors stopped");
                 _csvStopFullPulseLog();
                 break;
             }
@@ -494,7 +497,7 @@ void CustomPlugin::startRotation(void)
     _advanceStateMachine();
 }
 
-void CustomPlugin::startDetection(void)
+void CustomPlugin::_startDetection(void)
 {
     StartDetectionInfo_t startDetectionInfo;
 
@@ -507,6 +510,13 @@ void CustomPlugin::startDetection(void)
     _sendTunnelCommand((uint8_t*)&startDetectionInfo, sizeof(startDetectionInfo));
 }
 
+void CustomPlugin::startDetection(void)
+{
+    disconnect(this, &CustomPlugin::_sendTagsSequenceComplete, nullptr, nullptr);
+    connect(this, &CustomPlugin::_sendTagsSequenceComplete, this, &CustomPlugin::_startDetection);
+    _startSendTagsSequence();
+}
+
 void CustomPlugin::stopDetection(void)
 {
     StopDetectionInfo_t stopDetectionInfo;
@@ -517,6 +527,13 @@ void CustomPlugin::stopDetection(void)
 
 void CustomPlugin::rawCapture(void)
 {
+    disconnect(this, &CustomPlugin::_sendTagsSequenceComplete, nullptr, nullptr);
+    connect(this, &CustomPlugin::_sendTagsSequenceComplete, this, &CustomPlugin::_rawCapture);
+    _startSendTagsSequence();
+}
+
+void CustomPlugin::_rawCapture(void)
+{
     RawCaptureInfo_t rawCapture;
 
     rawCapture.header.command   = COMMAND_ID_RAW_CAPTURE;
@@ -526,6 +543,11 @@ void CustomPlugin::rawCapture(void)
 }
 
 void CustomPlugin::sendTags(void)
+{
+    _startSendTagsSequence();
+}
+
+void CustomPlugin::_startSendTagsSequence(void)
 {
     bool foundSelectedTag = false;
     for (int i=0; i<_tagDatabase->tagInfoListModel()->count(); i++) {
