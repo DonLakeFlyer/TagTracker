@@ -39,15 +39,18 @@ Item {
 
         Rectangle {
             height: parent.height
-            width:  ScreenTools.defaultFontPixelWidth * 3
+            width:  cpuTemp.contentWidth + ScreenTools.defaultFontPixelWidth / 4
             color:  QGroundControl.corePlugin.controllerLostHeartbeat ? "red" : "green"
 
             QGCLabel {
+                id:                     cpuTemp
                 anchors.fill:           parent
-                text:                   QGroundControl.corePlugin.controllerCPUTemp.toFixed(0)
+                text:                   qsTr("Temp") + " " + (isNaN(cpuTemp) ? qsTr("N/A") : cpuTemp.toFixed(0))
                 color:                  "black"
                 horizontalAlignment:    Text.AlignHCenter
                 verticalAlignment:      Text.AlignVCenter
+
+                property real cpuTemp: QGroundControl.corePlugin.controllerCPUTemp
             }
         }
 
