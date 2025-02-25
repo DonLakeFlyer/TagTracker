@@ -17,7 +17,7 @@ DECLARE_SETTINGGROUP(Custom, "Custom")
     qmlRegisterUncreatableType<CustomSettings>("QGroundControl.SettingsManager", 1, 0, "CustomSettings", "Reference only");
 }
 
-DECLARE_SETTINGSFACT(CustomSettings, altitude)
+DECLARE_SETTINGSFACT(CustomSettings, takeoffAltitude)
 DECLARE_SETTINGSFACT(CustomSettings, divisions)
 DECLARE_SETTINGSFACT(CustomSettings, maxPulseStrength)
 DECLARE_SETTINGSFACT(CustomSettings, k)
@@ -28,3 +28,4 @@ DECLARE_SETTINGSFACT(CustomSettings, antennaOffset)
 DECLARE_SETTINGSFACT(CustomSettings, antennaType)
 DECLARE_SETTINGSFACT(CustomSettings, rotationKWaitCount)
 DECLARE_SETTINGSFACT(CustomSettings, useSNRForPulseStrength)
+DECLARE_SETTINGSFACT(CustomSettings, autoTakeoffRotateRTL)

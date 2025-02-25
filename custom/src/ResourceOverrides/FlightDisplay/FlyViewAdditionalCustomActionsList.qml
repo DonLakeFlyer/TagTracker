@@ -23,7 +23,7 @@ QtObject {
         {
             title:      _customController.rawCaptureTitle,
             visible:    true,
-            enabled:    QGroundControl.multiVehicleManager.activeVehicle && QGroundControl.corePlugin.controllerStatus == CustomPlugin.ControllerStatusHasTags,
+            enabled:    QGroundControl.multiVehicleManager.activeVehicle && (QGroundControl.corePlugin.controllerStatus == CustomPlugin.ControllerStatusHasTags || QGroundControl.corePlugin.controllerStatus == CustomPlugin.ControllerStatusIdle),
             action:     _customController.actionRawCapture,
         },
 

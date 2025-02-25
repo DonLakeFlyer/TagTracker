@@ -178,20 +178,37 @@ void CustomPlugin::_handleTunnelCommandAck(const mavlink_tunnel_t& tunnel)
                 break;
             case COMMAND_ID_END_TAGS:
                 _detectorInfoListModel.setupFromTags(_tagDatabase);
+                emit _sendTagsSequenceComplete();
                 break;
             case COMMAND_ID_START_DETECTION:
+                _say("Detection started");
+                emit _detectionStarted();
                 _csvStartFullPulseLog();
                 break;
             case COMMAND_ID_STOP_DETECTION:
+                _say("Detection stopped");
+                emit _detectionStopped();
                 _csvStopFullPulseLog();
                 break;
             }
         } else {
             QString message = QStringLiteral("%1 command failed").arg(_tunnelCommandIdToText(ack.command));
-
             _say(message);
             qgcApp()->showAppMessage(message);
             qCWarning(CustomPluginLog) << message << "- ack.result" << ack.result;
+
+            switch (ack.command) {
+                case COMMAND_ID_START_TAGS:
+                case COMMAND_ID_TAG:
+                case COMMAND_ID_END_TAGS:
+                emit _sendTagsSequenceFailed();
+                case COMMAND_ID_START_DETECTION:
+                    emit _startDetectionFailed();
+                    break;
+                case COMMAND_ID_STOP_DETECTION:
+                    emit _stopDetectionFailed();
+                    break;
+            }    
         }
 
     } else {
@@ -401,14 +418,150 @@ void CustomPlugin::_csvLogRotationStartStop(QFile& csvFile, bool startRotation)
 
 void CustomPlugin::_updateFlightMachineActive(bool flightMachineActive)
 {
-    _flightStateMachineActive = flightMachineActive;
-    emit flightMachineActiveChanged(flightMachineActive);
+    if (_flightStateMachineActive != flightMachineActive) {
+        _flightStateMachineActive = flightMachineActive;
+        emit flightMachineActiveChanged(flightMachineActive);
+    }
 }
 
 void CustomPlugin::cancelAndReturn(void)
 {
     _say("Cancelling flight.");
     _resetStateAndRTL();
+}
+
+void CustomPlugin::autoTakeoffRotateRTL()
+{
+    qCDebug(CustomPluginLog) << "autoTakeoffRotateRTL";
+
+    Vehicle* vehicle = MultiVehicleManager::instance()->activeVehicle();
+    if (!vehicle) {
+        return;
+    }
+
+    _clearVehicleStates();
+
+    VehicleState_t vehicleState;
+
+    vehicleState.command = CommandSendTags;
+    vehicleState.fact = nullptr;
+    vehicleState.targetValueWaitMsecs = 0;
+    _vehicleStates.append(vehicleState);
+
+    vehicleState.command = CommandStartDetectors;
+    vehicleState.fact = nullptr;
+    vehicleState.targetValueWaitMsecs = 0;
+    _vehicleStates.append(vehicleState);
+
+    vehicleState.command = CommandTakeoff;
+    vehicleState.fact = vehicle->altitudeRelative();
+    vehicleState.targetValueWaitMsecs = 2 * 60 * 1000;
+    vehicleState.targetValue = _customSettings->takeoffAltitude()->rawValue().toDouble();
+    vehicleState.targetVariance = 1;
+    _vehicleStates.append(vehicleState);
+
+    _addRotationStates();
+
+    vehicleState.command = CommandStopDetectors;
+    vehicleState.fact = nullptr;
+    vehicleState.targetValueWaitMsecs = 0;
+    _vehicleStates.append(vehicleState);
+
+    vehicleState.command = CommandRTL;
+    vehicleState.fact = nullptr;
+    vehicleState.targetValueWaitMsecs = 0;
+    _vehicleStates.append(vehicleState);
+
+    _updateFlightMachineActive(true);
+    _advanceStateMachine();
+}
+
+void CustomPlugin::_clearVehicleStates(void)
+{
+    _vehicleStates.clear();
+    _vehicleStateIndex = -1;
+
+    disconnect(this, &CustomPlugin::_detectionStarted, nullptr, nullptr);
+    disconnect(this, &CustomPlugin::_detectionStopped, nullptr, nullptr);
+    disconnect(this, &CustomPlugin::_sendTagsSequenceComplete, nullptr, nullptr);
+    disconnect(this, &CustomPlugin::_sendTagsSequenceFailed, nullptr, nullptr);
+}
+
+void CustomPlugin::_addRotationStates(void)
+{
+    Vehicle* vehicle = MultiVehicleManager::instance()->activeVehicle();
+
+    // Setup new rotation data
+    _rgAngleStrengths.append(QList<double>());
+    _rgAngleRatios.append(QList<double>());
+    _rgCalcedBearings.append(qQNaN());
+
+    QList<double>& angleStrengths = _rgAngleStrengths.last();
+    QList<double>& angleRatios = _rgAngleRatios.last();
+
+    // Prime angle strengths with no values
+    _cSlice = _customSettings->divisions()->rawValue().toInt();
+    for (int i=0; i<_cSlice; i++) {
+        angleStrengths.append(qQNaN());
+        angleRatios.append(qQNaN());
+    }
+
+    // We always start our rotation pulse captures with the antenna at 0 degrees heading
+    double antennaOffset = _customSettings->antennaOffset()->rawValue().toDouble();
+    double sliceDegrees = 360.0 / _cSlice;
+    double nextHeading = -antennaOffset;
+
+    // We wait at each rotation for enough time to go by to capture a user specified set of k groups
+    uint32_t maxK = _customSettings->k()->rawValue().toUInt();
+    auto kGroups = _customSettings->rotationKWaitCount()->rawValue().toInt();
+    auto maxIntraPulseMsecs = _tagDatabase->maxIntraPulseMsecs();
+    uint32_t rotationCaptureWaitMsecs = maxIntraPulseMsecs * ((kGroups * maxK) + 1);
+
+    _currentSlice = 0;
+
+    // Add rotation state machine entries
+    for (int i=0; i<_cSlice; i++) {
+        VehicleState_t vehicleState;
+
+        if (nextHeading >= 360) {
+            nextHeading -= 360;
+        } else if (nextHeading < 0) {
+            nextHeading += 360;
+        }
+
+        vehicleState.command                = CommandSetHeadingForRotationCapture;
+        vehicleState.fact                   = vehicle->heading();
+        vehicleState.targetValueWaitMsecs   = 10 * 1000;
+        vehicleState.targetValue            = nextHeading;
+        vehicleState.targetVariance         = 1;
+        _vehicleStates.append(vehicleState);
+
+        vehicleState.command                = CommandDelayForSteadyCapture;
+        vehicleState.fact                   = nullptr;
+        vehicleState.targetValueWaitMsecs   = rotationCaptureWaitMsecs;
+        _vehicleStates.append(vehicleState);
+
+        nextHeading += sliceDegrees;
+    }
+
+    _retryRotation = false;
+}
+
+void CustomPlugin::_initNewRotationDuringFlight(void)
+{
+    Vehicle* vehicle = MultiVehicleManager::instance()->activeVehicle();
+
+    _csvStartRotationPulseLog(_csvRotationCount++);
+    _csvLogRotationStartStop(_csvFullPulseLogFile, true /* startRotation */);
+    _csvLogRotationStartStop(_csvRotationPulseLogFile, true /* startRotation */);
+
+    emit angleRatiosChanged();
+    emit calcedBearingsChanged();
+
+    // Create compass rose ui on map
+    QUrl url = QUrl::fromUserInput("qrc:/qml/CustomPulseRoseMapItem.qml");
+    PulseRoseMapItem* mapItem = new PulseRoseMapItem(url, _rgAngleStrengths.count() - 1, vehicle->coordinate(), this);
+    _customMapItems.append(mapItem);
 }
 
 void CustomPlugin::startRotation(void)
@@ -421,80 +574,13 @@ void CustomPlugin::startRotation(void)
         return;
     }
 
-    _csvStartRotationPulseLog(_csvRotationCount++);
-    _csvLogRotationStartStop(_csvFullPulseLogFile, true /* startRotation */);
-    _csvLogRotationStartStop(_csvRotationPulseLogFile, true /* startRotation */);
-
+    _clearVehicleStates();
+    _addRotationStates();
     _updateFlightMachineActive(true);
-
-    // Setup new rotation data
-    _rgAngleStrengths.append(QList<double>());
-    _rgAngleRatios.append(QList<double>());
-    _rgCalcedBearings.append(qQNaN());
-
-    QList<double>&  angleStrengths =    _rgAngleStrengths.last();
-    QList<double>&  angleRatios =       _rgAngleRatios.last();
-
-    // Prime angle strengths with no values
-    _cSlice = _customSettings->divisions()->rawValue().toInt();
-    for (int i=0; i<_cSlice; i++) {
-        angleStrengths.append(qQNaN());
-        angleRatios.append(qQNaN());
-    }
-    emit angleRatiosChanged();
-    emit calcedBearingsChanged();
-
-    // Create compass rose ui on map
-    QUrl url = QUrl::fromUserInput("qrc:/qml/CustomPulseRoseMapItem.qml");
-    PulseRoseMapItem* mapItem = new PulseRoseMapItem(url, _rgAngleStrengths.count() - 1, vehicle->coordinate(), this);
-    _customMapItems.append(mapItem);
-
-    // We always start our rotation pulse captures with the antenna a 0 degrees heading
-    double antennaOffset    = _customSettings->antennaOffset()->rawValue().toDouble();
-    double sliceDegrees     = 360.0 / _cSlice;
-    double nextHeading = -antennaOffset;
-
-    // We wait at each rotation for enough time to go by to capture a user specified set of k groups
-    uint32_t    maxK                        = _customSettings->k()->rawValue().toUInt();
-    auto        kGroups                     = _customSettings->rotationKWaitCount()->rawValue().toInt();
-    auto        maxIntraPulseMsecs          = _tagDatabase->maxIntraPulseMsecs();
-    uint32_t    rotationCaptureWaitMsecs    = maxIntraPulseMsecs * ((kGroups * maxK) + 1);
-
-    _currentSlice = 0;
-
-    _vehicleStates.clear();
-
-    // Build rotation state machine entries
-    for (int i=0; i<_cSlice; i++) {
-        VehicleState_t vehicleState;
-
-        if (nextHeading >= 360) {
-            nextHeading -= 360;
-        } else if (nextHeading < 0) {
-            nextHeading += 360;
-        }
-
-        vehicleState.command                = CommandSetHeading;
-        vehicleState.fact                   = vehicle->heading();
-        vehicleState.targetValueWaitMsecs   = 10 * 1000;
-        vehicleState.targetValue            = nextHeading;
-        vehicleState.targetVariance         = 1;
-        _vehicleStates.append(vehicleState);
-
-        vehicleState.command                = CommandWaitForHeartbeats;
-        vehicleState.fact                   = nullptr;
-        vehicleState.targetValueWaitMsecs   = rotationCaptureWaitMsecs;
-        _vehicleStates.append(vehicleState);
-
-        nextHeading += sliceDegrees;
-    }
-
-    _vehicleStateIndex      = -1;
-    _retryRotation          = false;
     _advanceStateMachine();
 }
 
-void CustomPlugin::startDetection(void)
+void CustomPlugin::_startDetection(void)
 {
     StartDetectionInfo_t startDetectionInfo;
 
@@ -507,6 +593,13 @@ void CustomPlugin::startDetection(void)
     _sendTunnelCommand((uint8_t*)&startDetectionInfo, sizeof(startDetectionInfo));
 }
 
+void CustomPlugin::startDetection(void)
+{
+    disconnect(this, &CustomPlugin::_sendTagsSequenceComplete, nullptr, nullptr);
+    connect(this, &CustomPlugin::_sendTagsSequenceComplete, this, &CustomPlugin::_startDetection);
+    _startSendTagsSequence();
+}
+
 void CustomPlugin::stopDetection(void)
 {
     StopDetectionInfo_t stopDetectionInfo;
@@ -517,6 +610,13 @@ void CustomPlugin::stopDetection(void)
 
 void CustomPlugin::rawCapture(void)
 {
+    disconnect(this, &CustomPlugin::_sendTagsSequenceComplete, nullptr, nullptr);
+    connect(this, &CustomPlugin::_sendTagsSequenceComplete, this, &CustomPlugin::_rawCapture);
+    _startSendTagsSequence();
+}
+
+void CustomPlugin::_rawCapture(void)
+{
     RawCaptureInfo_t rawCapture;
 
     rawCapture.header.command   = COMMAND_ID_RAW_CAPTURE;
@@ -526,6 +626,11 @@ void CustomPlugin::rawCapture(void)
 }
 
 void CustomPlugin::sendTags(void)
+{
+    _startSendTagsSequence();
+}
+
+void CustomPlugin::_startSendTagsSequence(void)
 {
     bool foundSelectedTag = false;
     for (int i=0; i<_tagDatabase->tagInfoListModel()->count(); i++) {
@@ -646,7 +751,7 @@ void CustomPlugin::_mavCommandResult(int vehicleId, int component, int command, 
             _say(QStringLiteral("takeoff command failed"));
             _updateFlightMachineActive(false);
         }
-    } else if (currentState.command == CommandSetHeading && command == (vehicle->px4Firmware() ? MAV_CMD_DO_REPOSITION : MAV_CMD_CONDITION_YAW)) {
+    } else if (currentState.command == CommandSetHeadingForRotationCapture && command == (vehicle->px4Firmware() ? MAV_CMD_DO_REPOSITION : MAV_CMD_CONDITION_YAW)) {
         disconnect(vehicle, &Vehicle::mavCommandResult, this, &CustomPlugin::_mavCommandResult);
         if (noResponseFromVehicle) {
             if (_retryRotation) {
@@ -666,11 +771,16 @@ void CustomPlugin::_mavCommandResult(int vehicleId, int component, int command, 
 
 void CustomPlugin::_takeoff(Vehicle* vehicle, double takeoffAltRel)
 {
+    vehicle->guidedModeTakeoff(takeoffAltRel);
+    return;
+    
     double vehicleAltitudeAMSL = vehicle->altitudeAMSL()->rawValue().toDouble();
     if (qIsNaN(vehicleAltitudeAMSL)) {
         qgcApp()->showAppMessage(tr("Unable to takeoff, vehicle position not known."), tr("Error"));
         return;
     }
+
+
 
     double takeoffAltAMSL = takeoffAltRel + vehicleAltitudeAMSL;
 
@@ -714,6 +824,23 @@ void CustomPlugin::_setupDelayForSteadyCapture(void)
     _detectorInfoListModel.resetPulseGroupCount();
 }
 
+QString CustomPlugin::_holdFlightMode(void)
+{
+    return MultiVehicleManager::instance()->activeVehicle()->px4Firmware() ? "Hold" : "Guided";
+}
+
+void CustomPlugin::_advanceStateMachineOnSignal()
+{
+    disconnect(this, &CustomPlugin::_detectionStarted, nullptr, nullptr);
+    disconnect(this, &CustomPlugin::_startDetectionFailed, nullptr, nullptr);
+    disconnect(this, &CustomPlugin::_detectionStopped, nullptr, nullptr);
+    disconnect(this, &CustomPlugin::_stopDetectionFailed, nullptr, nullptr);
+    disconnect(this, &CustomPlugin::_sendTagsSequenceComplete, nullptr, nullptr);
+    disconnect(this, &CustomPlugin::_sendTagsSequenceFailed, nullptr, nullptr);
+
+    _advanceStateMachine();
+}
+
 void CustomPlugin::_advanceStateMachine(void)
 {
     Vehicle* vehicle = MultiVehicleManager::instance()->activeVehicle();
@@ -745,9 +872,9 @@ void CustomPlugin::_advanceStateMachine(void)
     }
 
     const VehicleState_t& currentState = _vehicleStates[++_vehicleStateIndex];
+    qDebug() << "currentState.command" << currentState.command;
 
-    QString holdFlightMode(vehicle->px4Firmware() ? "Hold" : "Guided");
-    if (currentState.command != CommandTakeoff && vehicle->flightMode() != "Takeoff" && vehicle->flightMode() != holdFlightMode) {
+    if (currentState.command != CommandTakeoff && vehicle->flightMode() != "Takeoff" && vehicle->flightMode() != _holdFlightMode()) {
         // User cancel
         _say(QStringLiteral("Collection cancelled."));
         _updateFlightMachineActive(false);
@@ -761,14 +888,36 @@ void CustomPlugin::_advanceStateMachine(void)
         _say(QStringLiteral("Waiting for takeoff to %1 %2.").arg(FactMetaData::metersToAppSettingsVerticalDistanceUnits(currentState.targetValue).toDouble()).arg(FactMetaData::appSettingsVerticalDistanceUnitsString()));
         _takeoff(vehicle, currentState.targetValue);
         break;
-    case CommandSetHeading:
-        _say(QStringLiteral("Waiting for rotate to %1 degrees.").arg(qRound(currentState.targetValue)));
+    case CommandSetHeadingForRotationCapture:
+        if (currentState.targetValue == 0) {
+            // First slice
+            _initNewRotationDuringFlight();
+        }
         _retryRotation = true;
         _rotateVehicle(vehicle, currentState.targetValue);
         break;
-    case CommandWaitForHeartbeats:
-        _say(QStringLiteral("Collecting data for %1 seconds max").arg(currentState.targetValueWaitMsecs / 1000));
+    case CommandDelayForSteadyCapture:
+        _say(QStringLiteral("Collecting data at %1 degrees.").arg(qRound(currentState.targetValue)));
         _setupDelayForSteadyCapture();
+        break;
+    case CommandRTL:
+        _setRTLFlightModeAndValidate(vehicle);
+        _say("Collection complete, returning");
+        break;
+    case CommandSendTags:
+        connect(this, &CustomPlugin::_sendTagsSequenceComplete, this, &CustomPlugin::_advanceStateMachineOnSignal);
+        connect(this, &CustomPlugin::_sendTagsSequenceFailed, this, &CustomPlugin::cancelAndReturn);
+        _startSendTagsSequence();
+        break;
+    case CommandStartDetectors:
+        connect(this, &CustomPlugin::_detectionStarted, this, &CustomPlugin::_advanceStateMachineOnSignal);
+        connect(this, &CustomPlugin::_startDetectionFailed, this, &CustomPlugin::cancelAndReturn);
+        _startDetection();
+        break;
+    case CommandStopDetectors:
+        connect(this, &CustomPlugin::_detectionStopped, this, &CustomPlugin::_advanceStateMachineOnSignal);
+        connect(this, &CustomPlugin::_stopDetectionFailed, this, &CustomPlugin::_advanceStateMachineOnSignal);
+        stopDetection();
         break;
     }
 
@@ -849,7 +998,7 @@ void CustomPlugin::_rotationDelayComplete(void)
 
 void CustomPlugin::_vehicleStateTimeout(void)
 {
-    if (_vehicleStates[_vehicleStateIndex].command == CommandWaitForHeartbeats) {
+    if (_vehicleStates[_vehicleStateIndex].command == CommandDelayForSteadyCapture) {
         _rotationDelayComplete();
         return;
     } else {
@@ -942,9 +1091,7 @@ void CustomPlugin::_resetStateAndRTL(void)
         }
     }
 
-#if 0
     _setRTLFlightModeAndValidate(vehicle);
-#endif    
 
     _updateFlightMachineActive(false);
 

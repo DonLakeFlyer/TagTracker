@@ -14,6 +14,7 @@ import QtQuick.Controls
 import QGroundControl
 import QGroundControl.Controls
 import QGroundControl.FactControls
+import QGroundControl.FactSystem
 import QGroundControl.MultiVehicleManager
 import QGroundControl.ScreenTools
 import QGroundControl.Palette
@@ -29,7 +30,7 @@ Item {
     property bool showIndicator: true
 
     property var    activeVehicle:  QGroundControl.multiVehicleManager.activeVehicle
-    property real   maxStrength:         QGroundControl.corePlugin.customSettings.maxPulseStrength.rawValue
+    property real   maxStrength:    QGroundControl.corePlugin.customSettings.maxPulseStrength.rawValue
 
     Row {
         id:             rowLayout
@@ -39,15 +40,18 @@ Item {
 
         Rectangle {
             height: parent.height
-            width:  ScreenTools.defaultFontPixelWidth * 3
+            width:  cpuTemp.contentWidth + ScreenTools.defaultFontPixelWidth / 4
             color:  QGroundControl.corePlugin.controllerLostHeartbeat ? "red" : "green"
 
             QGCLabel {
+                id:                     cpuTemp
                 anchors.fill:           parent
-                text:                   QGroundControl.corePlugin.controllerCPUTemp.toFixed(0)
+                text:                   qsTr("Temp") + " " + (isNaN(cpuTemp) ? qsTr("N/A") : cpuTemp.toFixed(0))
                 color:                  "black"
                 horizontalAlignment:    Text.AlignHCenter
                 verticalAlignment:      Text.AlignVCenter
+
+                property real cpuTemp: QGroundControl.corePlugin.controllerCPUTemp
             }
         }
 
@@ -422,7 +426,10 @@ Item {
         id: indicatorExpandedComponent
 
         SettingsGroupLayout {
-            property var _customSettings: QGroundControl.corePlugin.customSettings
+            property var _customSettings:               QGroundControl.corePlugin.customSettings
+            property Fact _antennaTypeFact:             _customSettings.antennaType
+            property Fact _autoTakeoffRotateRTLFact:    _customSettings.autoTakeoffRotateRTL
+            property int _antennaTypeDirectional:       1
 
             FactCheckBoxSlider {
                 Layout.fillWidth:   true
@@ -438,8 +445,8 @@ Item {
 
             LabelledFactTextField {
                 Layout.fillWidth:   true
-                label:              qsTr("Altitude")
-                fact:               _customSettings.altitude
+                label:              qsTr("Takeoff Altitude")
+                fact:               _customSettings.takeoffAltitude
             }
 
             LabelledFactTextField {
@@ -481,7 +488,19 @@ Item {
             LabelledFactComboBox {
                 Layout.fillWidth:   true
                 label:              qsTr("Antenna Type")
-                fact:               _customSettings.antennaType
+                fact:               _antennaTypeFact
+            }
+
+            FactCheckBoxSlider {
+                Layout.fillWidth:   true
+                text:               qsTr("Full Automatic Collection")
+                fact:               _autoTakeoffRotateRTLFact
+                enabled:            _antennaTypeFact.rawValue === _antennaTypeDirectional
+
+                Connections {
+                    target: _antennaTypeFact
+                    onRawValueChanged: _autoTakeoffRotateRTLFact.value = _antennaTypeFact.rawValue === _antennaTypeDirectional
+                }
             }
         }
     }

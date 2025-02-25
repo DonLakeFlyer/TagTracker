@@ -7,13 +7,13 @@
         <file alias="QGroundControl/CustomControls/CustomGuidedActionStartStopDetection.qml">src/CustomGuidedActionStartStopDetection.qml</file>
         <file alias="QGroundControl/CustomControls/CustomGuidedActionStartRotation.qml">src/CustomGuidedActionStartRotation.qml</file>
         <file alias="QGroundControl/CustomControls/CustomGuidedActionDownloadLogs.qml">src/CustomGuidedActionDownloadLogs.qml</file>
-        <file alias="QGroundControl/CustomControls/CustomGuidedActionRawCapture.qml">src/CustomGuidedActionRawCapture.qml</file>
+        <file alias="QGroundControl/CustomControls/CustomGuidedActionAutoTakeoffRotateRTL.qml">src/CustomGuidedActionAutoTakeoffRotateRTL.qml</file>
         <file alias="QGroundControl/CustomControls/qmldir">src/qmldir</file>
 
         <!-- The following are overrides from regular QGC resources -->
         <file alias="QGroundControl/FlightDisplay/FlyViewAdditionalCustomActionsList.qml">src/ResourceOverrides/FlightDisplay/FlyViewAdditionalCustomActionsList.qml</file>
         <file alias="QGroundControl/FlightDisplay/FlyViewCustomLayer.qml">src/ResourceOverrides/FlightDisplay/FlyViewCustomLayer.qml</file>
-        <file alias="QGroundControl/FlightDisplay/FlyViewToolStripActionList.qml">src/ResourceOverrides/FlightDisplay/FlyViewToolStripActionList.qml</file>
+        <file alias="QGroundControl/FlightDisplay/FlyViewToolStrip.qml">src/ResourceOverrides/FlightDisplay/FlyViewToolStrip.qml</file>
         <file alias="QGroundControl/FlightDisplay/CustomGuidedActionsController.qml">src/ResourceOverrides/FlightDisplay/CustomGuidedActionsController.qml</file>
     </qresource>
     <qresource prefix="/res">

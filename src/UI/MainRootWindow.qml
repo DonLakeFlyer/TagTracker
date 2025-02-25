@@ -724,7 +724,7 @@ ApplicationWindow {
             Rectangle {
                 anchors.horizontalCenter:   backgroundRect.right
                 anchors.verticalCenter:     backgroundRect.top
-                width:                      ScreenTools.defaultFontPixelHeight
+                width:                      ScreenTools.largeFontPixelHeight
                 height:                     width
                 radius:                     width / 2
                 color:                      QGroundControl.globalPalette.button
