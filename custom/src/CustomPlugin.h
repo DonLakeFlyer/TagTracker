@@ -60,6 +60,7 @@ public:
     CustomSettings*     customSettings  () { return _customSettings; }
     QmlObjectListModel* detectorInfoList() { return dynamic_cast<QmlObjectListModel*>(&_detectorInfoListModel); }
 
+    Q_INVOKABLE void autoTakeoffRotateRTL();
     Q_INVOKABLE void startRotation      (void);
     Q_INVOKABLE void cancelAndReturn    (void);
     Q_INVOKABLE void sendTags           (void);
@@ -95,10 +96,15 @@ signals:
     void minSNRChanged                  (double minSNR);
     void _sendTagsSequenceComplete      (void);
     void _sendTagsSequenceFailed        (void);
+    void _detectionStarted              (void);
+    void _startDetectionFailed          (void);
+    void _detectionStopped              (void);
+    void _stopDetectionFailed           (void);
 
 private slots:
     void _vehicleStateRawValueChanged   (QVariant rawValue);
     void _advanceStateMachine           (void);
+    void _advanceStateMachineOnSignal   ();
     void _vehicleStateTimeout           (void);
     void _updateFlightMachineActive     (bool flightMachineActive);
     void _mavCommandResult              (int vehicleId, int component, int command, int result, bool noResponseFromVehicle);
@@ -112,17 +118,21 @@ private slots:
 
 private:
     typedef enum {
+        CommandSendTags,
+        CommandStartDetectors,
+        CommandStopDetectors,
         CommandTakeoff,
-        CommandSetHeading,
-        CommandWaitForHeartbeats,
+        CommandRTL,
+        CommandSetHeadingForRotationCapture,
+        CommandDelayForSteadyCapture,
     } VehicleStateCommand_t;
 
     typedef struct VehicleState_t {
         VehicleStateCommand_t   command;
-        Fact*                   fact;
-        int                     targetValueWaitMsecs;
-        double                  targetValue;
-        double                  targetVariance;
+        Fact*                   fact = nullptr;
+        int                     targetValueWaitMsecs = 0;
+        double                  targetValue = 0;
+        double                  targetVariance = 0;
     } VehicleState_t;
 
     typedef struct HeartbeatInfo_t {
@@ -152,7 +162,7 @@ private:
     void    _sendEndTags                (void);
     void    _setupDelayForSteadyCapture (void);
     void    _rotationDelayComplete      (void);
-    QString _logSavePath             (void);
+    QString _logSavePath                (void);
     void    _csvStartFullPulseLog       (void);
     void    _csvStopFullPulseLog        (void);
     void    _csvClearPrevRotationLogs   (void);
@@ -164,6 +174,10 @@ private:
     bool    _useSNRForPulseStrength     (void) { return _customSettings->useSNRForPulseStrength()->rawValue().toBool(); }
     void    _captureScreen              (void);
     void    _startSendTagsSequence      (void);
+    void    _addRotationStates          (void);
+    void    _initNewRotationDuringFlight(void);
+    void    _clearVehicleStates         (void);
+    QString _holdFlightMode             (void);
 
     QVariantList            _settingsPages;
     QVariantList            _instrumentPages;

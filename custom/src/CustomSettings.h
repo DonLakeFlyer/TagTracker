@@ -20,7 +20,7 @@ public:
 
     DEFINE_SETTING_NAME_GROUP()
 
-    DEFINE_SETTINGFACT(altitude)
+    DEFINE_SETTINGFACT(takeoffAltitude)
     DEFINE_SETTINGFACT(divisions)
     DEFINE_SETTINGFACT(maxPulseStrength)
     DEFINE_SETTINGFACT(k)
@@ -31,6 +31,7 @@ public:
     DEFINE_SETTINGFACT(antennaType)
     DEFINE_SETTINGFACT(rotationKWaitCount)
     DEFINE_SETTINGFACT(useSNRForPulseStrength)
+    DEFINE_SETTINGFACT(autoTakeoffRotateRTL)
 
     enum AntennaType {
         OmniAntenna = 0,

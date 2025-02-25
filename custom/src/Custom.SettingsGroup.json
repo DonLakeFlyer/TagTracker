@@ -4,7 +4,7 @@
     "QGC.MetaData.Facts":
 [
 {
-    "name":             "altitude",
+    "name":             "takeoffAltitude",
     "shortDesc":        "Altitude to perform VHF scan",
     "type":             "double",
     "units":            "m",
@@ -76,6 +76,12 @@
     "decimalPlaces":    0,
     "units":            "deg",
     "default":          0
+},
+{
+    "name":         "autoTakeoffRotateRTL",
+    "shortDesc":    "Takeoff, Rotate and RTL automatically",
+    "type":         "bool",
+    "default":      true
 },
 {
     "name":             "antennaType",
