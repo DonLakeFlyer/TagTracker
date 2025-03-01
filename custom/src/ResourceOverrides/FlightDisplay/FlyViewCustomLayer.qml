@@ -82,8 +82,8 @@ Item {
 
         Rectangle {
             id:                 snrGradient
-            Layout.alignment:   Qt.AlignHCenter
-            width:              ScreenTools.defaultFontPixelWidth * 10
+            Layout.alignment:   Qt.AlignRight
+            width:              ScreenTools.defaultFontPixelWidth * 5
             Layout.fillHeight:  true
             visible:            _customSettings.antennaType.rawValue == 0
 
