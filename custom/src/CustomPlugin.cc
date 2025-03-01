@@ -1118,11 +1118,11 @@ QString CustomPlugin::_tunnelCommandIdToText(uint32_t vhfCommandId)
 {
     switch (vhfCommandId) {
     case COMMAND_ID_TAG:
-        return QStringLiteral("tag");
+        return QStringLiteral("tag send");
     case COMMAND_ID_START_TAGS:
-        return QStringLiteral("start tags");
+        return QStringLiteral("start tag send");
     case COMMAND_ID_END_TAGS:
-        return QStringLiteral("end tags");
+        return QStringLiteral("end tag send");
     case COMMAND_ID_PULSE:
         return QStringLiteral("pulse");
     case COMMAND_ID_RAW_CAPTURE:
