@@ -8,6 +8,8 @@
         <file alias="QGroundControl/CustomControls/CustomGuidedActionStartRotation.qml">src/CustomGuidedActionStartRotation.qml</file>
         <file alias="QGroundControl/CustomControls/CustomGuidedActionDownloadLogs.qml">src/CustomGuidedActionDownloadLogs.qml</file>
         <file alias="QGroundControl/CustomControls/CustomGuidedActionAutoTakeoffRotateRTL.qml">src/CustomGuidedActionAutoTakeoffRotateRTL.qml</file>
+        <file alias="QGroundControl/CustomControls/TagInfoDialog.qml">src/TagInfoDialog.qml</file>
+        <file alias="QGroundControl/CustomControls/TagManufacturersDialog.qml">src/TagManufacturersDialog.qml</file>
         <file alias="QGroundControl/CustomControls/qmldir">src/qmldir</file>
 
         <!-- The following are overrides from regular QGC resources -->

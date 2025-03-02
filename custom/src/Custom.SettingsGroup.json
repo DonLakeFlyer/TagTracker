@@ -5,7 +5,7 @@
 [
 {
     "name":             "takeoffAltitude",
-    "shortDesc":        "Altitude to perform VHF scan",
+    "shortDesc":        "Altitude For Rotation",
     "type":             "double",
     "units":            "m",
     "decimalPlaces":    1,
@@ -13,19 +13,19 @@
 },
 {
     "name":         "k",
-    "shortDesc":    "K value for detectors",
+    "shortDesc":    "Detector K Value",
     "type":         "UInt32",
     "default":      3
 },
 {
     "name":         "rotationKWaitCount",
-    "shortDesc":    "Number f K groups to wait for at each rotation pause",
+    "shortDesc":    "Rotation Wait For K Groups",
     "type":         "UInt32",
     "default":      2
 },
 {
     "name":             "falseAlarmProbability",
-    "shortDesc":        "Detector false alarm probability in percent. Example: 1 percent = 1.0",
+    "shortDesc":        "Detector False Alarm Probability",
     "type":             "double",
     "units":            "%",
     "decimalPlaces":    2,
@@ -33,13 +33,13 @@
 },
 {
     "name":         "divisions",
-    "shortDesc":    "Number of divisions to stop rotation at",
+    "shortDesc":    "Rotation Divisions",
     "type":         "Int32",
     "default":      16
 },
 {
     "name":         "gain",
-    "shortDesc":    "Sensitivity gain",
+    "shortDesc":    "Sensitivity Gain",
     "type":         "uint32",
     "default":      21,
     "enumStrings":  "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21",
@@ -49,19 +49,21 @@
 },
 {
     "name":         "showPulseOnMap",
-    "shortDesc":    "Show pulse strength on Fly View map",
+    "shortDesc":    "Show Pulse On Map",
     "type":         "bool",
     "default":      false
 },
 {
     "name":         "useSNRForPulseStrength",
-    "shortDesc":    "true: Use snr for pulse string, false: use stft_score",
-    "type":         "bool",
-    "default":      true
+    "shortDesc":    "Pulse Strength Value",
+    "type":         "uint32",
+    "enumStrings":  "SNR,STFT Score",
+    "enumValues":   "1,0",
+    "default":       1
 },
 {
     "name":             "maxPulseStrength",
-    "shortDesc":        "Maximum pulse value",
+    "shortDesc":        "Maximum Pulse Value",
     "type":             "double",
     "min":              0,
     "decimalPlaces":    1,
@@ -69,7 +71,7 @@
 },
 {
     "name":             "antennaOffset",
-    "shortDesc":        "Antenna rotation offset from vehicle heading",
+    "shortDesc":        "Antenna Rotation Offset",
     "type":             "double",
     "min":              0,
     "max":              360,

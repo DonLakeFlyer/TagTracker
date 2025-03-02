@@ -20,6 +20,8 @@ import QGroundControl.ScreenTools
 import QGroundControl.Palette
 import MAVLink
 
+import QGroundControl.CustomControls
+
 Item {
     id:                 control
     anchors.margins:    -ScreenTools.defaultFontPixelHeight / 2
@@ -122,206 +124,13 @@ Item {
     }
 
     Component {
-        id: manufacturerDialogComponent
-
-        QGCPopupDialog {
-            id:         manufacturerDialog
-            title:      qsTr("Tag Manufacturer")
-            buttons:    Dialog.Close
-
-            property var tagManufacturer
-
-            onClosed: QGroundControl.corePlugin.tagDatabase.save()
-
-            Column {
-                spacing: ScreenTools.defaultFontPixelHeight
-
-                FactTextFieldGrid {
-                    factList: [
-                        tagManufacturer.name,
-                        tagManufacturer.ip_msecs_1, 
-                        tagManufacturer.ip_msecs_2, 
-                        tagManufacturer.ip_msecs_1_id,
-                        tagManufacturer.ip_msecs_2_id,
-                        tagManufacturer.pulse_width_msecs, 
-                        tagManufacturer.ip_uncertainty_msecs,
-                        tagManufacturer.ip_jitter_msecs,
-                    ]
-                }
-            }
-        }
-    }
-
-    Component {
         id: manufacturersDialogComponent
-
-        QGCPopupDialog {
-            id:         manufacturersDialog
-            title:      qsTr("Manufacturers")
-            buttons:    Dialog.Close
-
-            property var tagDatabase: QGroundControl.corePlugin.tagDatabase
-
-            ColumnLayout {
-                id:         mainLayout
-                spacing:    ScreenTools.defaultFontPixelHeight
-
-                QGCButton {
-                    text:       qsTr("New Manufacturer")
-                    onClicked:  manufacturerDialogComponent.createObject(mainWindow, { tagManufacturer: tagDatabase.newTagManufacturer() }).open()
-                }
-
-                GridLayout {
-                    rows:       tagDatabase.tagManufacturerList.count + 1
-                    columns:    10
-                    flow:       GridLayout.TopToBottom
-
-                    QGCLabel { text: qsTr("Id") }
-                    Repeater {
-                        model: tagDatabase.tagManufacturerList
-
-                        QGCLabel { text: object.id.valueString }
-                    }
-
-                    QGCLabel { text: qsTr("Name") }
-                    Repeater {
-                        model: tagDatabase.tagManufacturerList
-
-                        QGCLabel { text: object.name.valueString }
-                    }
-
-                    QGCLabel { text: qsTr("Rate 1") }
-                    Repeater {
-                        model: tagDatabase.tagManufacturerList
-
-                        QGCLabel { text: object.ip_msecs_1.valueString }
-                    }
-
-                    QGCLabel { text: qsTr("Rate 2") }
-                    Repeater {
-                        model: tagDatabase.tagManufacturerList
-
-                        QGCLabel { text: object.ip_msecs_2.valueString }
-                    }
-
-                    QGCLabel { text: qsTr("Id 1") }
-                    Repeater {
-                        model: tagDatabase.tagManufacturerList
-
-                        QGCLabel { text: object.ip_msecs_1_id.valueString }
-                    }
-
-                    QGCLabel { text: qsTr("Id 2") }
-                    Repeater {
-                        model: tagDatabase.tagManufacturerList
-
-                        QGCLabel { text: object.ip_msecs_2_id.valueString }
-                    }
-
-                    QGCLabel { text: qsTr("Width") }
-                    Repeater {
-                        model: tagDatabase.tagManufacturerList
-
-                        QGCLabel { text: object.pulse_width_msecs.valueString }
-                    }
-
-                    QGCLabel { text: qsTr("Uncertainty") }
-                    Repeater {
-                        model: tagDatabase.tagManufacturerList
-
-                        QGCLabel { text: object.ip_uncertainty_msecs.valueString }
-                    }
-
-                    QGCLabel { text: qsTr("Jitter") }
-                    Repeater {
-                        model: tagDatabase.tagManufacturerList
-
-                        QGCLabel { text: object.ip_jitter_msecs.valueString }
-                    }
-
-                    QGCLabel { }
-                    Repeater {
-                        model: tagDatabase.tagManufacturerList
-
-                        QGCButton {
-                            text:       qsTr("Edit")
-                            onClicked:  manufacturerDialogComponent.createObject(mainWindow, { tagManufacturer: object }).open()
-                        }
-                    }
-
-                    QGCLabel { }
-                    Repeater {
-                        model: tagDatabase.tagManufacturerList
-
-                        QGCButton {
-                            text:       qsTr("Del")
-                            onClicked: {
-                                if (!tagDatabase.deleteTagManufacturerListItem(object)) {
-                                    mainWindow.showMessageDialog(qsTr("Delete Manufacturer"), qsTr("Unable to delete manufacturer. Still being referenced by tag(s)."))
-                                } else {
-                                    QGroundControl.corePlugin.tagDatabase.save()
-                                }
-                            }
-                        }                
-                    }
-                }
-            }
-        }
+        TagManufacturersDialog { }
     }
 
     Component {
         id: tagInfoDialogComponent
-
-        QGCPopupDialog {
-            id:         tagInfoDialog
-            title:      qsTr("Tag Info")
-            buttons:    Dialog.Close
-
-            property var tagInfo
-            property var _manufacturerList: QGroundControl.corePlugin.tagDatabase.tagManufacturerList
-
-            onClosed: QGroundControl.corePlugin.tagDatabase.save()
-            
-            Column {
-                spacing: ScreenTools.defaultFontPixelHeight
-
-                QGCComboBox {
-                    id:             manufacturerCombo
-                    sizeToContents: true
-
-                    onActivated: tagInfo.manufacturerId.rawValue = _manufacturerList.get(index).id.rawValue
-
-                    Component.onCompleted: {
-                        var selectedIndex = -1
-                        var listModel = []
-                        for (var i=0; i<_manufacturerList.count; i++) {
-                            var manufacturer = _manufacturerList.get(i)
-                            var manufacturerId = manufacturer.id.rawValue
-                            listModel.push(manufacturer.name.valueString)
-                            if (manufacturerId === tagInfo.manufacturerId.rawValue) {
-                                selectedIndex = i
-                            }
-                        }
-                        manufacturerCombo.model = listModel
-                        manufacturerCombo._adjustSizeToContents()
-
-                        if (selectedIndex == -1) {
-                            console.warning("tagInfoDialogComponent: manufacturer id not found in list", manufacturerId)
-                        } else {
-                            manufacturerCombo.currentIndex = selectedIndex
-                        }
-                    }
-
-                }
-
-                FactTextFieldGrid {
-                    factList: [
-                        tagInfo.name,
-                        tagInfo.frequencyHz,
-                    ]
-                }
-            }
-        }
+        TagInfoDialog { }
     }
 
     Component {
@@ -334,14 +143,6 @@ Item {
 
             RowLayout {
                 spacing: ScreenTools.defaultFontPixelWidth
-
-                QGCButton {
-                    text:       qsTr("Capture Screen")
-                    onClicked: {
-                        mainWindow.closeIndicatorDrawer()
-                        QGroundControl.corePlugin.captureScreen()
-                    }
-                }
 
                 QGCButton {
                     text:       qsTr("Manufacturers")
@@ -362,7 +163,7 @@ Item {
 
             GridLayout {
                 rows:       tagDatabase.tagInfoList.count + 1
-                columns:    5
+                columns:    4
                 flow:       GridLayout.TopToBottom
 
                 QGCLabel { }
@@ -373,13 +174,6 @@ Item {
                         fact:       object.selected 
                         onClicked:  QGroundControl.corePlugin.tagDatabase.save()
                     }
-                }
-
-                QGCLabel { text: qsTr("Id") }
-                Repeater {
-                    model: tagDatabase.tagInfoList
-
-                    QGCLabel { text: object.id.valueString }
                 }
 
                 QGCLabel { text: qsTr("Name") }
@@ -431,69 +225,68 @@ Item {
             property Fact _autoTakeoffRotateRTLFact:    _customSettings.autoTakeoffRotateRTL
             property int _antennaTypeDirectional:       1
 
-            FactCheckBoxSlider {
+            LabelledFactComboBox {
                 Layout.fillWidth:   true
-                text:               qsTr("Use SNR for pulse strength")
+                label:              fact.shortDescription
                 fact:               _customSettings.useSNRForPulseStrength
             }
 
             FactCheckBoxSlider {
                 Layout.fillWidth:   true
-                text:               qsTr("Show pulse strength on map")
+                text:               fact.shortDescription
                 fact:               _customSettings.showPulseOnMap
             }
 
             LabelledFactTextField {
                 Layout.fillWidth:   true
-                label:              qsTr("Takeoff Altitude")
+                label:              fact.shortDescription
                 fact:               _customSettings.takeoffAltitude
             }
 
             LabelledFactTextField {
                 Layout.fillWidth:   true
-                label:              qsTr("Rotation Divisions")
+                label:              fact.shortDescription
                 fact:               _customSettings.divisions
             }
 
             LabelledFactTextField {
                 Layout.fillWidth:   true
-                label:              qsTr("K")
+                label:              fact.shortDescription
                 fact:               _customSettings.k
             }
 
             LabelledFactTextField {
-                Layout.fillWidth:   true
-                label:              qsTr("False Alarm Probability")
+                label:              fact.shortDescription
                 fact:               _customSettings.falseAlarmProbability
             }
 
             LabelledFactTextField {
                 Layout.fillWidth:   true
-                label:              qsTr("Max Pulse Strength")
+                label:              fact.shortDescription
                 fact:               _customSettings.maxPulseStrength
             }
 
             LabelledFactTextField {
                 Layout.fillWidth:   true
-                label:              qsTr("Antenna Offset")
+                label:              fact.shortDescription
                 fact:               _customSettings.antennaOffset
             }
 
             LabelledFactComboBox {
                 Layout.fillWidth:   true
-                label:              qsTr("Gain")
+                label:              fact.shortDescription
                 fact:               _customSettings.gain
             }
 
             LabelledFactComboBox {
                 Layout.fillWidth:   true
-                label:              qsTr("Antenna Type")
+                label:              fact.shortDescription
                 fact:               _antennaTypeFact
             }
 
             FactCheckBoxSlider {
                 Layout.fillWidth:   true
-                text:               qsTr("Full Automatic Collection")
+                text:               fact.shortDescription
                 fact:               _autoTakeoffRotateRTLFact
                 enabled:            _antennaTypeFact.rawValue === _antennaTypeDirectional
 

@@ -15,33 +15,33 @@
 },
 {
     "name":         "ip_msecs_1",
-    "shortDesc":    "Intra-pulse rate 1",
+    "shortDesc":    "Intra-Pulse Rate 1",
     "type":         "UInt32",
     "units":        "msecs",
     "default":      1333
 },
 {
     "name":         "ip_msecs_2",
-    "shortDesc":    "Intra-pulse rate 2",
+    "shortDesc":    "Intra-Pulse Rate 2",
     "type":         "UInt32",
     "units":        "msecs",
     "default":      2000
 },
 {
     "name":         "ip_msecs_1_id",
-    "shortDesc":    "Rate 1 name",
+    "shortDesc":    "Rate 1 Name",
     "type":         "string",
     "default":      "Moving"
 },
 {
     "name":         "ip_msecs_2_id",
-    "shortDesc":    "Rate 2 name",
+    "shortDesc":    "Rate 2 Name",
     "type":         "string",
     "default":      "Resting"
 },
 {
     "name":         "pulse_width_msecs",
-    "shortDesc":    "Pulse width",
+    "shortDesc":    "Pulse Width",
     "type":         "UInt32",
     "units":        "msecs",
     "default":      15

@@ -913,3 +913,35 @@ uint32_t TagDatabase::maxIntraPulseMsecs()
 
     return maxIntraPulseMsecs;
 }
+
+bool TagDatabase::tagNameExists(QObject* tagInfo)
+{
+    auto tagInfoCurrent = qobject_cast<TagInfo*>(tagInfo);
+
+    for (int i=0; i<_tagInfoListModel->count(); i++) {
+        TagInfo* tagInfoCompare = _tagInfoListModel->value<TagInfo*>(i);
+        if (tagInfoCompare != tagInfo) {
+            if (tagInfoCompare->name()->rawValue().toString() == tagInfoCurrent->name()->rawValue().toString()) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+bool TagDatabase::manufacturerNameExists(QObject* tagManufacturer)
+{
+    auto tagManufacturerCurrent = qobject_cast<TagManufacturer*>(tagManufacturer);
+
+    for (int i=0; i<_tagManufacturerListModel->count(); i++) {
+        TagManufacturer* tagManufacturerCompare = _tagManufacturerListModel->value<TagManufacturer*>(i);
+        if (tagManufacturerCompare != tagManufacturer) {
+            if (tagManufacturerCompare->name()->rawValue().toString() == tagManufacturerCurrent->name()->rawValue().toString()) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}

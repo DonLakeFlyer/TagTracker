@@ -136,6 +136,8 @@ public:
     Q_INVOKABLE QObject* newTagManufacturer();
     Q_INVOKABLE void deleteTagInfoListItem(QObject* tagInfoListItem);
     Q_INVOKABLE bool deleteTagManufacturerListItem(QObject* tagManufacturerListItem);
+    Q_INVOKABLE bool tagNameExists(QObject* tagInfo);
+    Q_INVOKABLE bool manufacturerNameExists(QObject* tagManufacturer);
     Q_INVOKABLE void save();
 
     QmlObjectListModel* tagInfoListModel        () { return _tagInfoListModel; }
