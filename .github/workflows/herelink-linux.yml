@@ -1,4 +1,4 @@
-name: Herelink-Android-Linux
+name: Herelink-Android
 
 on:
   push:
