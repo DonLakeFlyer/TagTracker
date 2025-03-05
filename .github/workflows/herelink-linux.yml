@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - MichaelStable
       - 'Stable*'
     tags:
       - 'v*'
