@@ -3,17 +3,17 @@
 #include "QmlObjectListModel.h"
 #include "QGCMAVLink.h"
 
-class TagDatabase;
-
-class DetectorInfoListModel : public QmlObjectListModel
+class DetectorList : public QmlObjectListModel
 {
     Q_OBJECT
 
 public:
-    DetectorInfoListModel(QObject* parent = nullptr);
-    ~DetectorInfoListModel();
+    DetectorList(QObject* parent = nullptr);
+    ~DetectorList();
 
-    void    setupFromTags               (TagDatabase* tagDB);
+    static DetectorList* instance();
+
+    void    setupFromSelectedTags       ();
     void    handleTunnelPulse           (const mavlink_tunnel_t& tunnel);
     void    resetMaxStrength            ();
     void    resetPulseGroupCount        ();

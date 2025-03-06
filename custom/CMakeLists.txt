@@ -1,5 +1,5 @@
 message(STATUS "Adding Custom Plugin")
-find_package(Qt6 REQUIRED COMPONENTS Core)
+find_package(Qt6 REQUIRED COMPONENTS Core StateMachine)
 
 # Enable custom build
 set_property(DIRECTORY ${CMAKE_SOURCE_DIR}
@@ -44,16 +44,24 @@ qt_add_library(CustomPlugin STATIC
     src/CustomPlugin.h
     src/CustomSettings.cc
     src/CustomSettings.h
+    src/CustomStateMachine.cc
+    src/CustomStateMachine.h
     src/DetectorInfo.cc
     src/DetectorInfo.h
-    src/DetectorInfoListModel.cc
-    src/DetectorInfoListModel.h
+    src/DetectorList.cc
+    src/DetectorList.h
     src/TagDatabase.cc
     src/TagDatabase.h
     src/PulseInfoList.cc
     src/PulseInfoList.h
     src/PulseRoseMapItem.h
     src/PulseMapItem.h
+    src/SendTagsHandler.cc
+    src/SendTagsHandler.h
+    src/CustomLoggingCategory.cc
+    src/CustomLoggingCategory.h
+    src/SendTunnelCommandState.cc
+    src/SendTunnelCommandState.h
     ${BearingHeaders}
     ${BearingSources}
     ${BearingSourcesC}
@@ -72,6 +80,7 @@ target_link_libraries(CustomPlugin
         Audio
     PUBLIC
         Qt6::Core
+        Qt6::StateMachine
         MAVLink
         QGC
         Settings

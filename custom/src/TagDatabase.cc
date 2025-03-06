@@ -10,6 +10,8 @@
 
 //#define DEBUG_TUNER
 
+Q_APPLICATION_STATIC(TagDatabase, _tagDatabaseInstance);
+
 TagInfo::TagInfo(TagDatabase* parent)
 {
     _initCommon(parent);
@@ -217,6 +219,11 @@ TagDatabase::TagDatabase(QObject* parent)
     , _tagManufacturerListModel (new QmlObjectListModel(this))
 {
     _load();
+}
+
+TagDatabase* TagDatabase::instance()
+{
+    return _tagDatabaseInstance;
 }
 
 TagDatabase::~TagDatabase()

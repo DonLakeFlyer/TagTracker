@@ -1,4 +1,4 @@
-#include "DetectorInfoListModel.h"
+#include "DetectorList.h"
 #include "DetectorInfo.h"
 #include "TagDatabase.h"
 #include "QGCApplication.h"
@@ -10,21 +10,29 @@
 #include <QLineF>
 #include <QQmlEngine>
 
-DetectorInfoListModel::DetectorInfoListModel(QObject* parent)
+Q_APPLICATION_STATIC(DetectorList, _detectorListInstance);
+
+DetectorList::DetectorList(QObject* parent)
     : QmlObjectListModel(parent)
 {
 
 }
 
-DetectorInfoListModel::~DetectorInfoListModel()
+DetectorList::~DetectorList()
 {
 
 }
 
-void DetectorInfoListModel::setupFromTags(TagDatabase* tagDB)
+DetectorList* DetectorList::instance()
+{
+    return _detectorListInstance();
+}
+
+void DetectorList::setupFromSelectedTags()
 {
     clearAndDeleteContents();
 
+    TagDatabase*        tagDB               = TagDatabase::instance();
     QmlObjectListModel* tagInfoList         = tagDB->tagInfoListModel();
     CustomSettings*     customSettings      = qobject_cast<CustomPlugin*>(CustomPlugin::instance())->customSettings();
 
@@ -56,7 +64,7 @@ void DetectorInfoListModel::setupFromTags(TagDatabase* tagDB)
     }
 }
 
-void DetectorInfoListModel::handleTunnelPulse(const mavlink_tunnel_t& tunnel)
+void DetectorList::handleTunnelPulse(const mavlink_tunnel_t& tunnel)
 {
     for (int i=0; i<count(); i++) {
         DetectorInfo* detectorInfo = qobject_cast<DetectorInfo*>(get(i));
@@ -64,7 +72,7 @@ void DetectorInfoListModel::handleTunnelPulse(const mavlink_tunnel_t& tunnel)
     }
 }
 
-void DetectorInfoListModel::resetMaxStrength()
+void DetectorList::resetMaxStrength()
 {
     for (int i=0; i<count(); i++) {
         DetectorInfo* detectorInfo = qobject_cast<DetectorInfo*>(get(i));
@@ -72,7 +80,7 @@ void DetectorInfoListModel::resetMaxStrength()
     }
 }
 
-void DetectorInfoListModel::resetPulseGroupCount()
+void DetectorList::resetPulseGroupCount()
 {
     for (int i=0; i<count(); i++) {
         DetectorInfo* detectorInfo = qobject_cast<DetectorInfo*>((*this)[i]);
@@ -80,7 +88,7 @@ void DetectorInfoListModel::resetPulseGroupCount()
     }
 }
 
-double DetectorInfoListModel::maxStrength() const
+double DetectorList::maxStrength() const
 {
     double maxStrength = 0.0;
     for (int i=0; i<count(); i++) {
@@ -91,7 +99,7 @@ double DetectorInfoListModel::maxStrength() const
     return maxStrength;
 }
 
-bool DetectorInfoListModel::allHeartbeatCountsReached(uint32_t targetHeartbeatCount) const
+bool DetectorList::allHeartbeatCountsReached(uint32_t targetHeartbeatCount) const
 {
     for (int i=0; i<count(); i++) {
         const DetectorInfo* detectorInfo = qobject_cast<const DetectorInfo*>((*this)[i]);
@@ -103,7 +111,7 @@ bool DetectorInfoListModel::allHeartbeatCountsReached(uint32_t targetHeartbeatCo
     return true;
 }
 
-bool DetectorInfoListModel::allPulseGroupCountsReached(uint32_t targetPulseGroupCount) const
+bool DetectorList::allPulseGroupCountsReached(uint32_t targetPulseGroupCount) const
 {
     for (int i=0; i<count(); i++) {
         const DetectorInfo* detectorInfo = qobject_cast<const DetectorInfo*>((*this)[i]);
