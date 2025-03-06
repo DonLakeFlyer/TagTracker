@@ -62,7 +62,7 @@ Item {
             spacing:    2
 
             Repeater {
-                model: QGroundControl.corePlugin.detectorInfoList
+                model: QGroundControl.corePlugin.detectorList
 
                 RowLayout {
                     property real filteredSNR: Math.max(0, Math.min(object.lastPulseStrength, maxStrength))

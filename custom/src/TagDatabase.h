@@ -129,6 +129,8 @@ public:
     TagDatabase(QObject* parent = NULL);
     ~TagDatabase();
 
+    static TagDatabase* instance();
+
     Q_PROPERTY(QmlObjectListModel* tagInfoList          MEMBER _tagInfoListModel            CONSTANT)
     Q_PROPERTY(QmlObjectListModel* tagManufacturerList  MEMBER _tagManufacturerListModel    CONSTANT)
 

@@ -9,16 +9,13 @@
 #include "CustomOptions.h"
 #include "CustomSettings.h"
 #include "TunnelProtocol.h"
-#include "DetectorInfoListModel.h"
+#include "DetectorList.h"
 #include "TagDatabase.h"
 
 #include <QElapsedTimer>
 #include <QGeoCoordinate>
 #include <QTimer>
-#include <QLoggingCategory>
 #include <QFile>
-
-Q_DECLARE_LOGGING_CATEGORY(CustomPluginLog)
 
 class CustomPlugin : 
 #ifdef TAG_TRACKER_HERELINK_BUILD
@@ -52,18 +49,19 @@ public:
     Q_PROPERTY(bool                 controllerLostHeartbeat MEMBER  _controllerLostHeartbeat    NOTIFY controllerLostHeartbeatChanged)
     Q_PROPERTY(int                  controllerStatus        MEMBER  _controllerStatus           NOTIFY controllerStatusChanged)
     Q_PROPERTY(float                controllerCPUTemp       MEMBER  _controllerCPUTemp          NOTIFY controllerCPUTempChanged)
-    Q_PROPERTY(QmlObjectListModel*  detectorInfoList        READ    detectorInfoList            CONSTANT)
-    Q_PROPERTY(TagDatabase*         tagDatabase             MEMBER  _tagDatabase                CONSTANT)
+    Q_PROPERTY(QmlObjectListModel*  detectorList            READ    detectorList                CONSTANT)
+    Q_PROPERTY(TagDatabase*         tagDatabase             READ    tagDatabase                 CONSTANT)
     Q_PROPERTY(double               maxSNR                  MEMBER  _maxSNR                     NOTIFY maxSNRChanged)
     Q_PROPERTY(double               minSNR                  MEMBER  _minSNR                     NOTIFY minSNRChanged)
 
     CustomSettings*     customSettings  () { return _customSettings; }
-    QmlObjectListModel* detectorInfoList() { return dynamic_cast<QmlObjectListModel*>(&_detectorInfoListModel); }
+    DetectorList *      detectorList() { return DetectorList::instance(); }
+
+    TagDatabase* tagDatabase();
 
     Q_INVOKABLE void autoTakeoffRotateRTL();
     Q_INVOKABLE void startRotation      (void);
     Q_INVOKABLE void cancelAndReturn    (void);
-    Q_INVOKABLE void sendTags           (void);
     Q_INVOKABLE void startDetection     (void);
     Q_INVOKABLE void stopDetection      (void);
     Q_INVOKABLE void rawCapture         (void);
@@ -94,8 +92,6 @@ signals:
     void downloadLogDirFilesComplete    (const QString& errorMsg);
     void maxSNRChanged                  (double maxSNR);
     void minSNRChanged                  (double minSNR);
-    void _sendTagsSequenceComplete      (void);
-    void _sendTagsSequenceFailed        (void);
     void _detectionStarted              (void);
     void _startDetectionFailed          (void);
     void _detectionStopped              (void);
@@ -108,17 +104,13 @@ private slots:
     void _vehicleStateTimeout           (void);
     void _updateFlightMachineActive     (bool flightMachineActive);
     void _mavCommandResult              (int vehicleId, int component, int command, int result, bool noResponseFromVehicle);
-    void _tunnelCommandAckFailed        (void);
     void _controllerHeartbeatFailed     (void);
     void _logDirListDownloaded          (const QStringList& dirList, const QString& errorMsg);
     void _logDirDownloadedForFiles      (const QStringList& dirList, const QString& errorMsg);
     void _logFileDownloadComplete       (const QString& file, const QString& errorMsg);
-    void _startDetection                (void);
-    void _rawCapture                    (void);
 
 private:
     typedef enum {
-        CommandSendTags,
         CommandStartDetectors,
         CommandStopDetectors,
         CommandTakeoff,
@@ -142,7 +134,6 @@ private:
         uint    rotationDelayHeartbeatCount { 0 };
     } HeartbeatInfo_t;
 
-    void    _handleTunnelCommandAck     (const mavlink_tunnel_t& tunnel);
     void    _handleTunnelPulse          (Vehicle* vehicle, const mavlink_tunnel_t& tunnel);
     void    _handleTunnelHeartbeat      (const mavlink_tunnel_t& tunnel);
     void    _rotateVehicle              (Vehicle* vehicle, double headingDegrees);
@@ -153,13 +144,9 @@ private:
     void    _takeoff                    (Vehicle* vehicle, double takeoffAltRel);
     void    _resetStateAndRTL           (void);
     int     _rawPulseToPct              (double rawPulse);
-    void    _sendTunnelCommand          (uint8_t* payload, size_t payloadSize);
-    QString _tunnelCommandIdToText      (uint32_t command);
     double  _pulseTimeSeconds           (void) { return _lastPulseInfo.start_time_seconds; }
     double  _pulseSNR                   (void) { return _lastPulseInfo.snr; }
     bool    _pulseConfirmed             (void) { return _lastPulseInfo.confirmed_status; }
-    void    _sendNextTag                (void);
-    void    _sendEndTags                (void);
     void    _setupDelayForSteadyCapture (void);
     void    _rotationDelayComplete      (void);
     QString _logSavePath                (void);
@@ -173,7 +160,6 @@ private:
     void    _logFilesDownloadWorker     (void);
     bool    _useSNRForPulseStrength     (void) { return _customSettings->useSNRForPulseStrength()->rawValue().toBool(); }
     void    _captureScreen              (void);
-    void    _startSendTagsSequence      (void);
     void    _addRotationStates          (void);
     void    _initNewRotationDuringFlight(void);
     void    _clearVehicleStates         (void);
@@ -193,11 +179,8 @@ private:
     bool                    _retryRotation      = false;
     int                     _controllerStatus   = ControllerStatusIdle;
     float                   _controllerCPUTemp  = 0.0;
-    int                     _nextTagIndexToSend = 0;
 
     QTimer                  _vehicleStateTimeoutTimer;
-    QTimer                  _tunnelCommandAckTimer;
-    uint32_t                _tunnelCommandAckExpected;
     CustomOptions*          _customOptions;
     CustomSettings*         _customSettings;
     int                     _vehicleFrequency;
@@ -209,10 +192,6 @@ private:
     int                     _csvRotationCount = 1;
     TunnelProtocol::PulseInfo_t _lastPulseInfo;
     QVariantList            _toolbarIndicators;
-
-    DetectorInfoListModel   _detectorInfoListModel;
-
-    TagDatabase*             _tagDatabase = nullptr;
 
     bool                    _controllerLostHeartbeat { true };
     QTimer                  _controllerHeartbeatTimer;

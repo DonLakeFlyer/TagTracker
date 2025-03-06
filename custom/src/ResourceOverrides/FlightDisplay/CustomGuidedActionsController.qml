@@ -3,7 +3,6 @@ import QtQml
 import QGroundControl
 
 QtObject {
-    readonly property int actionSendTags:                   customActionStart + 1
     readonly property int actionStartDetection:             customActionStart + 2
     readonly property int actionStopDetection:              customActionStart + 3
     readonly property int actionStartRotation:              customActionStart + 4
@@ -12,7 +11,6 @@ QtObject {
     readonly property int actionClearLogs:                  customActionStart + 7
     readonly property int actionAutoTakeoffRotateRTL:       customActionStart + 8
 
-    readonly property string sendTagsTitle:                 qsTr("Tagsꜛ")
     readonly property string startDetectionTitle:           qsTr("Start")
     readonly property string stopDetectionTitle:            qsTr("Stop")
     readonly property string startRotationTitle:            qsTr("Rotate")
@@ -22,7 +20,6 @@ QtObject {
     readonly property string clearLogsTitle:                qsTr("Clear")
     readonly property string autoTakeoffRotateRTLTitle:     qsTr("Auto")
 
-    readonly property string sendTagsMessage:               qsTr("Send tag(s) to vehicle.")
     readonly property string startDetectionMessage:         qsTr("Start pulse detection for the specified tag(s).")
     readonly property string stopDetectionMessage:          qsTr("Stop all pulse detection.")
     readonly property string startRotationMessage:          qsTr("Start rotation in place.")
@@ -34,11 +31,6 @@ QtObject {
 
     function customConfirmAction(actionCode, actionData, mapIndicator, confirmDialog) {
         switch (actionCode) {
-        case actionSendTags:
-            confirmDialog.hideTrigger = true
-            confirmDialog.title = sendTagsTitle
-            confirmDialog.message = sendTagsMessage
-            break
         case actionStartDetection:
             confirmDialog.hideTrigger = true
             confirmDialog.title = startDetectionTitle
@@ -83,9 +75,6 @@ QtObject {
 
     function customExecuteAction(actionCode, actionData, sliderOutputValue, optionCheckedode) {
         switch (actionCode) {
-        case actionSendTags:
-            QGroundControl.corePlugin.sendTags()
-            break
         case actionStartDetection:
             QGroundControl.corePlugin.startDetection()
             break

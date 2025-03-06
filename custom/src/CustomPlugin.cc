@@ -1,14 +1,19 @@
 #include "CustomPlugin.h"
-#include "Vehicle.h"
+#include "CustomLoggingCategory.h"
 #include "CustomSettings.h"
+#include "TagDatabase.h"
+#include "SendTagsHandler.h"
+#include "CustomStateMachine.h"
+#include "SendTunnelCommandState.h"
+
+#include "Vehicle.h"
 #include "QGCApplication.h"
 #include "SettingsManager.h"
 #include "AppSettings.h"
 #include "FlyViewSettings.h"
 #include "TunnelProtocol.h"
-#include "DetectorInfoListModel.h"
+#include "DetectorList.h"
 #include "QGC.h"
-#include "QGCLoggingCategory.h"
 #include "FTPManager.h"
 #include "MultiVehicleManager.h"
 #include "MAVLinkProtocol.h"
@@ -25,10 +30,9 @@
 #include <QQmlEngine>
 #include <QScreen>
 #include <QThread>
+#include <QFinalState>
 
 using namespace TunnelProtocol;
-
-QGC_LOGGING_CATEGORY(CustomPluginLog, "CustomPluginLog")
 
 Q_DECLARE_METATYPE(CustomPlugin::ControllerStatus)
 
@@ -51,13 +55,10 @@ CustomPlugin::CustomPlugin(QObject* parent)
     qmlRegisterUncreatableType<CustomPlugin>("QGroundControl", 1, 0, "CustomPlugin", "Reference only");
 
     _vehicleStateTimeoutTimer.setSingleShot(true);
-    _tunnelCommandAckTimer.setSingleShot(true);
-    _tunnelCommandAckTimer.setInterval(2000);
     _controllerHeartbeatTimer.setSingleShot(true);
     _controllerHeartbeatTimer.setInterval(6000);    // We should get heartbeats every 5 seconds
 
     connect(&_vehicleStateTimeoutTimer,     &QTimer::timeout, this, &CustomPlugin::_vehicleStateTimeout);
-    connect(&_tunnelCommandAckTimer,        &QTimer::timeout, this, &CustomPlugin::_tunnelCommandAckFailed);
     connect(&_controllerHeartbeatTimer,     &QTimer::timeout, this, &CustomPlugin::_controllerHeartbeatFailed);
 }
 
@@ -80,12 +81,15 @@ void CustomPlugin::init()
     QGCCorePlugin::init();
 #endif
 
-    _customSettings             = new CustomSettings            (nullptr);
-    _customOptions              = new CustomOptions             (this, nullptr);
-
-    _tagDatabase = new TagDatabase(this);
+    _customSettings = new CustomSettings(nullptr);
+    _customOptions = new CustomOptions(this, nullptr);
 
     _csvClearPrevRotationLogs();
+}
+
+TagDatabase* CustomPlugin::tagDatabase()
+{
+    return TagDatabase::instance();
 }
 
 const QVariantList& CustomPlugin::toolBarIndicators(void)
@@ -113,21 +117,16 @@ bool CustomPlugin::mavlinkMessage(Vehicle *vehicle, LinkInterface *link, const m
         memcpy(&header, tunnel.payload, sizeof(header));
 
         switch (header.command) {
-        case COMMAND_ID_ACK:
-            _handleTunnelCommandAck(tunnel);
-            break;
         case COMMAND_ID_PULSE:
             _handleTunnelPulse(vehicle, tunnel);
-            break;
+            return false;
         case COMMAND_ID_HEARTBEAT:
             _handleTunnelHeartbeat(tunnel);
-            break;
+            return false;
         }
-
-        return false;
-    } else {
-        return true;
     }
+
+    return true;
 }
 
 void CustomPlugin::_handleTunnelHeartbeat(const mavlink_tunnel_t& tunnel)
@@ -159,72 +158,13 @@ void CustomPlugin::_handleTunnelHeartbeat(const mavlink_tunnel_t& tunnel)
     }
 }
 
-void CustomPlugin::_handleTunnelCommandAck(const mavlink_tunnel_t& tunnel)
-{
-    AckInfo_t ack;
-
-    memcpy(&ack, tunnel.payload, sizeof(ack));
-
-    if (ack.command == _tunnelCommandAckExpected) {
-        _tunnelCommandAckExpected = 0;
-        _tunnelCommandAckTimer.stop();
-
-        qCDebug(CustomPluginLog) << "Tunnel command ack received - command:result" << _tunnelCommandIdToText(ack.command) << ack.result;
-        if (ack.result == COMMAND_RESULT_SUCCESS) {
-            switch (ack.command) {
-            case COMMAND_ID_START_TAGS:
-            case COMMAND_ID_TAG:
-                _sendNextTag();
-                break;
-            case COMMAND_ID_END_TAGS:
-                _detectorInfoListModel.setupFromTags(_tagDatabase);
-                emit _sendTagsSequenceComplete();
-                break;
-            case COMMAND_ID_START_DETECTION:
-                _say("Detection started");
-                emit _detectionStarted();
-                _csvStartFullPulseLog();
-                break;
-            case COMMAND_ID_STOP_DETECTION:
-                _say("Detection stopped");
-                emit _detectionStopped();
-                _csvStopFullPulseLog();
-                break;
-            }
-        } else {
-            QString message = QStringLiteral("%1 command failed").arg(_tunnelCommandIdToText(ack.command));
-            _say(message);
-            qgcApp()->showAppMessage(message);
-            qCWarning(CustomPluginLog) << message << "- ack.result" << ack.result;
-
-            switch (ack.command) {
-                case COMMAND_ID_START_TAGS:
-                case COMMAND_ID_TAG:
-                case COMMAND_ID_END_TAGS:
-                emit _sendTagsSequenceFailed();
-                case COMMAND_ID_START_DETECTION:
-                    emit _startDetectionFailed();
-                    break;
-                case COMMAND_ID_STOP_DETECTION:
-                    emit _stopDetectionFailed();
-                    break;
-            }    
-        }
-
-    } else {
-        qWarning() << "_handleTunnelCommandAck: Received unexpected command id ack expected:actual" <<
-                      _tunnelCommandIdToText(_tunnelCommandAckExpected) <<
-                      _tunnelCommandIdToText(ack.command);
-    }
-}
-
 void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& tunnel)
 {
     if (tunnel.payload_length != sizeof(PulseInfo_t)) {
         qWarning() << "_handleTunnelPulse Received incorrectly sized PulseInfo payload expected:actual" <<  sizeof(PulseInfo_t) << tunnel.payload_length;
     }
 
-    _detectorInfoListModel.handleTunnelPulse(tunnel);
+    detectorList()->handleTunnelPulse(tunnel);
 
     PulseInfo_t pulseInfo;
     memcpy(&pulseInfo, tunnel.payload, sizeof(pulseInfo));
@@ -232,7 +172,7 @@ void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& 
     bool isDetectorHeartbeat = pulseInfo.frequency_hz == 0;
     if (pulseInfo.confirmed_status || isDetectorHeartbeat) {
         auto evenTagId  = pulseInfo.tag_id - (pulseInfo.tag_id % 2);
-        auto tagInfo    = _tagDatabase->findTagInfo(evenTagId);
+        auto tagInfo    = TagDatabase::instance()->findTagInfo(evenTagId);
 
         if (!tagInfo) {
             qWarning() << "_handleTunnelPulse: Received pulse for unknown tag_id" << pulseInfo.tag_id;
@@ -432,6 +372,7 @@ void CustomPlugin::cancelAndReturn(void)
 
 void CustomPlugin::autoTakeoffRotateRTL()
 {
+#if 0
     qCDebug(CustomPluginLog) << "autoTakeoffRotateRTL";
 
     Vehicle* vehicle = MultiVehicleManager::instance()->activeVehicle();
@@ -474,6 +415,7 @@ void CustomPlugin::autoTakeoffRotateRTL()
 
     _updateFlightMachineActive(true);
     _advanceStateMachine();
+#endif    
 }
 
 void CustomPlugin::_clearVehicleStates(void)
@@ -483,8 +425,6 @@ void CustomPlugin::_clearVehicleStates(void)
 
     disconnect(this, &CustomPlugin::_detectionStarted, nullptr, nullptr);
     disconnect(this, &CustomPlugin::_detectionStopped, nullptr, nullptr);
-    disconnect(this, &CustomPlugin::_sendTagsSequenceComplete, nullptr, nullptr);
-    disconnect(this, &CustomPlugin::_sendTagsSequenceFailed, nullptr, nullptr);
 }
 
 void CustomPlugin::_addRotationStates(void)
@@ -514,7 +454,7 @@ void CustomPlugin::_addRotationStates(void)
     // We wait at each rotation for enough time to go by to capture a user specified set of k groups
     uint32_t maxK = _customSettings->k()->rawValue().toUInt();
     auto kGroups = _customSettings->rotationKWaitCount()->rawValue().toInt();
-    auto maxIntraPulseMsecs = _tagDatabase->maxIntraPulseMsecs();
+    auto maxIntraPulseMsecs = TagDatabase::instance()->maxIntraPulseMsecs();
     uint32_t rotationCaptureWaitMsecs = maxIntraPulseMsecs * ((kGroups * maxK) + 1);
 
     _currentSlice = 0;
@@ -580,24 +520,35 @@ void CustomPlugin::startRotation(void)
     _advanceStateMachine();
 }
 
-void CustomPlugin::_startDetection(void)
+void CustomPlugin::startDetection(void)
 {
     StartDetectionInfo_t startDetectionInfo;
 
     memset(&startDetectionInfo, 0, sizeof(startDetectionInfo));
 
     startDetectionInfo.header.command               = COMMAND_ID_START_DETECTION;
-    startDetectionInfo.radio_center_frequency_hz    = _tagDatabase->radioCenterHz();
+    startDetectionInfo.radio_center_frequency_hz    = TagDatabase::instance()->radioCenterHz();
     startDetectionInfo.gain                         = _customSettings->gain()->rawValue().toUInt();
 
-    _sendTunnelCommand((uint8_t*)&startDetectionInfo, sizeof(startDetectionInfo));
-}
+    auto stateMachine = new CustomStateMachine(this);
 
-void CustomPlugin::startDetection(void)
-{
-    disconnect(this, &CustomPlugin::_sendTagsSequenceComplete, nullptr, nullptr);
-    connect(this, &CustomPlugin::_sendTagsSequenceComplete, this, &CustomPlugin::_startDetection);
-    _startSendTagsSequence();
+    auto errorState = stateMachine->errorState();
+    auto finalState = stateMachine->finalState();
+
+    auto sendStartDetectionState = new SendTunnelCommandState((uint8_t*)&startDetectionInfo, sizeof(startDetectionInfo), stateMachine);
+    auto sendTagsState = SendTagsHandler::instance()->createSendTagsState(stateMachine);
+
+    // Setup start detection command
+    sendStartDetectionState->addTransition(sendStartDetectionState, &SendTunnelCommandState::commandSucceeded, finalState);
+    sendStartDetectionState->addTransition(sendStartDetectionState, &SendTunnelCommandState::error, errorState);
+
+    // Setup send tags portion of state machine
+    sendTagsState->addTransition(sendTagsState, &QState::finished, sendStartDetectionState);
+    sendTagsState->addTransition(sendTagsState, &CustomState::error, errorState);
+
+    stateMachine->setInitialState(sendTagsState);
+
+    stateMachine->start();
 }
 
 void CustomPlugin::stopDetection(void)
@@ -605,108 +556,84 @@ void CustomPlugin::stopDetection(void)
     StopDetectionInfo_t stopDetectionInfo;
 
     stopDetectionInfo.header.command = COMMAND_ID_STOP_DETECTION;
-    _sendTunnelCommand((uint8_t*)&stopDetectionInfo, sizeof(stopDetectionInfo));
+
+    auto stateMachine = new CustomStateMachine(this);
+
+    auto errorState             = stateMachine->errorState();
+    auto finalState             = stateMachine->finalState();
+    auto sendStopDetectionState = new SendTunnelCommandState((uint8_t*)&stopDetectionInfo, sizeof(stopDetectionInfo), stateMachine);
+
+    sendStopDetectionState->addTransition(sendStopDetectionState, &SendTunnelCommandState::commandSucceeded, finalState);
+
+    stateMachine->setInitialState(sendStopDetectionState);
+
+    stateMachine->start();
 }
 
 void CustomPlugin::rawCapture(void)
-{
-    disconnect(this, &CustomPlugin::_sendTagsSequenceComplete, nullptr, nullptr);
-    connect(this, &CustomPlugin::_sendTagsSequenceComplete, this, &CustomPlugin::_rawCapture);
-    _startSendTagsSequence();
-}
-
-void CustomPlugin::_rawCapture(void)
 {
     RawCaptureInfo_t rawCapture;
 
     rawCapture.header.command   = COMMAND_ID_RAW_CAPTURE;
     rawCapture.gain             = _customSettings->gain()->rawValue().toUInt();
 
-    _sendTunnelCommand((uint8_t*)&rawCapture, sizeof(rawCapture));
+    auto stateMachine = new CustomStateMachine(this);
+
+    auto errorState = stateMachine->errorState();
+    auto finalState = stateMachine->finalState();
+
+    auto sendTagsState          = SendTagsHandler::instance()->createSendTagsState(stateMachine);
+    auto sendRawCaptureState    = new SendTunnelCommandState((uint8_t*)&rawCapture, sizeof(rawCapture), stateMachine);
+
+    // Send Tags -> Raw Capture
+    sendTagsState->addTransition(sendTagsState, &QState::finished, sendRawCaptureState);
+
+    // Raw Capure -> Final State
+    sendRawCaptureState->addTransition(sendRawCaptureState, &SendTunnelCommandState::commandSucceeded, finalState);
+
+    stateMachine->setInitialState(sendTagsState);
+
+    stateMachine->start();
 }
 
-void CustomPlugin::sendTags(void)
+void CustomPlugin::saveLogs()
 {
-    _startSendTagsSequence();
+    SaveLogsInfo_t saveLogsInfo;
+
+    saveLogsInfo.header.command = COMMAND_ID_SAVE_LOGS;
+
+    auto stateMachine = new CustomStateMachine(this);
+
+    auto finalState = stateMachine->finalState();
+
+    auto sendSaveLogsState = new SendTunnelCommandState((uint8_t*)&saveLogsInfo, sizeof(saveLogsInfo), stateMachine);
+
+    // Send Save Logs -> Final State
+    sendSaveLogsState->addTransition(sendSaveLogsState, &SendTunnelCommandState::commandSucceeded, finalState);
+
+    stateMachine->setInitialState(sendSaveLogsState);
+
+    stateMachine->start();
 }
 
-void CustomPlugin::_startSendTagsSequence(void)
+void CustomPlugin::cleanLogs()
 {
-    bool foundSelectedTag = false;
-    for (int i=0; i<_tagDatabase->tagInfoListModel()->count(); i++) {
-        TagInfo* tagInfo = _tagDatabase->tagInfoListModel()->value<TagInfo*>(i);
-        if (tagInfo->selected()->rawValue().toUInt()) {
-            foundSelectedTag = true;
-            break;
-        }
-    }
-    if (!foundSelectedTag) {
-        qgcApp()->showAppMessage(("No tags are available/selected to send."));
-        return;
-    }
+    CleanLogsInfo_t cleanLogsInfo;
 
-    if (!_tagDatabase->channelizerTuner()) {
-        qgcApp()->showAppMessage("Channelizer tuner failed. Detectors not started");
-        return;
-    }
+    cleanLogsInfo.header.command = COMMAND_ID_CLEAN_LOGS;
 
-    _nextTagIndexToSend = 0;
+    auto stateMachine = new CustomStateMachine(this);
 
-    StartTagsInfo_t startTagsInfo;
+    auto finalState = stateMachine->finalState();
 
-    startTagsInfo.header.command    = COMMAND_ID_START_TAGS;
+    auto sendCleanLogsState = new SendTunnelCommandState((uint8_t*)&cleanLogsInfo, sizeof(cleanLogsInfo), stateMachine);
 
-    _sendTunnelCommand((uint8_t*)&startTagsInfo, sizeof(startTagsInfo));
-}
+    // Send Clean Logs -> Final State
+    sendCleanLogsState->addTransition(sendCleanLogsState, &SendTunnelCommandState::commandSucceeded, finalState);
 
-void CustomPlugin::_sendNextTag(void)
-{
-    // Don't send tags too fast
-    QThread::msleep(100);
+    stateMachine->setInitialState(sendCleanLogsState);
 
-    auto tagInfoListModel = _tagDatabase->tagInfoListModel();
-
-    if (_nextTagIndexToSend >= tagInfoListModel->count()) {
-        _sendEndTags();
-    } else {
-        auto tagInfo = tagInfoListModel->value<TagInfo*>(_nextTagIndexToSend++);
-
-        if (tagInfo->selected()->rawValue().toUInt()) {
-            TunnelProtocol::TagInfo_t tunnelTagInfo;
-            auto tagManufacturer = _tagDatabase->findTagManufacturer(tagInfo->manufacturerId()->rawValue().toUInt());
-
-            memset(&tunnelTagInfo, 0, sizeof(tunnelTagInfo));
-
-            tunnelTagInfo.header.command = COMMAND_ID_TAG;
-            tunnelTagInfo.id                                        = tagInfo->id()->rawValue().toUInt();
-            tunnelTagInfo.frequency_hz                              = tagInfo->frequencyHz()->rawValue().toUInt();
-            tunnelTagInfo.pulse_width_msecs                         = tagManufacturer->pulse_width_msecs()->rawValue().toUInt();
-            tunnelTagInfo.intra_pulse1_msecs                        = tagManufacturer->ip_msecs_1()->rawValue().toUInt();
-            tunnelTagInfo.intra_pulse2_msecs                        = tagManufacturer->ip_msecs_2()->rawValue().toUInt();
-            tunnelTagInfo.intra_pulse_uncertainty_msecs             = tagManufacturer->ip_uncertainty_msecs()->rawValue().toUInt();
-            tunnelTagInfo.intra_pulse_jitter_msecs                  = tagManufacturer->ip_jitter_msecs()->rawValue().toUInt();
-            tunnelTagInfo.k                                         = _customSettings->k()->rawValue().toUInt();
-            tunnelTagInfo.false_alarm_probability                   = _customSettings->falseAlarmProbability()->rawValue().toDouble() / 100.0;
-            tunnelTagInfo.channelizer_channel_number                = tagInfo->channelizer_channel_number;
-            tunnelTagInfo.channelizer_channel_center_frequency_hz   = tagInfo->channelizer_channel_center_frequency_hz;
-            tunnelTagInfo.ip1_mu                                    = qQNaN();
-            tunnelTagInfo.ip1_sigma                                 = qQNaN();
-            tunnelTagInfo.ip2_mu                                    = qQNaN();
-            tunnelTagInfo.ip2_sigma                                 = qQNaN();
-
-            _sendTunnelCommand((uint8_t*)&tunnelTagInfo, sizeof(tunnelTagInfo));
-        } else {
-            _sendNextTag();
-        }
-    }
-}
-
-void CustomPlugin::_sendEndTags(void)
-{
-    EndTagsInfo_t endTagsInfo;
-
-    endTagsInfo.header.command = COMMAND_ID_END_TAGS;
-    _sendTunnelCommand((uint8_t*)&endTagsInfo, sizeof(endTagsInfo));
+    stateMachine->start();
 }
 
 void CustomPlugin::_sendCommandAndVerify(Vehicle* vehicle, MAV_CMD command, double param1, double param2, double param3, double param4, double param5, double param6, double param7)
@@ -780,8 +707,6 @@ void CustomPlugin::_takeoff(Vehicle* vehicle, double takeoffAltRel)
         return;
     }
 
-
-
     double takeoffAltAMSL = takeoffAltRel + vehicleAltitudeAMSL;
 
     _sendCommandAndVerify(
@@ -820,8 +745,8 @@ void CustomPlugin::_rotateVehicle(Vehicle* vehicle, double headingDegrees)
 
 void CustomPlugin::_setupDelayForSteadyCapture(void)
 {
-    _detectorInfoListModel.resetMaxStrength();
-    _detectorInfoListModel.resetPulseGroupCount();
+    detectorList()->resetMaxStrength();
+    detectorList()->resetPulseGroupCount();
 }
 
 QString CustomPlugin::_holdFlightMode(void)
@@ -835,8 +760,6 @@ void CustomPlugin::_advanceStateMachineOnSignal()
     disconnect(this, &CustomPlugin::_startDetectionFailed, nullptr, nullptr);
     disconnect(this, &CustomPlugin::_detectionStopped, nullptr, nullptr);
     disconnect(this, &CustomPlugin::_stopDetectionFailed, nullptr, nullptr);
-    disconnect(this, &CustomPlugin::_sendTagsSequenceComplete, nullptr, nullptr);
-    disconnect(this, &CustomPlugin::_sendTagsSequenceFailed, nullptr, nullptr);
 
     _advanceStateMachine();
 }
@@ -904,21 +827,6 @@ void CustomPlugin::_advanceStateMachine(void)
         _setRTLFlightModeAndValidate(vehicle);
         _say("Collection complete, returning");
         break;
-    case CommandSendTags:
-        connect(this, &CustomPlugin::_sendTagsSequenceComplete, this, &CustomPlugin::_advanceStateMachineOnSignal);
-        connect(this, &CustomPlugin::_sendTagsSequenceFailed, this, &CustomPlugin::cancelAndReturn);
-        _startSendTagsSequence();
-        break;
-    case CommandStartDetectors:
-        connect(this, &CustomPlugin::_detectionStarted, this, &CustomPlugin::_advanceStateMachineOnSignal);
-        connect(this, &CustomPlugin::_startDetectionFailed, this, &CustomPlugin::cancelAndReturn);
-        _startDetection();
-        break;
-    case CommandStopDetectors:
-        connect(this, &CustomPlugin::_detectionStopped, this, &CustomPlugin::_advanceStateMachineOnSignal);
-        connect(this, &CustomPlugin::_stopDetectionFailed, this, &CustomPlugin::_advanceStateMachineOnSignal);
-        stopDetection();
-        break;
     }
 
     if (currentState.targetValueWaitMsecs) {
@@ -969,7 +877,7 @@ int CustomPlugin::_rawPulseToPct(double rawPulse)
 
 void CustomPlugin::_rotationDelayComplete(void)
 {
-    double maxStrength = _detectorInfoListModel.maxStrength();
+    double maxStrength = detectorList()->maxStrength();
     qCDebug(CustomPluginLog) << "_rotationDelayComplete: max snr" << maxStrength;
     _rgAngleStrengths.last()[_currentSlice] = maxStrength;
 
@@ -1112,86 +1020,6 @@ bool CustomPlugin::adjustSettingMetaData(const QString& settingsGroup, FactMetaD
 #else
     return true;
 #endif
-}
-
-QString CustomPlugin::_tunnelCommandIdToText(uint32_t vhfCommandId)
-{
-    switch (vhfCommandId) {
-    case COMMAND_ID_TAG:
-        return QStringLiteral("tag send");
-    case COMMAND_ID_START_TAGS:
-        return QStringLiteral("start tag send");
-    case COMMAND_ID_END_TAGS:
-        return QStringLiteral("end tag send");
-    case COMMAND_ID_PULSE:
-        return QStringLiteral("pulse");
-    case COMMAND_ID_RAW_CAPTURE:
-        return QStringLiteral("raw capture");
-    case COMMAND_ID_START_DETECTION:
-        return QStringLiteral("start detection");
-    case COMMAND_ID_STOP_DETECTION:
-        return QStringLiteral("stop detection");
-    case COMMAND_ID_SAVE_LOGS:
-        return QStringLiteral("save logs");
-    case COMMAND_ID_CLEAN_LOGS:
-        return QStringLiteral("clean logs");
-    default:
-        return QStringLiteral("unknown command:%1").arg(vhfCommandId);
-    }
-}
-
-void CustomPlugin::_tunnelCommandAckFailed(void)
-{
-    QString message = QStringLiteral("%1 failed. no response from vehicle.").arg(_tunnelCommandIdToText(_tunnelCommandAckExpected));
-
-    _say(QStringLiteral("%1 failed. no response from vehicle.").arg(_tunnelCommandIdToText(_tunnelCommandAckExpected)));
-    qgcApp()->showAppMessage(message);
-
-    _tunnelCommandAckExpected = 0;
-}
-
-void CustomPlugin::_sendTunnelCommand(uint8_t* payload, size_t payloadSize)
-{
-    Vehicle* vehicle = MultiVehicleManager::instance()->activeVehicle();
-    if (!vehicle) {
-        qCDebug(CustomPluginLog) << "_sendTunnelCommand called with no vehicle active";
-        return;
-    }
-
-    WeakLinkInterfacePtr    weakPrimaryLink     = vehicle->vehicleLinkManager()->primaryLink();
-
-    if (!weakPrimaryLink.expired()) {
-        SharedLinkInterfacePtr  sharedLink  = weakPrimaryLink.lock();
-        MAVLinkProtocol*        mavlink     = MAVLinkProtocol::instance();
-        mavlink_message_t       msg;
-        mavlink_tunnel_t        tunnel;
-
-        memset(&tunnel, 0, sizeof(tunnel));
-
-        HeaderInfo_t tunnelHeader;
-        memcpy(&tunnelHeader, payload, sizeof(tunnelHeader));
-
-        _tunnelCommandAckExpected = tunnelHeader.command;
-        _tunnelCommandAckTimer.start();
-
-        memcpy(tunnel.payload, payload, payloadSize);
-
-        tunnel.target_system    = vehicle->id();
-        tunnel.target_component = MAV_COMP_ID_ONBOARD_COMPUTER;
-        tunnel.payload_type     = MAV_TUNNEL_PAYLOAD_TYPE_UNKNOWN;
-        tunnel.payload_length   = payloadSize;
-
-        mavlink_msg_tunnel_encode_chan(
-                    static_cast<uint8_t>(mavlink->getSystemId()),
-                    static_cast<uint8_t>(mavlink->getComponentId()),
-                    sharedLink->mavlinkChannel(),
-                    &msg,
-                    &tunnel);
-
-        vehicle->sendMessageOnLinkThreadSafe(sharedLink.get(), msg);
-    }
-
-
 }
 
 QmlObjectListModel* CustomPlugin::customMapItems(void)
@@ -1372,22 +1200,6 @@ void CustomPlugin::captureScreen(void)
 {
     // We need to delay the screen capture to allow the dialog to close
     QTimer::singleShot(500, [this]() { _captureScreen(); } );
-}
-
-void CustomPlugin::saveLogs()
-{
-    SaveLogsInfo_t saveLogsInfo;
-
-    saveLogsInfo.header.command = COMMAND_ID_SAVE_LOGS;
-    _sendTunnelCommand((uint8_t*)&saveLogsInfo, sizeof(saveLogsInfo));
-}
-
-void CustomPlugin::cleanLogs()
-{
-    CleanLogsInfo_t cleanLogsInfo;
-
-    cleanLogsInfo.header.command = COMMAND_ID_CLEAN_LOGS;
-    _sendTunnelCommand((uint8_t*)&cleanLogsInfo, sizeof(cleanLogsInfo));
 }
 
 void CustomPlugin::clearMap()
