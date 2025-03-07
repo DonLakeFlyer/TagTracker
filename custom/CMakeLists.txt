@@ -44,8 +44,6 @@ qt_add_library(CustomPlugin STATIC
     src/CustomPlugin.h
     src/CustomSettings.cc
     src/CustomSettings.h
-    src/CustomStateMachine.cc
-    src/CustomStateMachine.h
     src/DetectorInfo.cc
     src/DetectorInfo.h
     src/DetectorList.cc
@@ -56,12 +54,26 @@ qt_add_library(CustomPlugin STATIC
     src/PulseInfoList.h
     src/PulseRoseMapItem.h
     src/PulseMapItem.h
-    src/SendTagsState.cc
-    src/SendTagsState.h
     src/CustomLoggingCategory.cc
     src/CustomLoggingCategory.h
-    src/SendTunnelCommandState.cc
-    src/SendTunnelCommandState.h
+    src/StateMachine/CustomState.cc
+    src/StateMachine/CustomState.h
+    src/StateMachine/CustomStateMachine.cc
+    src/StateMachine/CustomStateMachine.h
+    src/StateMachine/DelayState.cc
+    src/StateMachine/DelayState.h
+    src/StateMachine/FactWaitForValueTarget.cc
+    src/StateMachine/FactWaitForValueTarget.h
+    src/StateMachine/FunctionState.cc
+    src/StateMachine/FunctionState.h
+    src/StateMachine/RotateAndCaptureState.cc
+    src/StateMachine/RotateAndCaptureState.h
+    src/StateMachine/SendMavlinkCommandState.cc
+    src/StateMachine/SendMavlinkCommandState.h
+    src/StateMachine/SendTagsState.cc
+    src/StateMachine/SendTagsState.h
+    src/StateMachine/SendTunnelCommandState.cc
+    src/StateMachine/SendTunnelCommandState.h
     ${BearingHeaders}
     ${BearingSources}
     ${BearingSourcesC}
@@ -90,6 +102,7 @@ target_link_libraries(CustomPlugin
 target_include_directories(CustomPlugin
     PUBLIC
         src
+        src/StateMachine
         matlab-coder-utils/coder-headers
         uavrt_bearing/codegen/exe/bearing
         uavrt_interfaces/include/uavrt_interfaces
