@@ -7,7 +7,7 @@
 
 class Vehicle;
 
-class SendTunnelCommandState : public CustomState
+class SendTunnelCommandState : public FunctionState
 {
     Q_OBJECT
 

@@ -6,23 +6,34 @@
 
 #include <QFinalState>
 
-CustomStateMachine::CustomStateMachine(QObject* parent)
-    : QStateMachine (parent)
-    , _errorState   (new CustomState(this))
-    , _finalState   (new QFinalState(this))
+void CustomState::setError(const QString& errorString) 
 {
-    connect(_errorState, &QState::entered, this, &CustomStateMachine::displayError);
-    _errorState->addTransition(_errorState, &QState::entered, _finalState);
-    connect(_finalState, &QState::entered, this, [this] () { this->deleteLater(); });
+    qWarning(CustomPluginLog) << "CustomState::setError: errorString" << errorString;
+    _errorString = errorString; 
+
+    // Bubble the error up to the top level state machine
+    auto customStateMachine = qobject_cast<CustomStateMachine*>(machine());
+    if (customStateMachine) {
+        customStateMachine->_errorString = errorString;
+    }
+
+    emit error(); 
 }
 
-void CustomStateMachine::setErrorState(CustomState* errorState)
+FunctionState::FunctionState(std::function<void()> function, QState* parent)
+    : CustomState   (parent)
+    , _function     (function)
 {
-    if (_errorState) {
-        disconnect(_errorState, &QState::entered, this, &CustomStateMachine::displayError);
-    }
-    _errorState = errorState;
-    connect(_errorState, &QState::entered, this, &CustomStateMachine::displayError);
+    connect(this, &QState::entered, this, [this] () { _function(); });
+}
+
+CustomStateMachine::CustomStateMachine(QObject* parent)
+    : QStateMachine (parent)
+    , _errorState   (new FunctionState(std::bind(&CustomStateMachine::displayError, this), this))
+    , _finalState   (new QFinalState(this))
+{
+    _errorState->addTransition(_errorState, &QState::entered, _finalState);
+    connect(_finalState, &QState::entered, this, [this] () { this->deleteLater(); });
 }
 
 void CustomStateMachine::setError(const QString& errorString)
@@ -40,16 +51,3 @@ void CustomStateMachine::displayError()
     _errorString.clear();
 }
 
-void CustomState::setError(const QString& errorString) 
-{
-    qWarning(CustomPluginLog) << "CustomState::setError: errorString" << errorString;
-    _errorString = errorString; 
-
-    // Bubble the error up to the top level state machine
-    auto customStateMachine = qobject_cast<CustomStateMachine*>(machine());
-    if (customStateMachine) {
-        customStateMachine->_errorString = errorString;
-    }
-
-    emit error(); 
-}

@@ -1,4 +1,4 @@
-#include "SendTagsHandler.h"
+#include "SendTagsState.h"
 #include "CustomLoggingCategory.h"
 #include "SendTunnelCommandState.h"
 #include "TagDatabase.h"
@@ -13,20 +13,8 @@
 
 using namespace TunnelProtocol;
 
-Q_APPLICATION_STATIC(SendTagsHandler, _sendTagsHandlerInstance);
-
-SendTagsHandler::SendTagsHandler(QObject* parent)
-    : QObject(parent)
-{
-
-}
-
-SendTagsHandler* SendTagsHandler::instance()
-{
-    return _sendTagsHandlerInstance();
-}
-
-CustomState* SendTagsHandler::createSendTagsState(QState* parent)
+SendTagsState::SendTagsState(QState* parent)
+    : CustomState(parent)
 {
     auto tagDatabase = TagDatabase::instance();
 
@@ -40,21 +28,20 @@ CustomState* SendTagsHandler::createSendTagsState(QState* parent)
         }
     }
     if (!foundSelectedTag) {
-        qgcApp()->showAppMessage(("No tags are available/selected to send."));
-        return nullptr;
+        qCWarning(CustomPluginLog) << Q_FUNC_INFO << "No tags are available/selected to send.";
+        return;
     }
 
     if (!tagDatabase->channelizerTuner()) {
-        qgcApp()->showAppMessage("Channelizer tuner failed. Detectors not started");
-        return nullptr;
+        qCWarning(CustomPluginLog) << Q_FUNC_INFO << "Channelizer tuner failed. Detectors not started";
+        return;
     }
 
-    auto stateGroup         = new CustomState(parent);
-    auto sendStartTags      = _sendStartTagsState(stateGroup);
-    auto sendEndTags        = _sendEndTagsState(stateGroup);
-    auto setupDetectorList  = new QState(stateGroup);
-    auto errorState         = new QState(stateGroup);
-    auto finalState         = new QFinalState(stateGroup);
+    auto sendStartTags      = _sendStartTagsState(this);
+    auto sendEndTags        = _sendEndTagsState(this);
+    auto setupDetectorList  = new FunctionState(std::bind(&SendTagsState::_setupDetectorList, this), this);
+    auto errorState         = new QState(this);
+    auto finalState         = new QFinalState(this);
 
     // States for each Send tag
     QState* firstSendTagState = nullptr;
@@ -67,7 +54,7 @@ CustomState* SendTagsHandler::createSendTagsState(QState* parent)
             continue;
         }
 
-        auto sendTagState = _sendTagState(i, stateGroup);
+        auto sendTagState = _sendTagState(i, this);
         if (!firstSendTagState) {
             firstSendTagState = sendTagState;
         }
@@ -91,21 +78,18 @@ CustomState* SendTagsHandler::createSendTagsState(QState* parent)
     sendEndTags->addTransition(sendEndTags, &SendTunnelCommandState::commandSucceeded, setupDetectorList);
 
     // Setup detector list -> Final State
-    connect(setupDetectorList, &QState::entered, this, &SendTagsHandler::_setupDetectorList);
     setupDetectorList->addTransition(setupDetectorList, &QState::entered, finalState);
 
     // Error handling
-    connect(errorState, &QState::exited, stateGroup, [stateGroup]() {
-        stateGroup->setError("SendTagsHandler error: command failed");
+    connect(errorState, &QState::exited, this, [this]() {
+        this->setError("SendTagsState error: command failed");
     });
     errorState->addTransition(errorState, &QState::entered, finalState);
 
-    stateGroup->setInitialState(sendStartTags);
-
-    return stateGroup;
+    this->setInitialState(sendStartTags);
 }
 
-SendTunnelCommandState* SendTagsHandler::_sendStartTagsState(QState* parent)
+SendTunnelCommandState* SendTagsState::_sendStartTagsState(QState* parent)
 {
     StartTagsInfo_t startTagsInfo;
     startTagsInfo.header.command  = COMMAND_ID_START_TAGS;
@@ -113,7 +97,7 @@ SendTunnelCommandState* SendTagsHandler::_sendStartTagsState(QState* parent)
     return new SendTunnelCommandState((uint8_t*)&startTagsInfo, sizeof(startTagsInfo), parent);
 }
 
-SendTunnelCommandState* SendTagsHandler::_sendTagState(int tagIndex, QState* parent)
+SendTunnelCommandState* SendTagsState::_sendTagState(int tagIndex, QState* parent)
 {
     auto tagDatabase = TagDatabase::instance();
     auto tagInfoListModel = tagDatabase->tagInfoListModel();
@@ -145,7 +129,7 @@ SendTunnelCommandState* SendTagsHandler::_sendTagState(int tagIndex, QState* par
     return new SendTunnelCommandState((uint8_t*)&tunnelTagInfo, sizeof(tunnelTagInfo), parent);
 }
 
-SendTunnelCommandState* SendTagsHandler::_sendEndTagsState(QState* parent)
+SendTunnelCommandState* SendTagsState::_sendEndTagsState(QState* parent)
 {
     EndTagsInfo_t endTagsInfo;
     endTagsInfo.header.command = COMMAND_ID_END_TAGS;
@@ -153,7 +137,7 @@ SendTunnelCommandState* SendTagsHandler::_sendEndTagsState(QState* parent)
     return new SendTunnelCommandState((uint8_t*)&endTagsInfo, sizeof(endTagsInfo), parent);
 }
 
-void SendTagsHandler::_setupDetectorList(void)
+void SendTagsState::_setupDetectorList(void)
 {
     DetectorList::instance()->setupFromSelectedTags();
 }

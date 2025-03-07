@@ -56,8 +56,8 @@ qt_add_library(CustomPlugin STATIC
     src/PulseInfoList.h
     src/PulseRoseMapItem.h
     src/PulseMapItem.h
-    src/SendTagsHandler.cc
-    src/SendTagsHandler.h
+    src/SendTagsState.cc
+    src/SendTagsState.h
     src/CustomLoggingCategory.cc
     src/CustomLoggingCategory.h
     src/SendTunnelCommandState.cc

@@ -2,7 +2,7 @@
 #include "CustomLoggingCategory.h"
 #include "CustomSettings.h"
 #include "TagDatabase.h"
-#include "SendTagsHandler.h"
+#include "SendTagsState.h"
 #include "CustomStateMachine.h"
 #include "SendTunnelCommandState.h"
 
@@ -536,7 +536,7 @@ void CustomPlugin::startDetection(void)
     auto finalState = stateMachine->finalState();
 
     auto sendStartDetectionState = new SendTunnelCommandState((uint8_t*)&startDetectionInfo, sizeof(startDetectionInfo), stateMachine);
-    auto sendTagsState = SendTagsHandler::instance()->createSendTagsState(stateMachine);
+    auto sendTagsState = new SendTagsState(stateMachine);
 
     // Setup start detection command
     sendStartDetectionState->addTransition(sendStartDetectionState, &SendTunnelCommandState::commandSucceeded, finalState);
@@ -582,7 +582,7 @@ void CustomPlugin::rawCapture(void)
     auto errorState = stateMachine->errorState();
     auto finalState = stateMachine->finalState();
 
-    auto sendTagsState          = SendTagsHandler::instance()->createSendTagsState(stateMachine);
+    auto sendTagsState          = new SendTagsState(stateMachine);
     auto sendRawCaptureState    = new SendTunnelCommandState((uint8_t*)&rawCapture, sizeof(rawCapture), stateMachine);
 
     // Send Tags -> Raw Capture
