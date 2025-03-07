@@ -4,6 +4,8 @@
 #include <QFinalState>
 #include <QString>
 
+#include <functional>
+
 class CustomState : public QState
 {
     Q_OBJECT
@@ -25,6 +27,17 @@ private:
     QString _errorString;
 };
 
+class FunctionState : public CustomState
+{
+    Q_OBJECT
+
+public:
+    FunctionState(std::function<void()>, QState* parent = nullptr);
+
+private:
+    std::function<void()> _function;
+};
+
 class CustomStateMachine : public QStateMachine
 {
     Q_OBJECT
@@ -32,7 +45,6 @@ class CustomStateMachine : public QStateMachine
 public:
     CustomStateMachine(QObject* parent = nullptr);
 
-    void setErrorState(CustomState* errorState);
     void setError(const QString& errorString);
 
     CustomState* errorState() { return _errorState; }
