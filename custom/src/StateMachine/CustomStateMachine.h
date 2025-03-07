@@ -1,47 +1,17 @@
 #pragma once
 
+#include "FunctionState.h"
+#include "CustomState.h"
+
 #include <QStateMachine>
 #include <QFinalState>
 #include <QString>
 
 #include <functional>
 
-class CustomState : public QState
-{
-    Q_OBJECT
-
-public:
-    CustomState(QState* parent = nullptr) :
-        QState(parent)
-    {
-    }
-
-    void setError(const QString& errorString);
-
-    QString errorString() const { return _errorString; }
-
-signals:
-    void error();
-
-private:
-    QString _errorString;
-};
-
-class FunctionState : public CustomState
-{
-    Q_OBJECT
-
-public:
-    FunctionState(std::function<void()>, QState* parent = nullptr);
-
-private:
-    std::function<void()> _function;
-};
-
 class CustomStateMachine : public QStateMachine
 {
     Q_OBJECT
-
 public:
     CustomStateMachine(QObject* parent = nullptr);
 

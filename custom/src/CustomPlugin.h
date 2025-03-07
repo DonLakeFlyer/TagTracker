@@ -57,6 +57,10 @@ public:
     CustomSettings*     customSettings  () { return _customSettings; }
     DetectorList *      detectorList() { return DetectorList::instance(); }
 
+    QList<QList<double>>&   rgAngleStrengths() { return _rgAngleStrengths; }
+    QList<QList<double>>&   rgAngleRatios() { return _rgAngleRatios; }
+    QList<double>&          rgCalcedBearings() { return _rgCalcedBearings; }
+
     TagDatabase* tagDatabase();
 
     Q_INVOKABLE void autoTakeoffRotateRTL();

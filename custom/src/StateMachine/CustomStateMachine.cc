@@ -6,27 +6,6 @@
 
 #include <QFinalState>
 
-void CustomState::setError(const QString& errorString) 
-{
-    qWarning(CustomPluginLog) << "CustomState::setError: errorString" << errorString;
-    _errorString = errorString; 
-
-    // Bubble the error up to the top level state machine
-    auto customStateMachine = qobject_cast<CustomStateMachine*>(machine());
-    if (customStateMachine) {
-        customStateMachine->_errorString = errorString;
-    }
-
-    emit error(); 
-}
-
-FunctionState::FunctionState(std::function<void()> function, QState* parent)
-    : CustomState   (parent)
-    , _function     (function)
-{
-    connect(this, &QState::entered, this, [this] () { _function(); });
-}
-
 CustomStateMachine::CustomStateMachine(QObject* parent)
     : QStateMachine (parent)
     , _errorState   (new FunctionState(std::bind(&CustomStateMachine::displayError, this), this))

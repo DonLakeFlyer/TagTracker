@@ -5,6 +5,7 @@
 #include "SendTagsState.h"
 #include "CustomStateMachine.h"
 #include "SendTunnelCommandState.h"
+#include "RotateAndCaptureState.h"
 
 #include "Vehicle.h"
 #include "QGCApplication.h"
@@ -139,7 +140,7 @@ void CustomPlugin::_handleTunnelHeartbeat(const mavlink_tunnel_t& tunnel)
 
     switch (heartbeat.system_id) {
     case HEARTBEAT_SYSTEM_ID_MAVLINKCONTROLLER:
-        qCDebug(CustomPluginLog) << "HEARTBEAT from MavlinkTagController - counter:status:temp" << counter++ << heartbeat.status << heartbeat.cpu_temp_c;
+        //qCDebug(CustomPluginLog) << "HEARTBEAT from MavlinkTagController - counter:status:temp" << counter++ << heartbeat.status << heartbeat.cpu_temp_c;
         _controllerLostHeartbeat = false;
         emit controllerLostHeartbeatChanged();
         _controllerHeartbeatTimer.start();
@@ -506,18 +507,17 @@ void CustomPlugin::_initNewRotationDuringFlight(void)
 
 void CustomPlugin::startRotation(void)
 {
-    qCDebug(CustomPluginLog) << "startRotation";
+    qCDebug(CustomPluginLog) << Q_FUNC_INFO;
 
-    Vehicle* vehicle = MultiVehicleManager::instance()->activeVehicle();
+    auto stateMachine = new CustomStateMachine(this);
 
-    if (!vehicle) {
-        return;
-    }
+    auto errorState     = stateMachine->errorState();
+    auto finalState     = stateMachine->finalState();
+    auto rotateState    = new RotateAndCaptureState(stateMachine);
 
-    _clearVehicleStates();
-    _addRotationStates();
-    _updateFlightMachineActive(true);
-    _advanceStateMachine();
+    stateMachine->setInitialState(rotateState);
+
+    stateMachine->start();
 }
 
 void CustomPlugin::startDetection(void)
@@ -805,6 +805,7 @@ void CustomPlugin::_advanceStateMachine(void)
         return;
     }
 
+#if 0
     switch (currentState.command) {
     case CommandTakeoff:
         // Takeoff to specified altitude
@@ -828,6 +829,7 @@ void CustomPlugin::_advanceStateMachine(void)
         _say("Collection complete, returning");
         break;
     }
+#endif
 
     if (currentState.targetValueWaitMsecs) {
         _vehicleStateTimeoutTimer.setInterval(currentState.targetValueWaitMsecs);
