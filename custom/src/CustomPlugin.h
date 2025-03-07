@@ -65,8 +65,6 @@ public:
     Q_INVOKABLE void startDetection     (void);
     Q_INVOKABLE void stopDetection      (void);
     Q_INVOKABLE void rawCapture         (void);
-    Q_INVOKABLE void downloadLogDirList (void);
-    Q_INVOKABLE void downloadLogDirFiles(const QString& dirPath);
     Q_INVOKABLE void captureScreen      (void);
     Q_INVOKABLE void saveLogs           (void);
     Q_INVOKABLE void cleanLogs          (void);
@@ -88,8 +86,6 @@ signals:
     void controllerLostHeartbeatChanged ();
     void controllerStatusChanged        ();
     void controllerCPUTempChanged       ();
-    void logDirListDownloaded           (const QStringList& dirList, const QString& errorMsg);
-    void downloadLogDirFilesComplete    (const QString& errorMsg);
     void maxSNRChanged                  (double maxSNR);
     void minSNRChanged                  (double minSNR);
     void _detectionStarted              (void);
@@ -105,9 +101,6 @@ private slots:
     void _updateFlightMachineActive     (bool flightMachineActive);
     void _mavCommandResult              (int vehicleId, int component, int command, int result, bool noResponseFromVehicle);
     void _controllerHeartbeatFailed     (void);
-    void _logDirListDownloaded          (const QStringList& dirList, const QString& errorMsg);
-    void _logDirDownloadedForFiles      (const QStringList& dirList, const QString& errorMsg);
-    void _logFileDownloadComplete       (const QString& file, const QString& errorMsg);
 
 private:
     typedef enum {
@@ -157,7 +150,6 @@ private:
     void    _csvStopRotationPulseLog    (bool calcBearing);
     void    _csvLogPulse                (QFile& csvFile, const TunnelProtocol::PulseInfo_t& pulseInfo);
     void    _csvLogRotationStartStop    (QFile& csvFile, bool startRotation);
-    void    _logFilesDownloadWorker     (void);
     bool    _useSNRForPulseStrength     (void) { return _customSettings->useSNRForPulseStrength()->rawValue().toBool(); }
     void    _captureScreen              (void);
     void    _addRotationStates          (void);
