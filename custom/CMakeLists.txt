@@ -56,6 +56,8 @@ qt_add_library(CustomPlugin STATIC
     src/PulseMapItem.h
     src/CustomLoggingCategory.cc
     src/CustomLoggingCategory.h
+    src/StateMachine/GuidedModeState.cc
+    src/StateMachine/GuidedModeState.h
     src/StateMachine/CustomState.cc
     src/StateMachine/CustomState.h
     src/StateMachine/CustomStateMachine.cc
@@ -66,8 +68,11 @@ qt_add_library(CustomPlugin STATIC
     src/StateMachine/FactWaitForValueTarget.h
     src/StateMachine/FunctionState.cc
     src/StateMachine/FunctionState.h
+    src/StateMachine/GuidedModeCancelledTransition.h
     src/StateMachine/RotateAndCaptureState.cc
     src/StateMachine/RotateAndCaptureState.h
+    src/StateMachine/SetFlightModeState.cc
+    src/StateMachine/SetFlightModeState.h
     src/StateMachine/SendMavlinkCommandState.cc
     src/StateMachine/SendMavlinkCommandState.h
     src/StateMachine/SendTagsState.cc

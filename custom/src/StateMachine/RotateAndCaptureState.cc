@@ -4,21 +4,23 @@
 #include "CustomPlugin.h"
 #include "FactWaitForValueTarget.h"
 #include "CustomLoggingCategory.h"
+#include "SetFlightModeState.h"
 
 #include "MultiVehicleManager.h"
 #include "Vehicle.h"
 #include "CustomSettings.h"
 #include "TagDatabase.h"
+#include "FirmwarePlugin.h"
 
-RotateAndCaptureState::RotateAndCaptureState(QState* parentState)
-    : CustomState       (parentState)
+RotateAndCaptureState::RotateAndCaptureState(QState* parentState, bool rtlOnFlightModeChange)
+    : CustomState       ("RotateAndCaptureState", parentState)
     , _vehicle          (MultiVehicleManager::instance()->activeVehicle())
     , _customPlugin     (qobject_cast<CustomPlugin*>(CustomPlugin::instance()))
     , _customSettings   (_customPlugin->customSettings())
 {
     int rotationDivisions = _customSettings->divisions()->rawValue().toInt();
 
-    // Setup new rotation data
+    // Setup new rotation data  
     _customPlugin->rgAngleStrengths().append(QList<double>());
     _customPlugin->rgAngleRatios().append(QList<double>());
     _customPlugin->rgCalcedBearings().append(qQNaN());
@@ -46,7 +48,7 @@ RotateAndCaptureState::RotateAndCaptureState(QState* parentState)
             nextHeading += 360;
         }
 
-        auto state = _rotateAndCaptureState(this, nextHeading);
+        auto state = _rotateAndCaptureAtHeadingState(this, nextHeading, rtlOnFlightModeChange);
         rotationStates.append(state);
 
         nextHeading += sliceDegrees;
@@ -55,29 +57,22 @@ RotateAndCaptureState::RotateAndCaptureState(QState* parentState)
     auto errorState = new QState(this);
     auto finalState = new QFinalState(this);
 
-    // Setup transitions
-
+    // Setup rotation transitions
     for (int i=0; i<rotationStates.count(); i++) {
         if (i == rotationStates.count() - 1) {
             rotationStates[i]->addTransition(rotationStates[i], &QState::finished, finalState);
         } else {
             rotationStates[i]->addTransition(rotationStates[i], &QState::finished, rotationStates[i+1]);
         }
-        rotationStates[i]->addTransition(rotationStates[i], &CustomState::error, errorState);
     }
 
     // Error handling
     this->addTransition(this, &CustomState::error, errorState);
-    connect(errorState, &QState::entered, this, [this] ()
-        {
-            qCWarning(CustomPluginLog) << Q_FUNC_INFO << "error:" << machine()->errorString();
-            //setError(machine()->errorString());
-        });
 
     this->setInitialState(rotationStates.first());
 }
 
-CustomState* RotateAndCaptureState::_rotateAndCaptureState(QState* parentState, double headingDegrees)
+CustomState* RotateAndCaptureState::_rotateAndCaptureAtHeadingState(QState* parentState, double headingDegrees, bool rtlOnFlightModeChange)
 {
     // We wait at each rotation for enough time to go by to capture a user specified set of k groups
     uint32_t maxK = _customSettings->k()->rawValue().toUInt();
@@ -85,11 +80,10 @@ CustomState* RotateAndCaptureState::_rotateAndCaptureState(QState* parentState, 
     auto maxIntraPulseMsecs = TagDatabase::instance()->maxIntraPulseMsecs();
     int rotationCaptureWaitMsecs = maxIntraPulseMsecs * ((kGroups * maxK) + 1);
     
-    auto groupingState = new CustomState(parentState);
-    connect(groupingState, &QState::entered, this, [this, headingDegrees] ()
-        {
+    auto groupingState = new CustomState("RotateAndCaptureAtHeadingState", parentState);
+    connect(groupingState, &QState::entered, this, [this, headingDegrees] () {
             qCDebug(CustomPluginLog) << QStringLiteral("Rotating to heading %1").arg(headingDegrees) << " - " << Q_FUNC_INFO;
-        }); 
+    }); 
 
     auto rotateCommandState = _rotateMavlinkCommandState(groupingState, headingDegrees);
     auto waitForHeadingChangeState = new FactWaitForValueTarget(groupingState, _vehicle->heading(), headingDegrees, 1.0 /* _targetVariance */, 10 * 1000 /* _waitMsecs */);
@@ -106,21 +100,6 @@ CustomState* RotateAndCaptureState::_rotateAndCaptureState(QState* parentState, 
     // Error handling
     rotateCommandState->addTransition(rotateCommandState, &SendMavlinkCommandState::error, errorState);
     groupingState->addTransition(groupingState, &CustomState::error, errorState);
-
-    // Logging
-    connect(errorState, &QState::entered, this, [this] ()
-        {
-            qCWarning(CustomPluginLog) << "error:" << machine()->errorString() << " - " << Q_FUNC_INFO;
-        });
-    connect(rotateCommandState, &SendMavlinkCommandState::error, this, [this] ()
-    {
-        qCWarning(CustomPluginLog) << "rotateCommandState error:" << machine()->errorString() << " - " << Q_FUNC_INFO;
-        this->emit error();
-    });
-    connect(groupingState, &QState::finished, this, [this, headingDegrees] ()
-    {
-        qCDebug(CustomPluginLog) << QStringLiteral("Rotate and capture at heading %1 complete").arg(headingDegrees) << " - " << Q_FUNC_INFO;
-    });
 
     groupingState->setInitialState(rotateCommandState);
 

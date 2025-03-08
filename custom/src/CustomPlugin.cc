@@ -509,11 +509,24 @@ void CustomPlugin::startRotation(void)
 {
     qCDebug(CustomPluginLog) << Q_FUNC_INFO;
 
-    auto stateMachine = new CustomStateMachine(this);
+    StartDetectionInfo_t startDetectionInfo;
+    memset(&startDetectionInfo, 0, sizeof(startDetectionInfo));
+    startDetectionInfo.header.command               = COMMAND_ID_START_DETECTION;
+    startDetectionInfo.radio_center_frequency_hz    = TagDatabase::instance()->radioCenterHz();
+    startDetectionInfo.gain                         = _customSettings->gain()->rawValue().toUInt();
 
-    auto errorState     = stateMachine->errorState();
-    auto finalState     = stateMachine->finalState();
-    auto rotateState    = new RotateAndCaptureState(stateMachine);
+    auto stateMachine = new CustomStateMachine("Start Rotation", this);
+
+    auto errorState                 = stateMachine->errorState();
+    auto finalState                 = stateMachine->finalState();
+    auto sendStartDetectionState    = new SendTunnelCommandState((uint8_t*)&startDetectionInfo, sizeof(startDetectionInfo), stateMachine);
+    auto sendTagsState              = new SendTagsState(stateMachine);
+    auto rotateState                = new RotateAndCaptureState(stateMachine, true /* rtlOnFlightModeChange */);
+
+    // Transitions
+    sendStartDetectionState->addTransition(sendStartDetectionState, &SendTunnelCommandState::commandSucceeded, sendTagsState);
+    sendTagsState->addTransition(sendTagsState, &QState::finished, rotateState);
+    rotateState->addTransition(rotateState, &QState::finished, finalState);
 
     stateMachine->setInitialState(rotateState);
 
@@ -530,21 +543,20 @@ void CustomPlugin::startDetection(void)
     startDetectionInfo.radio_center_frequency_hz    = TagDatabase::instance()->radioCenterHz();
     startDetectionInfo.gain                         = _customSettings->gain()->rawValue().toUInt();
 
-    auto stateMachine = new CustomStateMachine(this);
+    auto stateMachine = new CustomStateMachine("Start Detection", this);
 
     auto errorState = stateMachine->errorState();
     auto finalState = stateMachine->finalState();
-
     auto sendStartDetectionState = new SendTunnelCommandState((uint8_t*)&startDetectionInfo, sizeof(startDetectionInfo), stateMachine);
     auto sendTagsState = new SendTagsState(stateMachine);
 
-    // Setup start detection command
-    sendStartDetectionState->addTransition(sendStartDetectionState, &SendTunnelCommandState::commandSucceeded, finalState);
-    sendStartDetectionState->addTransition(sendStartDetectionState, &SendTunnelCommandState::error, errorState);
-
-    // Setup send tags portion of state machine
+    // Transitions
     sendTagsState->addTransition(sendTagsState, &QState::finished, sendStartDetectionState);
+    sendStartDetectionState->addTransition(sendStartDetectionState, &SendTunnelCommandState::commandSucceeded, finalState);
+
+    // Error handling
     sendTagsState->addTransition(sendTagsState, &CustomState::error, errorState);
+    sendStartDetectionState->addTransition(sendStartDetectionState, &SendTunnelCommandState::error, errorState);
 
     stateMachine->setInitialState(sendTagsState);
 
@@ -557,7 +569,7 @@ void CustomPlugin::stopDetection(void)
 
     stopDetectionInfo.header.command = COMMAND_ID_STOP_DETECTION;
 
-    auto stateMachine = new CustomStateMachine(this);
+    auto stateMachine = new CustomStateMachine("StopDetection", this);
 
     auto errorState             = stateMachine->errorState();
     auto finalState             = stateMachine->finalState();
@@ -577,7 +589,7 @@ void CustomPlugin::rawCapture(void)
     rawCapture.header.command   = COMMAND_ID_RAW_CAPTURE;
     rawCapture.gain             = _customSettings->gain()->rawValue().toUInt();
 
-    auto stateMachine = new CustomStateMachine(this);
+    auto stateMachine = new CustomStateMachine("RawCapture", this);
 
     auto errorState = stateMachine->errorState();
     auto finalState = stateMachine->finalState();
@@ -602,7 +614,7 @@ void CustomPlugin::saveLogs()
 
     saveLogsInfo.header.command = COMMAND_ID_SAVE_LOGS;
 
-    auto stateMachine = new CustomStateMachine(this);
+    auto stateMachine = new CustomStateMachine("SaveLogs", this);
 
     auto finalState = stateMachine->finalState();
 
@@ -622,7 +634,7 @@ void CustomPlugin::cleanLogs()
 
     cleanLogsInfo.header.command = COMMAND_ID_CLEAN_LOGS;
 
-    auto stateMachine = new CustomStateMachine(this);
+    auto stateMachine = new CustomStateMachine("CleanLogs", this);
 
     auto finalState = stateMachine->finalState();
 
@@ -749,7 +761,7 @@ void CustomPlugin::_setupDelayForSteadyCapture(void)
     detectorList()->resetPulseGroupCount();
 }
 
-QString CustomPlugin::_holdFlightMode(void)
+QString CustomPlugin::holdFlightMode(void)
 {
     return MultiVehicleManager::instance()->activeVehicle()->px4Firmware() ? "Hold" : "Guided";
 }
@@ -797,7 +809,7 @@ void CustomPlugin::_advanceStateMachine(void)
     const VehicleState_t& currentState = _vehicleStates[++_vehicleStateIndex];
     qDebug() << "currentState.command" << currentState.command;
 
-    if (currentState.command != CommandTakeoff && vehicle->flightMode() != "Takeoff" && vehicle->flightMode() != _holdFlightMode()) {
+    if (currentState.command != CommandTakeoff && vehicle->flightMode() != "Takeoff" && vehicle->flightMode() != holdFlightMode()) {
         // User cancel
         _say(QStringLiteral("Collection cancelled."));
         _updateFlightMachineActive(false);

@@ -1,12 +1,12 @@
 #pragma once
 
-#include "CustomState.h"
+#include "GuidedModeState.h"
 
 #include <QTimer>
 
 class Fact;
 
-class FactWaitForValueTarget : public CustomState
+class FactWaitForValueTarget : public GuidedModeState
 {
     Q_OBJECT
 
@@ -19,6 +19,7 @@ signals:
 private slots:
     void _waitTimeout();
     void _rawValueChanged(QVariant rawValue);
+    void _disconnectAll();
 
 private:
     Fact*   _fact;

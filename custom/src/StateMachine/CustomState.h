@@ -10,10 +10,7 @@ class CustomState : public QState
     Q_OBJECT
 
 public:
-    CustomState(QState* parent) :
-        QState(QState::ExclusiveStates, parent)
-    {
-    }
+    CustomState(const QString& stateName, QState* parentState, QState* errorState = nullptr);
 
     void setError(const QString& errorString);
 
@@ -22,6 +19,7 @@ public:
 
 signals:
     void error();
+    void cancelled();
 
 private:
     QString _errorString;

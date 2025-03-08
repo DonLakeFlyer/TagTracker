@@ -9,11 +9,13 @@
 
 #include <functional>
 
+class Vehicle;
+
 class CustomStateMachine : public QStateMachine
 {
     Q_OBJECT
 public:
-    CustomStateMachine(QObject* parent = nullptr);
+    CustomStateMachine(const QString& machineName, QObject* parent = nullptr);
 
     void setError(const QString& errorString);
 
@@ -26,15 +28,17 @@ public slots:
 signals:
     void error();
 
+private slots:
+    void _flightModeChanged(const QString& flightMode);
+
 private:
     void _init();
 
+    Vehicle*        _vehicle = nullptr;
     QString         _errorString;
     CustomState*    _errorState = nullptr;
     QFinalState*    _finalState = nullptr;
 
-    static CustomStateMachine* _instance;
-
-    friend CustomState;
+    friend class CustomState;
 };
 
