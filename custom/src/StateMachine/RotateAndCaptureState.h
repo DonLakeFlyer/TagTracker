@@ -14,12 +14,17 @@ class RotateAndCaptureState : public CustomState
     Q_OBJECT
 
 public:
-    RotateAndCaptureState(QState* parentState);
+    RotateAndCaptureState(QState* parentState, bool rtlOnFlightModeChange);
+
+signals:
+    void _rotateAndCaptureAtHeadingFinished();
+    void _cancelAndReturn();
 
 private:
-    CustomState* _rotateAndCaptureState(QState* parentState, double headingDegrees);
+    CustomState* _rotateAndCaptureAtHeadingState(QState* parentState, double headingDegrees, bool rtlOnFlightModeChange);
     SendMavlinkCommandState* _rotateMavlinkCommandState(QState* parentState, double headingDegrees);
 
+private:
     Vehicle*        _vehicle = nullptr;
     CustomPlugin*   _customPlugin = nullptr;
     CustomSettings* _customSettings = nullptr;

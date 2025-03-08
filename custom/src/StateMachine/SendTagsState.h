@@ -1,6 +1,6 @@
 #pragma once
 
-#include "CustomStateMachine.h"
+#include "CustomState.h"
 
 class SendTunnelCommandState;
 

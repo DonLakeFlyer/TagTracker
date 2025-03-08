@@ -14,7 +14,7 @@
 using namespace TunnelProtocol;
 
 SendTagsState::SendTagsState(QState* parent)
-    : CustomState(parent)
+    : CustomState("SendTagsState", parent)
 {
     auto tagDatabase = TagDatabase::instance();
 

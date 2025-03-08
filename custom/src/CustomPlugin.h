@@ -56,6 +56,7 @@ public:
 
     CustomSettings*     customSettings  () { return _customSettings; }
     DetectorList *      detectorList() { return DetectorList::instance(); }
+    QString             holdFlightMode();
 
     QList<QList<double>>&   rgAngleStrengths() { return _rgAngleStrengths; }
     QList<QList<double>>&   rgAngleRatios() { return _rgAngleRatios; }
@@ -159,7 +160,6 @@ private:
     void    _addRotationStates          (void);
     void    _initNewRotationDuringFlight(void);
     void    _clearVehicleStates         (void);
-    QString _holdFlightMode             (void);
 
     QVariantList            _settingsPages;
     QVariantList            _instrumentPages;
