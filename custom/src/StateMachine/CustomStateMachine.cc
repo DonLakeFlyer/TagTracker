@@ -2,6 +2,7 @@
 #include "CustomLoggingCategory.h"
 #include "CustomPlugin.h"
 #include "GuidedModeCancelledTransition.h"
+#include "ErrorTransition.h"
 
 #include "QGCApplication.h"
 #include "AudioOutput.h"
@@ -25,10 +26,10 @@ CustomStateMachine::CustomStateMachine(const QString& machineName, QObject* pare
         qCDebug(CustomPluginLog) << "State machine finished:" << objectName();
         disconnect(_vehicle, &Vehicle::flightModeChanged, this, &CustomStateMachine::_flightModeChanged);
     });
-    connect(this, &CustomStateMachine::error, this, [this] () {
-        qCWarning(CustomPluginLog) << "State machine error:" << _errorString << "on" << objectName() ;
-    });
 
+    // Error handling
+    auto errorTransition = new ErrorTransition(this);
+    errorTransition->setTargetState(_errorState);
     _errorState->addTransition(_errorState, &FunctionState::functionCompleted, _finalState);
 
     connect(this, &CustomStateMachine::stopped, this, [this] () { this->deleteLater(); });
@@ -52,7 +53,7 @@ void CustomStateMachine::removeGuidedModeCancelledTransition()
 void CustomStateMachine::setError(const QString& errorString)
 {
     _errorString = errorString;
-    emit error();
+    postEvent(new ErrorEvent(errorString));
 }
 
 void CustomStateMachine::displayError()

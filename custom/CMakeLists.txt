@@ -64,6 +64,7 @@ qt_add_library(CustomPlugin STATIC
     src/StateMachine/CustomStateMachine.h
     src/StateMachine/DelayState.cc
     src/StateMachine/DelayState.h
+    src/StateMachine/ErrorTransition.h
     src/StateMachine/FactWaitForValueTarget.cc
     src/StateMachine/FactWaitForValueTarget.h
     src/StateMachine/FunctionState.cc
