@@ -31,8 +31,10 @@ Item {
 
     property bool showIndicator: true
 
-    property var    activeVehicle:  QGroundControl.multiVehicleManager.activeVehicle
-    property real   maxStrength:    QGroundControl.corePlugin.customSettings.maxPulseStrength.rawValue
+    property var    activeVehicle:              QGroundControl.multiVehicleManager.activeVehicle
+    property real   maxStrength:                QGroundControl.corePlugin.customSettings.maxPulseStrength.rawValue
+    property bool   detectorsAvailable:         QGroundControl.corePlugin.detectorList.count > 0
+    property bool   controllerHeartbeatLost:    QGroundControl.corePlugin.controllerLostHeartbeat
 
     Row {
         id:             rowLayout
@@ -41,25 +43,25 @@ Item {
         spacing:        ScreenTools.defaultFontPixelWidth / 2
 
         Rectangle {
-            height: parent.height
-            width:  cpuTemp.contentWidth + ScreenTools.defaultFontPixelWidth / 4
-            color:  QGroundControl.corePlugin.controllerLostHeartbeat ? "red" : "green"
+            id:         controllerStatus
+            height:     parent.height
+            width:      ScreenTools.defaultFontPixelWidth * 20
+            color:      QGroundControl.corePlugin.controllerLostHeartbeat ? "red" : "green"
+            visible:    controllerHeartbeatLost || !detectorsAvailable
 
             QGCLabel {
-                id:                     cpuTemp
                 anchors.fill:           parent
-                text:                   qsTr("Temp") + " " + (isNaN(cpuTemp) ? qsTr("N/A") : cpuTemp.toFixed(0))
-                color:                  "black"
+                text:                   controllerHeartbeatLost ? qsTr("Controller Lost") : qsTr("No Detectors")
+                color:                  "white"
                 horizontalAlignment:    Text.AlignHCenter
                 verticalAlignment:      Text.AlignVCenter
-
-                property real cpuTemp: QGroundControl.corePlugin.controllerCPUTemp
             }
         }
 
         ColumnLayout {
             height:     parent.height
             spacing:    2
+            visible:    !controllerStatus.visible
 
             Repeater {
                 model: QGroundControl.corePlugin.detectorList
@@ -76,10 +78,7 @@ Item {
                                                     object.lastPulseStale ? "yellow" : "transparent" 
 
                         Rectangle {
-                            anchors.topMargin:      2
-                            anchors.bottomMargin:   2
-                            anchors.leftMargin:     2
-                            anchors.rightMargin:    ((maxStrength - filteredSNR) / maxStrength) *  (parent.width - 4)
+                            anchors.rightMargin:    ((maxStrength - filteredSNR) / maxStrength) *  parent.width
                             anchors.fill:           parent
                             color:                  object.lastPulseStale ? "yellow" : "green"
                             visible:                !object.heartbeatLost
@@ -98,7 +97,7 @@ Item {
 
                     QGCLabel {
                         Layout.preferredHeight: pulseRect.height
-                        text:                   object.tagId + object.tagLabel[0]
+                        text:                   object.tagLabel[0]
                         fontSizeMode:           Text.VerticalFit
                         verticalAlignment:      Text.AlignVCenter
                     }
