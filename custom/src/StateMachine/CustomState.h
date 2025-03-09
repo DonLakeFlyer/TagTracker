@@ -10,17 +10,10 @@ class CustomState : public QState
     Q_OBJECT
 
 public:
-    CustomState(const QString& stateName, QState* parentState, QState* errorState = nullptr);
+    //CustomState(const QString& stateName, QState* parentState, QState* errorState = nullptr);
+    CustomState(const QString& stateName, QState* parentState);
 
     void setError(const QString& errorString);
 
     CustomStateMachine* machine();
-    QString errorString() const { return _errorString; }
-
-signals:
-    void error();
-    void cancelled();
-
-private:
-    QString _errorString;
 };

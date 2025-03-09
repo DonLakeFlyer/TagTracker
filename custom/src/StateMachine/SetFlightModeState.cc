@@ -33,8 +33,9 @@ void SetFlightModeState::_timeout()
 {
     qCWarning(CustomPluginLog) << "Timeout waiting for flight mode change to" << _flightMode << " - " << Q_FUNC_INFO;
     _disconnectAll();
-    emit error();
+    setError("Timeout waiting for flight mode change to " + _flightMode);
 }
+
 void SetFlightModeState::_disconnectAll()
 {
     _timeoutTimer.stop();

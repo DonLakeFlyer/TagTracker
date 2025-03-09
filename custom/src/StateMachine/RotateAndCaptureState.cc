@@ -58,7 +58,6 @@ RotateAndCaptureState::RotateAndCaptureState(QState* parentState)
         nextHeading += degreesPerSlice;
     }
 
-    auto errorState = new QState(this);
     auto finalState = new QFinalState(this);
 
     // Transitions
@@ -70,9 +69,6 @@ RotateAndCaptureState::RotateAndCaptureState(QState* parentState)
             rotationStates[i]->addTransition(rotationStates[i], &QState::finished, rotationStates[i+1]);
         }
     }
-
-    // Error handling
-    this->addTransition(this, &CustomState::error, errorState);
 
     this->setInitialState(initRotationState);
 }
@@ -176,7 +172,6 @@ CustomState* RotateAndCaptureState::_rotateAndCaptureAtHeadingState(QState* pare
     auto delayForKGroupsState       = new DelayState(groupingState, rotationCaptureWaitMsecs);
     auto sliceEndState              = new FunctionState("SliceEnd", groupingState, std::bind(&RotateAndCaptureState::_sliceEnd, this));
 
-    auto errorState = new QState(groupingState);
     auto finalState = new QFinalState(groupingState);
 
     // Transitions
@@ -185,10 +180,6 @@ CustomState* RotateAndCaptureState::_rotateAndCaptureAtHeadingState(QState* pare
     waitForHeadingChangeState->addTransition(waitForHeadingChangeState, &FactWaitForValueTarget::success, delayForKGroupsState);
     delayForKGroupsState->addTransition(delayForKGroupsState, &DelayState::delayComplete, sliceEndState);
     sliceEndState->addTransition(sliceEndState, &FunctionState::functionCompleted, finalState);
-
-    // Error handling
-    rotateCommandState->addTransition(rotateCommandState, &SendMavlinkCommandState::error, errorState);
-    groupingState->addTransition(groupingState, &CustomState::error, errorState);
 
     groupingState->setInitialState(sliceBeginState);
 

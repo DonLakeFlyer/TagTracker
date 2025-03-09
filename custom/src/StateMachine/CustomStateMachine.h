@@ -30,9 +30,6 @@ public:
 public slots:
     void displayError();
 
-signals:
-    void error();
-
 private slots:
     void _flightModeChanged(const QString& flightMode);
 
