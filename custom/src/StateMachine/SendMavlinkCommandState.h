@@ -1,13 +1,13 @@
 #pragma once
 
-#include "FunctionState.h"
+#include "CustomState.h"
 
 #include "QGCMAVLink.h"
 #include "CustomStateMachine.h"
 
 class Vehicle;
 
-class SendMavlinkCommandState : public FunctionState
+class SendMavlinkCommandState : public CustomState
 {
     Q_OBJECT
 

@@ -1,8 +1,13 @@
 #include "FunctionState.h"
 
-FunctionState::FunctionState(std::function<void()> function, QState* parent)
-    : CustomState("FunctionState", parent)
-    , _function             (function)
+#include <QTimer>
+
+FunctionState::FunctionState(const QString& stateName, QState* parentState, std::function<void()> function)
+    : CustomState   (stateName, parentState)
+    , _function     (function)
 {
-    connect(this, &QState::entered, this, [this] () { _function(); });
+    connect(this, &QState::entered, this, [this] () {
+        _function();
+        emit functionCompleted();
+    });
 }

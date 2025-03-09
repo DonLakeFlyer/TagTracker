@@ -11,8 +11,8 @@
 
 using namespace TunnelProtocol;
 
-SendTunnelCommandState::SendTunnelCommandState(uint8_t* payload, size_t payloadSize, QState* parent)
-    : FunctionState (std::bind(&SendTunnelCommandState::_sendTunnelCommand, this), parent)
+SendTunnelCommandState::SendTunnelCommandState(const QString& stateName, QState* parentState, uint8_t* payload, size_t payloadSize)
+    : CustomState   (stateName, parentState)
     , _vehicle      (MultiVehicleManager::instance()->activeVehicle())
     , _payload      (new uint8_t[payloadSize])
     , _payloadSize  (payloadSize)
@@ -23,6 +23,8 @@ SendTunnelCommandState::SendTunnelCommandState(uint8_t* payload, size_t payloadS
     _ackResponseTimer.setInterval(2000);
 
     connect(&_ackResponseTimer, &QTimer::timeout, this, &SendTunnelCommandState::_ackResponseTimedOut);
+
+    connect(this, &QState::entered, this, &SendTunnelCommandState::_sendTunnelCommand);
 }
 
 SendTunnelCommandState::~SendTunnelCommandState()

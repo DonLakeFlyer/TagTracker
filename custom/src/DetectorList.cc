@@ -30,7 +30,7 @@ DetectorList* DetectorList::instance()
 
 void DetectorList::setupFromSelectedTags()
 {
-    clearAndDeleteContents();
+    clear();
 
     TagDatabase*        tagDB               = TagDatabase::instance();
     QmlObjectListModel* tagInfoList         = tagDB->tagInfoListModel();

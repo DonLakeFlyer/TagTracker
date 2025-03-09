@@ -148,9 +148,8 @@ public:
     TagInfo*            findTagInfo         (uint32_t id);
     TagManufacturer*    findTagManufacturer (uint32_t id);
 
-    uint32_t radioCenterHz      () { return _radioCenterHz; }
     uint32_t maxIntraPulseMsecs ();
-    bool    channelizerTuner    ();
+    uint32_t channelizerTuner    ();
 
 private:
     uint32_t _nextTagInfoId();
@@ -173,7 +172,6 @@ private:
     uint32_t            _nextTagId                  = 2;
     uint32_t            _nextManufacturerId         = 1;
 
-    uint32_t            _radioCenterHz      = 0;
     QVector<uint32_t>   _channelBucketCenters;
 
     uint32_t   _sampleRateHz;
