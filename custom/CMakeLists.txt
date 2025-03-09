@@ -56,8 +56,6 @@ qt_add_library(CustomPlugin STATIC
     src/PulseMapItem.h
     src/CustomLoggingCategory.cc
     src/CustomLoggingCategory.h
-    src/StateMachine/GuidedModeState.cc
-    src/StateMachine/GuidedModeState.h
     src/StateMachine/CustomState.cc
     src/StateMachine/CustomState.h
     src/StateMachine/CustomStateMachine.cc
@@ -79,6 +77,8 @@ qt_add_library(CustomPlugin STATIC
     src/StateMachine/SendTagsState.h
     src/StateMachine/SendTunnelCommandState.cc
     src/StateMachine/SendTunnelCommandState.h
+    src/StateMachine/TakeoffState.cc
+    src/StateMachine/TakeoffState.h
     ${BearingHeaders}
     ${BearingSources}
     ${BearingSourcesC}

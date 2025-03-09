@@ -6,6 +6,8 @@
 #include "CustomStateMachine.h"
 #include "SendTunnelCommandState.h"
 #include "RotateAndCaptureState.h"
+#include "TakeoffState.h"
+#include "SetFlightModeState.h"
 
 #include "Vehicle.h"
 #include "QGCApplication.h"
@@ -371,8 +373,32 @@ void CustomPlugin::cancelAndReturn(void)
     _resetStateAndRTL();
 }
 
-void CustomPlugin::autoTakeoffRotateRTL()
+void CustomPlugin::autoDetection()
 {
+    qCDebug(CustomPluginLog) << Q_FUNC_INFO;
+
+    auto stateMachine = new CustomStateMachine("Auto Detection", this);
+
+    auto finalState     = stateMachine->finalState();
+    auto takeoffState   = new TakeoffState(stateMachine, _customSettings->takeoffAltitude()->rawValue().toDouble());
+    auto rotateState    = new RotateAndCaptureState(stateMachine);
+    auto rtlState       = new SetFlightModeState(stateMachine, MultiVehicleManager::instance()->activeVehicle()->rtlFlightMode());
+
+    // Transitions
+    takeoffState->addTransition(takeoffState, &TakeoffState::takeoffComplete, rotateState);
+    rotateState->addTransition(rotateState, &QState::finished, rtlState);
+    rtlState->addTransition(rtlState, &QState::finished, finalState);
+
+    connect(rotateState, &QState::entered, this, [stateMachine] () {
+        stateMachine->addGuidedModeCancelledTransition();
+    });
+    connect(rotateState, &QState::exited, this, [stateMachine] () {
+        stateMachine->removeGuidedModeCancelledTransition();
+    });
+
+    stateMachine->setInitialState(takeoffState);
+
+    stateMachine->start();
 #if 0
     qCDebug(CustomPluginLog) << "autoTakeoffRotateRTL";
 
@@ -428,66 +454,6 @@ void CustomPlugin::_clearVehicleStates(void)
     disconnect(this, &CustomPlugin::_detectionStopped, nullptr, nullptr);
 }
 
-void CustomPlugin::_addRotationStates(void)
-{
-    Vehicle* vehicle = MultiVehicleManager::instance()->activeVehicle();
-
-    // Setup new rotation data
-    _rgAngleStrengths.append(QList<double>());
-    _rgAngleRatios.append(QList<double>());
-    _rgCalcedBearings.append(qQNaN());
-
-    QList<double>& angleStrengths = _rgAngleStrengths.last();
-    QList<double>& angleRatios = _rgAngleRatios.last();
-
-    // Prime angle strengths with no values
-    _cSlice = _customSettings->divisions()->rawValue().toInt();
-    for (int i=0; i<_cSlice; i++) {
-        angleStrengths.append(qQNaN());
-        angleRatios.append(qQNaN());
-    }
-
-    // We always start our rotation pulse captures with the antenna at 0 degrees heading
-    double antennaOffset = _customSettings->antennaOffset()->rawValue().toDouble();
-    double sliceDegrees = 360.0 / _cSlice;
-    double nextHeading = -antennaOffset;
-
-    // We wait at each rotation for enough time to go by to capture a user specified set of k groups
-    uint32_t maxK = _customSettings->k()->rawValue().toUInt();
-    auto kGroups = _customSettings->rotationKWaitCount()->rawValue().toInt();
-    auto maxIntraPulseMsecs = TagDatabase::instance()->maxIntraPulseMsecs();
-    uint32_t rotationCaptureWaitMsecs = maxIntraPulseMsecs * ((kGroups * maxK) + 1);
-
-    _currentSlice = 0;
-
-    // Add rotation state machine entries
-    for (int i=0; i<_cSlice; i++) {
-        VehicleState_t vehicleState;
-
-        if (nextHeading >= 360) {
-            nextHeading -= 360;
-        } else if (nextHeading < 0) {
-            nextHeading += 360;
-        }
-
-        vehicleState.command                = CommandSetHeadingForRotationCapture;
-        vehicleState.fact                   = vehicle->heading();
-        vehicleState.targetValueWaitMsecs   = 10 * 1000;
-        vehicleState.targetValue            = nextHeading;
-        vehicleState.targetVariance         = 1;
-        _vehicleStates.append(vehicleState);
-
-        vehicleState.command                = CommandDelayForSteadyCapture;
-        vehicleState.fact                   = nullptr;
-        vehicleState.targetValueWaitMsecs   = rotationCaptureWaitMsecs;
-        _vehicleStates.append(vehicleState);
-
-        nextHeading += sliceDegrees;
-    }
-
-    _retryRotation = false;
-}
-
 void CustomPlugin::_initNewRotationDuringFlight(void)
 {
     Vehicle* vehicle = MultiVehicleManager::instance()->activeVehicle();
@@ -509,24 +475,12 @@ void CustomPlugin::startRotation(void)
 {
     qCDebug(CustomPluginLog) << Q_FUNC_INFO;
 
-    StartDetectionInfo_t startDetectionInfo;
-    memset(&startDetectionInfo, 0, sizeof(startDetectionInfo));
-    startDetectionInfo.header.command               = COMMAND_ID_START_DETECTION;
-    startDetectionInfo.radio_center_frequency_hz    = TagDatabase::instance()->radioCenterHz();
-    startDetectionInfo.gain                         = _customSettings->gain()->rawValue().toUInt();
-
     auto stateMachine = new CustomStateMachine("Start Rotation", this);
+    stateMachine->addGuidedModeCancelledTransition();
 
-    auto errorState                 = stateMachine->errorState();
-    auto finalState                 = stateMachine->finalState();
-    auto sendStartDetectionState    = new SendTunnelCommandState((uint8_t*)&startDetectionInfo, sizeof(startDetectionInfo), stateMachine);
-    auto sendTagsState              = new SendTagsState(stateMachine);
-    auto rotateState                = new RotateAndCaptureState(stateMachine, true /* rtlOnFlightModeChange */);
+    auto rotateState = new RotateAndCaptureState(stateMachine);
 
-    // Transitions
-    sendStartDetectionState->addTransition(sendStartDetectionState, &SendTunnelCommandState::commandSucceeded, sendTagsState);
-    sendTagsState->addTransition(sendTagsState, &QState::finished, rotateState);
-    rotateState->addTransition(rotateState, &QState::finished, finalState);
+    rotateState->addTransition(rotateState, &CustomState::finished, stateMachine->finalState());
 
     stateMachine->setInitialState(rotateState);
 

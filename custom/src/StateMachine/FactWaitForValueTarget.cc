@@ -3,7 +3,7 @@
 #include "Fact.h"
 
 FactWaitForValueTarget::FactWaitForValueTarget(QState* parentState, Fact* fact, double targetValue, double targetVariance, int waitMsecs)
-    : GuidedModeState("FactWaitForValueTarget", parentState)
+    : CustomState("FactWaitForValueTarget", parentState)
     , _fact                 (fact)
     , _targetValue          (targetValue)
     , _targetVariance       (targetVariance)

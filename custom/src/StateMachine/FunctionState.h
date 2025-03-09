@@ -1,10 +1,10 @@
 #pragma once
 
-#include "GuidedModeState.h"
+#include "CustomState.h"
 
 #include <functional>
 
-class FunctionState : public GuidedModeState
+class FunctionState : public CustomState
 {
     Q_OBJECT
 

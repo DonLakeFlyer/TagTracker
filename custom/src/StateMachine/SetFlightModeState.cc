@@ -10,7 +10,7 @@ SetFlightModeState::SetFlightModeState(QState* parentState, const QString& fligh
     , _vehicle      (MultiVehicleManager::instance()->activeVehicle())
 {
     _timeoutTimer.setSingleShot(true);
-    _timeoutTimer.setInterval(500);
+    _timeoutTimer.setInterval(1000);
 
     connect(this, &SetFlightModeState::entered, this, &SetFlightModeState::_setFlightMode);
 }
@@ -21,6 +21,7 @@ void SetFlightModeState::_setFlightMode()
         qCDebug(CustomPluginLog) << "Flight mode already set to" << _flightMode << " - " << Q_FUNC_INFO;
         emit flightModeChanged();
     } else {
+        qCDebug(CustomPluginLog) << "Setting flight mode to" << _flightMode << " - " << Q_FUNC_INFO;
         connect(_vehicle, &Vehicle::flightModeChanged, this, &SetFlightModeState::_validateFlightModeChange);
         connect(&_timeoutTimer, &QTimer::timeout, this, &SetFlightModeState::_timeout);
         _timeoutTimer.start();
@@ -36,6 +37,7 @@ void SetFlightModeState::_timeout()
 }
 void SetFlightModeState::_disconnectAll()
 {
+    _timeoutTimer.stop();
     disconnect(_vehicle, &Vehicle::flightModeChanged, this, &SetFlightModeState::_validateFlightModeChange);
     disconnect(&_timeoutTimer, &QTimer::timeout, this, &SetFlightModeState::_timeout);
 }

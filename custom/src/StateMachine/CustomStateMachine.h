@@ -10,6 +10,7 @@
 #include <functional>
 
 class Vehicle;
+class GuidedModeCancelledTransition;
 
 class CustomStateMachine : public QStateMachine
 {
@@ -21,6 +22,9 @@ public:
 
     CustomState* errorState() { return _errorState; }
     QFinalState* finalState() { return _finalState; }
+
+    void addGuidedModeCancelledTransition();
+    void removeGuidedModeCancelledTransition();
 
 public slots:
     void displayError();
@@ -38,6 +42,7 @@ private:
     QString         _errorString;
     CustomState*    _errorState = nullptr;
     QFinalState*    _finalState = nullptr;
+    GuidedModeCancelledTransition* _guidedModeCancelledTransition = nullptr;
 
     friend class CustomState;
 };

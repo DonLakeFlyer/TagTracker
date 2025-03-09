@@ -11,11 +11,11 @@ import QGroundControl               1.0
 import QGroundControl.FlightDisplay 1.0
 
 GuidedToolStripAction {
-    text:       customController.autoTakeoffRotateRTLTitle
+    text:       customController.autoDetectionTitle
     iconSource: "/res/action.svg"
     visible:    true
     enabled:    QGroundControl.multiVehicleManager.activeVehicle
-    actionID:   customController.actionAutoTakeoffRotateRTL
+    actionID:   customController.actionAutoDetection
 
     property var customController: _guidedController._customController
 }

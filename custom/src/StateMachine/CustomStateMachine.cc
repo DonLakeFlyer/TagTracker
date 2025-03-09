@@ -20,7 +20,6 @@ CustomStateMachine::CustomStateMachine(const QString& machineName, QObject* pare
 
     connect(this, &CustomStateMachine::started, this, [this] () {
         qCDebug(CustomPluginLog) << "State machine started:" << objectName();
-        connect(_vehicle, &Vehicle::flightModeChanged, this, &CustomStateMachine::_flightModeChanged);
     });
     connect(this, &CustomStateMachine::stopped, this, [this] () {
         qCDebug(CustomPluginLog) << "State machine finished:" << objectName();
@@ -30,12 +29,24 @@ CustomStateMachine::CustomStateMachine(const QString& machineName, QObject* pare
         qCWarning(CustomPluginLog) << "State machine error:" << _errorString << "on" << objectName() ;
     });
 
-    auto cancelledTransition = new GuidedModeCancelledTransition(this);
-    cancelledTransition->setTargetState(_finalState);
-
     _errorState->addTransition(_errorState, &QState::entered, _finalState);
 
     connect(this, &CustomStateMachine::stopped, this, [this] () { this->deleteLater(); });
+}
+
+void CustomStateMachine::addGuidedModeCancelledTransition()
+{
+    _guidedModeCancelledTransition = new GuidedModeCancelledTransition(this);
+    _guidedModeCancelledTransition->setTargetState(_finalState);
+
+    connect(_vehicle, &Vehicle::flightModeChanged, this, &CustomStateMachine::_flightModeChanged);
+}
+
+void CustomStateMachine::removeGuidedModeCancelledTransition()
+{
+    this->removeTransition(_guidedModeCancelledTransition);
+    _guidedModeCancelledTransition = nullptr;
+    disconnect(_vehicle, &Vehicle::flightModeChanged, this, &CustomStateMachine::_flightModeChanged);
 }
 
 void CustomStateMachine::setError(const QString& errorString)

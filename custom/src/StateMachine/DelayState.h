@@ -1,10 +1,10 @@
 #pragma once
 
-#include "GuidedModeState.h"
+#include "CustomState.h"
 
 #include <QTimer>
 
-class DelayState : public GuidedModeState
+class DelayState : public CustomState
 {
     Q_OBJECT
 

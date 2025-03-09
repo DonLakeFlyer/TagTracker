@@ -1,12 +1,12 @@
 #pragma once
 
-#include "GuidedModeState.h"
+#include "CustomState.h"
 
 #include <QTimer>
 
 class Fact;
 
-class FactWaitForValueTarget : public GuidedModeState
+class FactWaitForValueTarget : public CustomState
 {
     Q_OBJECT
 

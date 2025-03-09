@@ -2,7 +2,7 @@
 #include "CustomLoggingCategory.h"
 
 DelayState::DelayState(QState* parentState, int delayMsecs)
-    : GuidedModeState("DelayState", parentState)
+    : CustomState("DelayState", parentState)
 {
     _delayTimer.setSingleShot(true);
     _delayTimer.setInterval(delayMsecs);
