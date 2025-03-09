@@ -54,6 +54,11 @@ MapQuickItem {
                 anchors.fill:   parent
                 visible:        !isNaN(strengthRatio)
 
+                property real centerX:          width / 2
+                property real centerY:          height / 2
+                property real arcRadians:       (Math.PI * 2) / _divisions
+                property real strengthRatio:    _corePlugin.angleRatios[_rotationIndex][index]
+
                 onPaint: {
                     var ctx = getContext("2d");
                     ctx.reset();
@@ -74,11 +79,6 @@ MapQuickItem {
                     origin.y:   arcCanvas.centerY
                     angle:      -90 - (360 / _divisions / 2) + ((360 / _divisions) * index)
                 }
-
-                property real centerX:          width / 2
-                property real centerY:          height / 2
-                property real arcRadians:       (Math.PI * 2) / _divisions
-                property real strengthRatio:    _corePlugin.angleRatios[_rotationIndex][index]
 
                 Connections {
                     target:                 _corePlugin

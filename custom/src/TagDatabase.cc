@@ -652,7 +652,7 @@ void TagDatabase::_setupTunerVars()
 // The channel bin structure follows the functionality of Matlab dsp.channelizer. The channel bins are 1-based to follow
 // Matlab's 1-based vector/array indexing. Channel 1 is the centered at the radio center frequency Then remainder of the
 // channels follow and wrap around back to the beginning of the bandwidth.
-bool TagDatabase::channelizerTuner()
+uint32_t TagDatabase::channelizerTuner()
 {
     _setupTunerVars();
 
@@ -846,11 +846,9 @@ bool TagDatabase::channelizerTuner()
         }
 
 
-        _radioCenterHz = bestTestCenterHz;
-        return true;
+        return bestTestCenterHz;
     } else {
-        _radioCenterHz = 0;
-        return false;
+        return 0;
     }
 }
 

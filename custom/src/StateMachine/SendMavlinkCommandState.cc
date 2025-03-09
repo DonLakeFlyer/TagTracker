@@ -6,8 +6,8 @@
 #include "MissionCommandTree.h"
 #include "Vehicle.h"
 
-SendMavlinkCommandState::SendMavlinkCommandState(QState* parent, MAV_CMD command, double param1, double param2, double param3, double param4, double param5, double param6, double param7)
-    : FunctionState (std::bind(&SendMavlinkCommandState::_sendMavlinkCommand, this), parent)
+SendMavlinkCommandState::SendMavlinkCommandState(QState* parentState, MAV_CMD command, double param1, double param2, double param3, double param4, double param5, double param6, double param7)
+    : CustomState   ("SendMavlinkCommandState", parentState)
     , _vehicle      (MultiVehicleManager::instance()->activeVehicle())
     , _command      (command)
     , _param1       (param1)
@@ -20,7 +20,8 @@ SendMavlinkCommandState::SendMavlinkCommandState(QState* parent, MAV_CMD command
 {
     connect(this, &QState::entered, this, [this] () 
         { 
-            qCDebug(CustomPluginLog) << QStringLiteral("Sending %1 command").arg(MissionCommandTree::instance()->friendlyName(_command)) << " - " << Q_FUNC_INFO;   
+            qCDebug(CustomPluginLog) << QStringLiteral("Sending %1 command").arg(MissionCommandTree::instance()->friendlyName(_command)) << " - " << Q_FUNC_INFO;
+            _sendMavlinkCommand();
         });
 }
 

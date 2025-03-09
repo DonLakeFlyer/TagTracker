@@ -32,14 +32,9 @@ SendTagsState::SendTagsState(QState* parent)
         return;
     }
 
-    if (!tagDatabase->channelizerTuner()) {
-        qCWarning(CustomPluginLog) << Q_FUNC_INFO << "Channelizer tuner failed. Detectors not started";
-        return;
-    }
-
     auto sendStartTags      = _sendStartTagsState(this);
     auto sendEndTags        = _sendEndTagsState(this);
-    auto setupDetectorList  = new FunctionState(std::bind(&SendTagsState::_setupDetectorList, this), this);
+    auto setupDetectorList  = new FunctionState("SetupDetectorList", this, std::bind(&SendTagsState::_setupDetectorList, this));
     auto errorState         = new QState(this);
     auto finalState         = new QFinalState(this);
 
@@ -94,7 +89,7 @@ SendTunnelCommandState* SendTagsState::_sendStartTagsState(QState* parent)
     StartTagsInfo_t startTagsInfo;
     startTagsInfo.header.command  = COMMAND_ID_START_TAGS;
 
-    return new SendTunnelCommandState((uint8_t*)&startTagsInfo, sizeof(startTagsInfo), parent);
+    return new SendTunnelCommandState("StartTagsCommand", parent, (uint8_t*)&startTagsInfo, sizeof(startTagsInfo));
 }
 
 SendTunnelCommandState* SendTagsState::_sendTagState(int tagIndex, QState* parent)
@@ -126,7 +121,7 @@ SendTunnelCommandState* SendTagsState::_sendTagState(int tagIndex, QState* paren
     tunnelTagInfo.ip2_mu                                    = qQNaN();
     tunnelTagInfo.ip2_sigma                                 = qQNaN();
 
-    return new SendTunnelCommandState((uint8_t*)&tunnelTagInfo, sizeof(tunnelTagInfo), parent);
+    return new SendTunnelCommandState("TagInfoCommand", parent, (uint8_t*)&tunnelTagInfo, sizeof(tunnelTagInfo));
 }
 
 SendTunnelCommandState* SendTagsState::_sendEndTagsState(QState* parent)
@@ -134,7 +129,7 @@ SendTunnelCommandState* SendTagsState::_sendEndTagsState(QState* parent)
     EndTagsInfo_t endTagsInfo;
     endTagsInfo.header.command = COMMAND_ID_END_TAGS;
 
-    return new SendTunnelCommandState((uint8_t*)&endTagsInfo, sizeof(endTagsInfo), parent);
+    return new SendTunnelCommandState("EndTagsCommand", parent, (uint8_t*)&endTagsInfo, sizeof(endTagsInfo));
 }
 
 void SendTagsState::_setupDetectorList(void)

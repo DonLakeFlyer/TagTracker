@@ -13,7 +13,7 @@
 CustomStateMachine::CustomStateMachine(const QString& machineName, QObject* parent)
     : QStateMachine (parent)
     , _vehicle      (MultiVehicleManager::instance()->activeVehicle())
-    , _errorState   (new FunctionState(std::bind(&CustomStateMachine::displayError, this), this))
+    , _errorState   (new FunctionState("DisplayError", this, std::bind(&CustomStateMachine::displayError, this)))
     , _finalState   (new QFinalState(this))
 {
     setObjectName(machineName);
@@ -29,7 +29,7 @@ CustomStateMachine::CustomStateMachine(const QString& machineName, QObject* pare
         qCWarning(CustomPluginLog) << "State machine error:" << _errorString << "on" << objectName() ;
     });
 
-    _errorState->addTransition(_errorState, &QState::entered, _finalState);
+    _errorState->addTransition(_errorState, &FunctionState::functionCompleted, _finalState);
 
     connect(this, &CustomStateMachine::stopped, this, [this] () { this->deleteLater(); });
 }

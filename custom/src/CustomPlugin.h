@@ -11,6 +11,7 @@
 #include "TunnelProtocol.h"
 #include "DetectorList.h"
 #include "TagDatabase.h"
+#include "CSVLogManager.h"
 
 #include <QElapsedTimer>
 #include <QGeoCoordinate>
@@ -64,12 +65,15 @@ public:
     QList<QList<double>>&   rgAngleStrengths() { return _rgAngleStrengths; }
     QList<QList<double>>&   rgAngleRatios() { return _rgAngleRatios; }
     QList<double>&          rgCalcedBearings() { return _rgCalcedBearings; }
+    CSVLogManager&          csvLogManager() { return _csvLogManager; }
+
+    void signalAngleRatiosChanged() { emit angleRatiosChanged(); }
+    void signalCalcedBearingsChanged() { emit calcedBearingsChanged(); }
 
     TagDatabase* tagDatabase();
 
     Q_INVOKABLE void autoDetection      ();
     Q_INVOKABLE void startRotation      (void);
-    Q_INVOKABLE void cancelAndReturn    (void);
     Q_INVOKABLE void startDetection     (void);
     Q_INVOKABLE void stopDetection      (void);
     Q_INVOKABLE void rawCapture         (void);
@@ -102,13 +106,7 @@ signals:
     void _stopDetectionFailed           (void);
 
 private slots:
-    void _vehicleStateRawValueChanged   (QVariant rawValue);
-    void _advanceStateMachine           (void);
-    void _advanceStateMachineOnSignal   ();
-    void _vehicleStateTimeout           (void);
-    void _updateFlightMachineActive     (bool flightMachineActive);
-    void _mavCommandResult              (int vehicleId, int component, int command, int result, bool noResponseFromVehicle);
-    void _controllerHeartbeatFailed     (void);
+    void _controllerHeartbeatFailed(void);
 
 private:
     typedef enum {
@@ -137,32 +135,13 @@ private:
 
     void    _handleTunnelPulse          (Vehicle* vehicle, const mavlink_tunnel_t& tunnel);
     void    _handleTunnelHeartbeat      (const mavlink_tunnel_t& tunnel);
-    void    _rotateVehicle              (Vehicle* vehicle, double headingDegrees);
     void    _say                        (QString text);
-    bool    _armVehicleAndValidate      (Vehicle* vehicle);
-    bool    _setRTLFlightModeAndValidate(Vehicle* vehicle);
-    void    _sendCommandAndVerify       (Vehicle* vehicle, MAV_CMD command, double param1 = 0.0, double param2 = 0.0, double param3 = 0.0, double param4 = 0.0, double param5 = 0.0, double param6 = 0.0, double param7 = 0.0);
-    void    _takeoff                    (Vehicle* vehicle, double takeoffAltRel);
-    void    _resetStateAndRTL           (void);
     int     _rawPulseToPct              (double rawPulse);
     double  _pulseTimeSeconds           (void) { return _lastPulseInfo.start_time_seconds; }
     double  _pulseSNR                   (void) { return _lastPulseInfo.snr; }
     bool    _pulseConfirmed             (void) { return _lastPulseInfo.confirmed_status; }
-    void    _setupDelayForSteadyCapture (void);
-    void    _rotationDelayComplete      (void);
-    QString _logSavePath                (void);
-    void    _csvStartFullPulseLog       (void);
-    void    _csvStopFullPulseLog        (void);
-    void    _csvClearPrevRotationLogs   (void);
-    void    _csvStartRotationPulseLog   (int rotationCount);
-    void    _csvStopRotationPulseLog    (bool calcBearing);
-    void    _csvLogPulse                (QFile& csvFile, const TunnelProtocol::PulseInfo_t& pulseInfo);
-    void    _csvLogRotationStartStop    (QFile& csvFile, bool startRotation);
     bool    _useSNRForPulseStrength     (void) { return _customSettings->useSNRForPulseStrength()->rawValue().toBool(); }
     void    _captureScreen              (void);
-    void    _addRotationStates          (void);
-    void    _initNewRotationDuringFlight(void);
-    void    _clearVehicleStates         (void);
 
     QVariantList            _settingsPages;
     QVariantList            _instrumentPages;
@@ -179,16 +158,12 @@ private:
     int                     _controllerStatus   = ControllerStatusIdle;
     float                   _controllerCPUTemp  = 0.0;
 
-    QTimer                  _vehicleStateTimeoutTimer;
     CustomOptions*          _customOptions;
     CustomSettings*         _customSettings;
     int                     _vehicleFrequency;
     int                     _lastPulseSendIndex;
     int                     _missedPulseCount;
     QmlObjectListModel      _customMapItems;
-    QFile                   _csvFullPulseLogFile;
-    QFile                   _csvRotationPulseLogFile;
-    int                     _csvRotationCount = 1;
     TunnelProtocol::PulseInfo_t _lastPulseInfo;
     QVariantList            _toolbarIndicators;
 
@@ -198,6 +173,8 @@ private:
     int                     _curLogFileDownloadIndex;
     QString                 _logDirPathOnVehicle;
     QStringList             _logFileDownloadList;
+
+    CSVLogManager           _csvLogManager;
 
     double                  _maxSNR = qQNaN();
     double                  _minSNR = qQNaN();

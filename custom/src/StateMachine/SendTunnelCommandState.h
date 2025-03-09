@@ -1,18 +1,18 @@
 #pragma once
 
 #include "QGCMAVLink.h"
-#include "CustomStateMachine.h"
+#include "CustomState.h"
 
 #include <QTimer>
 
 class Vehicle;
 
-class SendTunnelCommandState : public FunctionState
+class SendTunnelCommandState : public CustomState
 {
     Q_OBJECT
 
 public:
-    SendTunnelCommandState(uint8_t* payload, size_t payloadSize, QState* parent = nullptr);
+    SendTunnelCommandState(const QString& stateName, QState* parentState, uint8_t* payload, size_t payloadSize);
     ~SendTunnelCommandState();
 
     static QString commandIdToText(uint32_t command);

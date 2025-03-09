@@ -34,6 +34,8 @@ FILE(GLOB BearingSources uavrt_bearing/codegen/exe/bearing/*.cpp)
 FILE(GLOB BearingSourcesC uavrt_bearing/codegen/exe/bearing/*.c)
 
 qt_add_library(CustomPlugin STATIC
+    src/CSVLogManager.cc
+    src/CSVLogManager.h
     src/HerelinkCorePlugin.cc
     src/HerelinkCorePlugin.h
     src/HerelinkOptions.cc
@@ -77,6 +79,10 @@ qt_add_library(CustomPlugin STATIC
     src/StateMachine/SendTagsState.h
     src/StateMachine/SendTunnelCommandState.cc
     src/StateMachine/SendTunnelCommandState.h
+    src/StateMachine/StartDetectionState.cc
+    src/StateMachine/StartDetectionState.h
+    src/StateMachine/StopDetectionState.cc
+    src/StateMachine/StopDetectionState.h
     src/StateMachine/TakeoffState.cc
     src/StateMachine/TakeoffState.h
     ${BearingHeaders}
