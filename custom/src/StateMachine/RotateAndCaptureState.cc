@@ -12,7 +12,7 @@
 #include "TagDatabase.h"
 #include "FirmwarePlugin.h"
 
-RotateAndCaptureState::RotateAndCaptureState(QState* parentState, bool rtlOnFlightModeChange)
+RotateAndCaptureState::RotateAndCaptureState(QState* parentState)
     : CustomState       ("RotateAndCaptureState", parentState)
     , _vehicle          (MultiVehicleManager::instance()->activeVehicle())
     , _customPlugin     (qobject_cast<CustomPlugin*>(CustomPlugin::instance()))
@@ -48,7 +48,7 @@ RotateAndCaptureState::RotateAndCaptureState(QState* parentState, bool rtlOnFlig
             nextHeading += 360;
         }
 
-        auto state = _rotateAndCaptureAtHeadingState(this, nextHeading, rtlOnFlightModeChange);
+        auto state = _rotateAndCaptureAtHeadingState(this, nextHeading);
         rotationStates.append(state);
 
         nextHeading += sliceDegrees;
@@ -72,7 +72,7 @@ RotateAndCaptureState::RotateAndCaptureState(QState* parentState, bool rtlOnFlig
     this->setInitialState(rotationStates.first());
 }
 
-CustomState* RotateAndCaptureState::_rotateAndCaptureAtHeadingState(QState* parentState, double headingDegrees, bool rtlOnFlightModeChange)
+CustomState* RotateAndCaptureState::_rotateAndCaptureAtHeadingState(QState* parentState, double headingDegrees)
 {
     // We wait at each rotation for enough time to go by to capture a user specified set of k groups
     uint32_t maxK = _customSettings->k()->rawValue().toUInt();

@@ -3,14 +3,15 @@ import QtQml
 import QGroundControl
 
 QtObject {
+    readonly property int actionAutoDetection:              customActionStart + 1
     readonly property int actionStartDetection:             customActionStart + 2
     readonly property int actionStopDetection:              customActionStart + 3
     readonly property int actionStartRotation:              customActionStart + 4
     readonly property int actionRawCapture:                 customActionStart + 5
     readonly property int actionSaveLogs:                   customActionStart + 6
     readonly property int actionClearLogs:                  customActionStart + 7
-    readonly property int actionAutoTakeoffRotateRTL:       customActionStart + 8
 
+    readonly property string autoDetectionTitle:            qsTr("Takeoff")
     readonly property string startDetectionTitle:           qsTr("Start")
     readonly property string stopDetectionTitle:            qsTr("Stop")
     readonly property string startRotationTitle:            qsTr("Rotate")
@@ -18,8 +19,8 @@ QtObject {
     readonly property string downloadLogsTitle:             qsTr("Download")
     readonly property string saveLogsTitle:                 qsTr("Save")
     readonly property string clearLogsTitle:                qsTr("Clear")
-    readonly property string autoTakeoffRotateRTLTitle:     qsTr("Auto")
 
+    readonly property string autoDetectionMessage:          qsTr("Takeoff, rotate, return.")
     readonly property string startDetectionMessage:         qsTr("Start pulse detection for the specified tag(s).")
     readonly property string stopDetectionMessage:          qsTr("Stop all pulse detection.")
     readonly property string startRotationMessage:          qsTr("Start rotation in place.")
@@ -27,10 +28,14 @@ QtObject {
     readonly property string downloadLogsMessage:           qsTr("Download companion logs.")
     readonly property string saveLogsMessage:               qsTr("Save companion logs.")
     readonly property string clearLogsMessage:              qsTr("Clear companion logs.")
-    readonly property string autoTakeoffRotateRTLMessage:   qsTr("Auto takeoff, collect data, and return to launch.")
 
     function customConfirmAction(actionCode, actionData, mapIndicator, confirmDialog) {
         switch (actionCode) {
+        case actionAutoDetection:
+            confirmDialog.hideTrigger = true
+            confirmDialog.title = startDetectionTitle
+            confirmDialog.message = startDetectionMessage
+            break
         case actionStartDetection:
             confirmDialog.hideTrigger = true
             confirmDialog.title = startDetectionTitle
@@ -61,11 +66,6 @@ QtObject {
             confirmDialog.title = clearLogsTitle
             confirmDialog.message = clearLogsMessage
             break
-        case actionAutoTakeoffRotateRTL:
-            confirmDialog.hideTrigger = true
-            confirmDialog.title = autoTakeoffRotateRTLTitle
-            confirmDialog.message = autoTakeoffRotateRTLMessage
-            break
         default:
             return false;
         }
@@ -75,6 +75,9 @@ QtObject {
 
     function customExecuteAction(actionCode, actionData, sliderOutputValue, optionCheckedode) {
         switch (actionCode) {
+        case actionAutoDetection:
+            QGroundControl.corePlugin.autoDetection()
+            break
         case actionStartDetection:
             QGroundControl.corePlugin.startDetection()
             break
@@ -92,9 +95,6 @@ QtObject {
             break
         case actionClearLogs:
             QGroundControl.corePlugin.cleanLogs()
-            break
-        case actionAutoTakeoffRotateRTL:
-            QGroundControl.corePlugin.autoTakeoffRotateRTL()
             break
         default:
             return false;

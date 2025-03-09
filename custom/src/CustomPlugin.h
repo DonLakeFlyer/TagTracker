@@ -17,6 +17,9 @@
 #include <QTimer>
 #include <QFile>
 
+class CustomState;
+class QState;
+
 class CustomPlugin : 
 #ifdef TAG_TRACKER_HERELINK_BUILD
     public HerelinkCorePlugin
@@ -64,7 +67,7 @@ public:
 
     TagDatabase* tagDatabase();
 
-    Q_INVOKABLE void autoTakeoffRotateRTL();
+    Q_INVOKABLE void autoDetection      ();
     Q_INVOKABLE void startRotation      (void);
     Q_INVOKABLE void cancelAndReturn    (void);
     Q_INVOKABLE void startDetection     (void);
