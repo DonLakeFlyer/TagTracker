@@ -11,6 +11,7 @@
 #include "StartDetectionState.h"
 #include "StopDetectionState.h"
 #include "FunctionState.h"
+#include "SayState.h"
 
 #include "Vehicle.h"
 #include "QGCApplication.h"
@@ -243,25 +244,29 @@ void CustomPlugin::autoDetection()
 
     auto stateMachine = new CustomStateMachine("Auto Detection", this);
 
-    auto finalState             = stateMachine->finalState();
+    auto announceAutoStartState = new SayState("AnnounceAuto", stateMachine, "Starting auto detection");
     auto startDetectionState    = new StartDetectionState(stateMachine);
     auto takeoffState           = new TakeoffState(stateMachine, _customSettings->takeoffAltitude()->rawValue().toDouble());
     auto rtlCancelOnState       = new FunctionState("RTLCancelOn", stateMachine, std::bind(&CustomStateMachine::addGuidedModeCancelledTransition, stateMachine));
     auto rotateState            = new RotateAndCaptureState(stateMachine);
     auto stopDetectionState     = new StopDetectionState(stateMachine);
     auto rtlCancelOffState      = new FunctionState("RTLCancelOff", stateMachine, std::bind(&CustomStateMachine::removeGuidedModeCancelledTransition, stateMachine));
+    auto announceAutoEndState   = new SayState("AnnounceAutoEnd", stateMachine, "Auto detection complete. Returning");
     auto rtlState               = new SetFlightModeState(stateMachine, MultiVehicleManager::instance()->activeVehicle()->rtlFlightMode());
+    auto finalState             = new QFinalState(stateMachine);
 
     // Transitions
-    startDetectionState->addTransition(startDetectionState, &CustomState::finished, takeoffState);
-    takeoffState->addTransition(takeoffState, &TakeoffState::takeoffComplete, rtlCancelOnState);
-    rtlCancelOnState->addTransition(rtlCancelOnState, &FunctionState::functionCompleted, rotateState);
-    rotateState->addTransition(rotateState, &QState::finished, rtlCancelOffState);
-    rtlCancelOffState->addTransition(rtlCancelOffState, &FunctionState::functionCompleted, stopDetectionState);
-    stopDetectionState->addTransition(stopDetectionState, &CustomState::finished, rtlState);
-    rtlState->addTransition(rtlState, &QState::finished, finalState);
+    announceAutoStartState->addTransition   (announceAutoStartState,    &SayState::functionCompleted,       startDetectionState);
+    startDetectionState->addTransition      (startDetectionState,       &CustomState::finished,             takeoffState);
+    takeoffState->addTransition             (takeoffState,              &TakeoffState::takeoffComplete,     rtlCancelOnState);
+    rtlCancelOnState->addTransition         (rtlCancelOnState,          &FunctionState::functionCompleted,  rotateState);
+    rotateState->addTransition              (rotateState,               &QState::finished,                  rtlCancelOffState);
+    rtlCancelOffState->addTransition        (rtlCancelOffState,         &FunctionState::functionCompleted,  stopDetectionState);
+    stopDetectionState->addTransition       (stopDetectionState,        &CustomState::finished,             announceAutoEndState);
+    announceAutoEndState->addTransition     (announceAutoEndState,      &SayState::functionCompleted,       rtlState);
+    rtlState->addTransition                 (rtlState,                  &QState::finished,                  finalState);
 
-    stateMachine->setInitialState(startDetectionState);
+    stateMachine->setInitialState(announceAutoStartState);
     stateMachine->start();
 }
 
@@ -272,9 +277,10 @@ void CustomPlugin::startRotation(void)
     auto stateMachine = new CustomStateMachine("Start Rotation", this);
     stateMachine->addGuidedModeCancelledTransition();
 
-    auto rotateState = new RotateAndCaptureState(stateMachine);
+    auto rotateState    = new RotateAndCaptureState(stateMachine);
+    auto finalState     = new QFinalState(stateMachine);
 
-    rotateState->addTransition(rotateState, &CustomState::finished, stateMachine->finalState());
+    rotateState->addTransition(rotateState, &CustomState::finished, finalState);
 
     stateMachine->setInitialState(rotateState);
     stateMachine->start();
@@ -284,8 +290,8 @@ void CustomPlugin::startDetection(void)
 {
     auto stateMachine = new CustomStateMachine("Start Detection", this);
 
-    auto finalState = stateMachine->finalState();
     auto startDetectionState = new StartDetectionState(stateMachine);
+    auto finalState = new QFinalState(stateMachine);
 
     // Transitions
     startDetectionState->addTransition(startDetectionState, &CustomState::finished, finalState);
@@ -299,8 +305,8 @@ void CustomPlugin::stopDetection(void)
 {
     auto stateMachine = new CustomStateMachine("Stop Detection", this);
 
-    auto finalState = stateMachine->finalState();
     auto stopDetectionState = new StopDetectionState(stateMachine);
+    auto finalState = new QFinalState(stateMachine);
 
     // Transitions
     stopDetectionState->addTransition(stopDetectionState, &CustomState::finished, finalState);
@@ -320,7 +326,7 @@ void CustomPlugin::rawCapture(void)
     auto stateMachine = new CustomStateMachine("RawCapture", this);
 
     auto errorState = stateMachine->errorState();
-    auto finalState = stateMachine->finalState();
+    auto finalState = new QFinalState(stateMachine);
 
     auto sendTagsState          = new SendTagsState(stateMachine);
     auto sendRawCaptureState    = new SendTunnelCommandState("RawCaptureCommand", stateMachine, (uint8_t*)&rawCapture, sizeof(rawCapture));
@@ -344,9 +350,8 @@ void CustomPlugin::saveLogs()
 
     auto stateMachine = new CustomStateMachine("SaveLogs", this);
 
-    auto finalState = stateMachine->finalState();
-
-    auto sendSaveLogsState = new SendTunnelCommandState("SaveLogsCommand", stateMachine, (uint8_t*)&saveLogsInfo, sizeof(saveLogsInfo));
+    auto sendSaveLogsState  = new SendTunnelCommandState("SaveLogsCommand", stateMachine, (uint8_t*)&saveLogsInfo, sizeof(saveLogsInfo));
+    auto finalState         = new QFinalState(stateMachine);
 
     // Send Save Logs -> Final State
     sendSaveLogsState->addTransition(sendSaveLogsState, &SendTunnelCommandState::commandSucceeded, finalState);
@@ -364,9 +369,8 @@ void CustomPlugin::cleanLogs()
 
     auto stateMachine = new CustomStateMachine("CleanLogs", this);
 
-    auto finalState = stateMachine->finalState();
-
     auto sendCleanLogsState = new SendTunnelCommandState("ClearLogsCommand", stateMachine, (uint8_t*)&cleanLogsInfo, sizeof(cleanLogsInfo));
+    auto finalState         = new QFinalState(stateMachine);
 
     // Send Clean Logs -> Final State
     sendCleanLogsState->addTransition(sendCleanLogsState, &SendTunnelCommandState::commandSucceeded, finalState);

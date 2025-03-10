@@ -7,6 +7,7 @@
 #include "SetFlightModeState.h"
 #include "DetectorList.h"
 #include "PulseRoseMapItem.h"
+#include "SayState.h"
 
 #include "MultiVehicleManager.h"
 #include "Vehicle.h"
@@ -58,17 +59,19 @@ RotateAndCaptureState::RotateAndCaptureState(QState* parentState)
         nextHeading += degreesPerSlice;
     }
 
-    auto finalState = new QFinalState(this);
+    auto announceRotateCompleteState    = new SayState("AnnounceRotateComplete", this, "Rotation detection complete");
+    auto finalState                     = new QFinalState(this);
 
     // Transitions
     initRotationState->addTransition(initRotationState, &FunctionState::functionCompleted, rotationStates.first());
     for (int i=0; i<rotationStates.count(); i++) {
         if (i == rotationStates.count() - 1) {
-            rotationStates[i]->addTransition(rotationStates[i], &QState::finished, finalState);
+            rotationStates[i]->addTransition(rotationStates[i], &QState::finished, announceRotateCompleteState);
         } else {
             rotationStates[i]->addTransition(rotationStates[i], &QState::finished, rotationStates[i+1]);
         }
     }
+    announceRotateCompleteState->addTransition(announceRotateCompleteState, &SayState::functionCompleted, finalState);
 
     this->setInitialState(initRotationState);
 }
@@ -167,15 +170,16 @@ CustomState* RotateAndCaptureState::_rotateAndCaptureAtHeadingState(QState* pare
     }); 
 
     auto sliceBeginState            = new FunctionState("SliceBegin", groupingState, std::bind(&RotateAndCaptureState::_sliceBegin, this));
+    auto announceRotateState        = new SayState("AnnounceRotate", groupingState, QStringLiteral("Detection at %1 degrees").arg(headingDegrees));
     auto rotateCommandState         = _rotateMavlinkCommandState(groupingState, headingDegrees);
     auto waitForHeadingChangeState  = new FactWaitForValueTarget(groupingState, _vehicle->heading(), headingDegrees, 1.0 /* _targetVariance */, 10 * 1000 /* _waitMsecs */);
     auto delayForKGroupsState       = new DelayState(groupingState, rotationCaptureWaitMsecs);
     auto sliceEndState              = new FunctionState("SliceEnd", groupingState, std::bind(&RotateAndCaptureState::_sliceEnd, this));
-
-    auto finalState = new QFinalState(groupingState);
+    auto finalState                 = new QFinalState(groupingState);
 
     // Transitions
-    sliceBeginState->addTransition(sliceBeginState, &FunctionState::functionCompleted, rotateCommandState);
+    sliceBeginState->addTransition(sliceBeginState, &FunctionState::functionCompleted, announceRotateState);
+    announceRotateState->addTransition(announceRotateState, &SayState::functionCompleted, rotateCommandState);
     rotateCommandState->addTransition(rotateCommandState, &SendMavlinkCommandState::success, waitForHeadingChangeState);
     waitForHeadingChangeState->addTransition(waitForHeadingChangeState, &FactWaitForValueTarget::success, delayForKGroupsState);
     delayForKGroupsState->addTransition(delayForKGroupsState, &DelayState::delayComplete, sliceEndState);

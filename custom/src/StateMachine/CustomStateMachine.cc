@@ -3,6 +3,7 @@
 #include "CustomPlugin.h"
 #include "GuidedModeCancelledTransition.h"
 #include "ErrorTransition.h"
+#include "SayState.h"
 
 #include "QGCApplication.h"
 #include "AudioOutput.h"
@@ -18,7 +19,6 @@ CustomStateMachine::CustomStateMachine(const QString& machineName, QObject* pare
     , _finalState   (new QFinalState(this))
 {
     setObjectName(machineName);
-    setChildMode(QState::ExclusiveStates);
 
     connect(this, &CustomStateMachine::started, this, [this] () {
         qCDebug(CustomPluginLog) << "State machine started:" << objectName();
@@ -38,8 +38,11 @@ CustomStateMachine::CustomStateMachine(const QString& machineName, QObject* pare
 
 void CustomStateMachine::addGuidedModeCancelledTransition()
 {
-    _guidedModeCancelledTransition = new GuidedModeCancelledTransition(this);
-    _guidedModeCancelledTransition->setTargetState(_finalState);
+    _guidedModeCancelledTransition  = new GuidedModeCancelledTransition(this);
+    _announceCancelState            = new SayState("AnnounceCancel", this, "Auto Detection cancelled. User is in control of vehicle");
+
+    _guidedModeCancelledTransition->setTargetState(_announceCancelState);
+    _announceCancelState->addTransition(_announceCancelState, &FunctionState::functionCompleted, _finalState);
 
     connect(_vehicle, &Vehicle::flightModeChanged, this, &CustomStateMachine::_flightModeChanged);
 }
@@ -47,7 +50,13 @@ void CustomStateMachine::addGuidedModeCancelledTransition()
 void CustomStateMachine::removeGuidedModeCancelledTransition()
 {
     this->removeTransition(_guidedModeCancelledTransition);
+    this->removeState(_announceCancelState);
+
+    _guidedModeCancelledTransition->deleteLater();
+    _announceCancelState->deleteLater();
     _guidedModeCancelledTransition = nullptr;
+    _announceCancelState = nullptr;
+
     disconnect(_vehicle, &Vehicle::flightModeChanged, this, &CustomStateMachine::_flightModeChanged);
 }
 
@@ -59,10 +68,8 @@ void CustomStateMachine::setError(const QString& errorString)
 
 void CustomStateMachine::displayError()
 {
-    qDebug() << "CustomStateMachine::displayError: errorString" << _errorString;
-    AudioOutput::instance()->say(_errorString);
+    qCWarning(CustomPluginLog) << _errorString << " - " << Q_FUNC_INFO;
     qgcApp()->showAppMessage(_errorString);
-    qCWarning(CustomPluginLog) << _errorString;
     _errorString.clear();
 }
 
