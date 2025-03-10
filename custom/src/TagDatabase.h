@@ -18,19 +18,19 @@ class TagInfo : public QObject
 
 public:
     TagInfo(TagDatabase* parent);
-    TagInfo(bool selected, uint32_t id, QString& name, uint32_t manufacturerId, uint32_t frequencyHz, TagDatabase* parent);
+    TagInfo(bool selected, uint32_t id, QString& name, uint32_t manufacturerId, double frequencyMHz, TagDatabase* parent);
 
     Q_PROPERTY(Fact* selected       MEMBER _selectedFact        CONSTANT)
     Q_PROPERTY(Fact* id             MEMBER _idFact              CONSTANT)
     Q_PROPERTY(Fact* name           MEMBER _nameFact            CONSTANT)
     Q_PROPERTY(Fact* manufacturerId MEMBER _manufacturerIdFact  CONSTANT)
-    Q_PROPERTY(Fact* frequencyHz    MEMBER _frequencyHzFact     CONSTANT)
+    Q_PROPERTY(Fact* frequencyMHz   MEMBER _frequencyMHzFact    CONSTANT)
 
     Fact* selected()       { return _selectedFact; }
     Fact* id()             { return _idFact; }
     Fact* name()           { return _nameFact; }
     Fact* manufacturerId() { return _manufacturerIdFact; }
-    Fact* frequencyHz()    { return _frequencyHzFact; }
+    Fact* frequencyMHz()   { return _frequencyMHzFact; }
 
 	// The 1-based channel index from which this channel is output from the channelizer.
 	uint32_t channelizer_channel_number;
@@ -39,7 +39,7 @@ public:
 
 private:
     void _initCommon(TagDatabase* parent);
-    void _init(bool selected, uint32_t id, const QString& name, uint32_t manufacturedId, uint32_t frequencyHz);
+    void _init(bool selected, uint32_t id, const QString& name, uint32_t manufacturedId, double frequencyMHz);
     QString _nextTagName();
     
     TagDatabase*                    _parent             = nullptr;
@@ -48,7 +48,7 @@ private:
     Fact*                           _idFact             = nullptr;
     Fact*                           _nameFact           = nullptr;
     Fact*                           _manufacturerIdFact = nullptr;
-    Fact*                           _frequencyHzFact    = nullptr;
+    Fact*                           _frequencyMHzFact   = nullptr;
 };
 
 class TagManufacturer : public QObject

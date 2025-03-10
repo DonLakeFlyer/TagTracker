@@ -32,6 +32,7 @@ public:
     DEFINE_SETTINGFACT(rotationKWaitCount)
     DEFINE_SETTINGFACT(useSNRForPulseStrength)
     DEFINE_SETTINGFACT(autoTakeoffRotateRTL)
+    DEFINE_SETTINGFACT(allowMultiTagDetection)
 
     enum AntennaType {
         OmniAntenna = 0,

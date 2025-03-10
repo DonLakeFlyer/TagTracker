@@ -138,7 +138,8 @@ Item {
         ColumnLayout {
             spacing: ScreenTools.defaultFontPixelHeight
 
-            property var tagDatabase: QGroundControl.corePlugin.tagDatabase
+            property var tagDatabase:       QGroundControl.corePlugin.tagDatabase
+            property var customSettings:    QGroundControl.corePlugin.customSettings
 
             RowLayout {
                 spacing: ScreenTools.defaultFontPixelWidth
@@ -171,7 +172,17 @@ Item {
 
                     FactCheckBox { 
                         fact:       object.selected 
-                        onClicked:  QGroundControl.corePlugin.tagDatabase.save()
+                        onClicked:  tagDatabase.save()
+
+                        onCheckedChanged: {
+                            if (checked && customSettings.allowMultiTagDetection.rawValue === false) {
+                                for (var i = 0; i < tagDatabase.tagInfoList.count; i++) {
+                                    if (tagDatabase.tagInfoList.get(i) !== object) {
+                                        tagDatabase.tagInfoList.get(i).selected.rawValue = false
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -186,7 +197,7 @@ Item {
                 Repeater {
                     model: tagDatabase.tagInfoList
 
-                    QGCLabel { text: object.frequencyHz.valueString }
+                    QGCLabel { text: object.frequencyMHz.valueString }
                 }
 
                 QGCLabel { }
@@ -207,7 +218,7 @@ Item {
                         text:       qsTr("Del")
                         onClicked: {
                             tagDatabase.deleteTagInfoListItem(object)
-                            QGroundControl.corePlugin.tagDatabase.save()
+                            tagDatabase.save()
                         }
                     }
                 }
@@ -293,6 +304,12 @@ Item {
                     target: _antennaTypeFact
                     onRawValueChanged: _autoTakeoffRotateRTLFact.value = _antennaTypeFact.rawValue === _antennaTypeDirectional
                 }
+            }
+
+            FactCheckBoxSlider {
+                Layout.fillWidth:   true
+                text:               fact.shortDescription
+                fact:               _customSettings.allowMultiTagDetection
             }
         }
     }

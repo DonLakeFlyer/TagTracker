@@ -106,7 +106,7 @@ SendTunnelCommandState* SendTagsState::_sendTagState(int tagIndex, QState* paren
 
     tunnelTagInfo.header.command = COMMAND_ID_TAG;
     tunnelTagInfo.id                                        = tagInfo->id()->rawValue().toUInt();
-    tunnelTagInfo.frequency_hz                              = tagInfo->frequencyHz()->rawValue().toUInt();
+    tunnelTagInfo.frequency_hz                              = tagInfo->frequencyMHz()->rawValue().toDouble() * 1000000;
     tunnelTagInfo.pulse_width_msecs                         = tagManufacturer->pulse_width_msecs()->rawValue().toUInt();
     tunnelTagInfo.intra_pulse1_msecs                        = tagManufacturer->ip_msecs_1()->rawValue().toUInt();
     tunnelTagInfo.intra_pulse2_msecs                        = tagManufacturer->ip_msecs_2()->rawValue().toUInt();

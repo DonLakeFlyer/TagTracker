@@ -28,13 +28,13 @@ TagInfo::TagInfo(TagDatabase* parent)
         _parent->_nextTagInfoId(),
         _nextTagName(),
         manufacturerId,
-        _tagInfoMetaData["freq_hz"]->rawDefaultValue().toUInt());
+        _tagInfoMetaData["freqMHz"]->rawDefaultValue().toUInt());
 }
 
-TagInfo::TagInfo(bool selected, uint32_t id, QString& name, uint32_t manufacturerId, uint32_t frequencyHz, TagDatabase* parent)
+TagInfo::TagInfo(bool selected, uint32_t id, QString& name, uint32_t manufacturerId, double frequencyMHz, TagDatabase* parent)
 {
     _initCommon(parent);
-    _init(selected, id, name, manufacturerId, frequencyHz);
+    _init(selected, id, name, manufacturerId, frequencyMHz);
 }
 
 QString TagInfo::_nextTagName()
@@ -70,31 +70,31 @@ void TagInfo::_initCommon(TagDatabase* parent)
     }
 }
 
-void TagInfo::_init(bool selected, uint32_t id, const QString& name, uint32_t manufacturerId, uint32_t frequencyHz)
+void TagInfo::_init(bool selected, uint32_t id, const QString& name, uint32_t manufacturerId, double frequencyMHz)
 {
     FactMetaData* selectedMetaData          = _tagInfoMetaData["selected"];
     FactMetaData* idMetaData                = _tagInfoMetaData["id"];
     FactMetaData* nameMetaData              = _tagInfoMetaData["name"];
     FactMetaData* manufacturerIdMetaData    = _tagInfoMetaData["manufacturerId"];
-    FactMetaData* frequencyHzMetaData       = _tagInfoMetaData["freq_hz"];
+    FactMetaData* frequencyMHzMetaData      = _tagInfoMetaData["freqMHz"];
 
     _selectedFact       = new Fact(-1, selectedMetaData->name(),        selectedMetaData->type(),       this);
     _idFact             = new Fact(-1, idMetaData->name(),              idMetaData->type(),             this);
     _nameFact           = new Fact(-1, nameMetaData->name(),            nameMetaData->type(),           this);
     _manufacturerIdFact = new Fact(-1, manufacturerIdMetaData->name(),  manufacturerIdMetaData->type(), this);
-    _frequencyHzFact    = new Fact(-1, frequencyHzMetaData->name(),     frequencyHzMetaData->type(),    this);
+    _frequencyMHzFact   = new Fact(-1, frequencyMHzMetaData->name(),    frequencyMHzMetaData->type(),   this);
 
     _selectedFact->setMetaData(selectedMetaData, false /* setDefaultFromMetaData */);
     _idFact->setMetaData(idMetaData, false /* setDefaultFromMetaData */);
     _nameFact->setMetaData(nameMetaData, false /* setDefaultFromMetaData */);
     _manufacturerIdFact->setMetaData(manufacturerIdMetaData, false /* setDefaultFromMetaData */);
-    _frequencyHzFact->setMetaData(frequencyHzMetaData, false /* setDefaultFromMetaData */);
+    _frequencyMHzFact->setMetaData(frequencyMHzMetaData, false /* setDefaultFromMetaData */);
 
     _selectedFact->setRawValue(selected);
     _idFact->setRawValue(id);
     _nameFact->setRawValue(name);
     _manufacturerIdFact->setRawValue(manufacturerId);
-    _frequencyHzFact->setRawValue(frequencyHz);
+    _frequencyMHzFact->setRawValue(frequencyMHz);
 }
 
 TagManufacturer::TagManufacturer(TagDatabase* parent)
@@ -311,7 +311,7 @@ bool TagDatabase::_saveTagInfo()
             .arg(tagInfo->_idFact->rawValue().toInt())
             .arg(tagInfo->_nameFact->rawValue().toString())
             .arg(tagInfo->_manufacturerIdFact->rawValue().toInt())
-            .arg(tagInfo->_frequencyHzFact->rawValue().toInt())
+            .arg(tagInfo->_frequencyMHzFact->rawValue().toInt())
             .toUtf8());
     }
 
@@ -662,7 +662,7 @@ uint32_t TagDatabase::channelizerTuner()
         TagInfo* tagInfo = _tagInfoListModel->value<TagInfo*>(i);
 
         if (tagInfo->selected()->rawValue().toUInt()) {
-            freqListHz.push_back(tagInfo->_frequencyHzFact->rawValue().toUInt());
+            freqListHz.push_back(tagInfo->_frequencyMHzFact->rawValue().toUInt() * 1000000);
         }
     }
 
