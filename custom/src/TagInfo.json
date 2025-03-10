@@ -24,11 +24,11 @@
     "type":         "string"
 },
 {
-    "name":         "freq_hz",
+    "name":         "freqMHz",
     "shortDesc":    "Frequency",
-    "type":         "UInt32",
-    "units":        "hz",
-    "default":      146000000
+    "type":         "Double",
+    "units":        "Mhz",
+    "default":      146
 }
 ]
 }

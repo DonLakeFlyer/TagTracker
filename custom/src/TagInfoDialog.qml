@@ -70,7 +70,7 @@ QGCPopupDialog {
 
             factList: [
                 tagInfo.name,
-                tagInfo.frequencyHz,
+                tagInfo.frequencyMHz,
             ]
         }
     }

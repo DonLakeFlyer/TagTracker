@@ -86,6 +86,12 @@
     "default":      true
 },
 {
+    "name":         "allowMultiTagDetection",
+    "shortDesc":    "Allow Multi Tag Detection",
+    "type":         "bool",
+    "default":      false
+},
+{
     "name":             "antennaType",
     "shortDesc":        "Antenna Type",
     "type":             "uint32",
