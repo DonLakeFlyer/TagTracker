@@ -203,11 +203,10 @@ QGCApplication::QGCApplication(int &argc, char *argv[], bool unitTesting)
     }
 
     // Set up our logging filters
-#ifdef TAG_TRACKER_UPSTREAM_CHANGES
+    // TAG_TRACKER_UPSTREAM_CHANGES
     if (loggingOptions.isEmpty()) {
-        loggingOptions("CustomPluginLog");
+        loggingOptions = "CustomPluginLog";
     }
-#endif
     QGCLoggingCategoryRegister::instance()->setFilterRulesFromSettings(loggingOptions);
 
     // We need to set language as early as possible prior to loading on JSON files.
