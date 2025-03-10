@@ -18,6 +18,9 @@ if(ANDROID)
     add_compile_definitions(TAG_TRACKER_HERELINK_BUILD)
 endif()
 
+# This define is used to track changes in the upstream code
+add_compile_definitions(TAG_TRACKER_UPSTREAM_CHANGES)
+
 # Our own, custom resources
 list(APPEND CUSTOM_RESOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/qgcimages.qrc
