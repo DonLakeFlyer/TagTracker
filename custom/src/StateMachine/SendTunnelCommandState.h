@@ -28,6 +28,7 @@ private slots:
 private:
     void _handleTunnelMessage (const mavlink_tunnel_t& tunnel);
     void _handleTunnelCommandAck(const mavlink_tunnel_t& tunnel);
+    void _disconnectAll();
 
     Vehicle*    _vehicle = nullptr;
     uint8_t*    _payload = nullptr;
