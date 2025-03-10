@@ -207,7 +207,7 @@ QList<QSerialPortInfo> availableDevices()
 
     jobjectArray objArray = static_cast<jobjectArray>(env->CallStaticObjectMethod(javaClass, methodId));
     if (!objArray) {
-        qCWarning(AndroidSerialLog) << "availableDevicesInfo returned null";
+        //qCWarning(AndroidSerialLog) << "availableDevicesInfo returned null";
         (void) env.checkAndClearExceptions();
         return serialPortInfoList;
     }
