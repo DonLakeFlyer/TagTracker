@@ -35,6 +35,9 @@ Item {
     property real   maxStrength:                QGroundControl.corePlugin.customSettings.maxPulseStrength.rawValue
     property bool   detectorsAvailable:         QGroundControl.corePlugin.detectorList.count > 0
     property bool   controllerHeartbeatLost:    QGroundControl.corePlugin.controllerLostHeartbeat
+    property var    tagDatabase:                QGroundControl.corePlugin.tagDatabase
+    property var    customSettings:             QGroundControl.corePlugin.customSettings
+
 
     Row {
         id:             rowLayout
@@ -137,9 +140,6 @@ Item {
 
         ColumnLayout {
             spacing: ScreenTools.defaultFontPixelHeight
-
-            property var tagDatabase:       QGroundControl.corePlugin.tagDatabase
-            property var customSettings:    QGroundControl.corePlugin.customSettings
 
             RowLayout {
                 spacing: ScreenTools.defaultFontPixelWidth
