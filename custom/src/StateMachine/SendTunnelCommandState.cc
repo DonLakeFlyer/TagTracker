@@ -22,8 +22,6 @@ SendTunnelCommandState::SendTunnelCommandState(const QString& stateName, QState*
     _ackResponseTimer.setSingleShot(true);
     _ackResponseTimer.setInterval(2000);
 
-    connect(&_ackResponseTimer, &QTimer::timeout, this, &SendTunnelCommandState::_ackResponseTimedOut);
-
     connect(this, &QState::entered, this, &SendTunnelCommandState::_sendTunnelCommand);
 }
 
@@ -79,6 +77,7 @@ void SendTunnelCommandState::_sendTunnelCommand()
     WeakLinkInterfacePtr weakPrimaryLink = _vehicle->vehicleLinkManager()->primaryLink();
 
     if (!weakPrimaryLink.expired()) {
+        connect(&_ackResponseTimer, &QTimer::timeout, this, &SendTunnelCommandState::_ackResponseTimedOut);
         connect(_vehicle, &Vehicle::mavlinkMessageReceived, this, &SendTunnelCommandState::_mavlinkMessageReceived);
 
         SharedLinkInterfacePtr  sharedLink  = weakPrimaryLink.lock();
@@ -121,10 +120,9 @@ void SendTunnelCommandState::_handleTunnelCommandAck(const mavlink_tunnel_t& tun
     memcpy(&ack, tunnel.payload, sizeof(ack));
 
     if (ack.command == _sentTunnelCommand) {
-        disconnect(_vehicle, &Vehicle::mavlinkMessageReceived, this, &SendTunnelCommandState::_mavlinkMessageReceived);
-
         _sentTunnelCommand = 0;
         _ackResponseTimer.stop();
+        _disconnectAll();
 
         qCDebug(CustomPluginLog) << "Tunnel command ack received - command:result" << commandIdToText(ack.command) << ack.result;
         if (ack.result == COMMAND_RESULT_SUCCESS) {
@@ -143,8 +141,13 @@ void SendTunnelCommandState::_handleTunnelCommandAck(const mavlink_tunnel_t& tun
 void SendTunnelCommandState::_ackResponseTimedOut(void)
 {
     _sentTunnelCommand = 0;
-
+    _disconnectAll();
     QString message = QStringLiteral("%1 failed. No response from vehicle.").arg(commandIdToText(_sentTunnelCommand));
     setError(message);
 }
 
+void SendTunnelCommandState::_disconnectAll()
+{
+    disconnect(&_ackResponseTimer, &QTimer::timeout, this, &SendTunnelCommandState::_ackResponseTimedOut);
+    disconnect(_vehicle, &Vehicle::mavlinkMessageReceived, this, &SendTunnelCommandState::_mavlinkMessageReceived);
+}
