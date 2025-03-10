@@ -18,6 +18,7 @@ CustomStateMachine::CustomStateMachine(const QString& machineName, QObject* pare
     , _finalState   (new QFinalState(this))
 {
     setObjectName(machineName);
+    setChildMode(QState::ExclusiveStates);
 
     connect(this, &CustomStateMachine::started, this, [this] () {
         qCDebug(CustomPluginLog) << "State machine started:" << objectName();
