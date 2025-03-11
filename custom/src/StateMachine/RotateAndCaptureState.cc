@@ -172,6 +172,7 @@ CustomState* RotateAndCaptureState::_rotateAndCaptureAtHeadingState(QState* pare
     auto sliceBeginState            = new FunctionState("SliceBegin", groupingState, std::bind(&RotateAndCaptureState::_sliceBegin, this));
     auto announceRotateState        = new SayState("AnnounceRotate", groupingState, QStringLiteral("Detection at %1 degrees").arg(headingDegrees));
     auto rotateCommandState         = _rotateMavlinkCommandState(groupingState, headingDegrees);
+    //auto rotateCommandState         = new FunctionState("ErrorTesting", groupingState, [sliceBeginState] () { sliceBeginState->machine()->setError("Error Testing"); });
     auto waitForHeadingChangeState  = new FactWaitForValueTarget(groupingState, _vehicle->heading(), headingDegrees, 1.0 /* _targetVariance */, 10 * 1000 /* _waitMsecs */);
     auto delayForKGroupsState       = new DelayState(groupingState, rotationCaptureWaitMsecs);
     auto sliceEndState              = new FunctionState("SliceEnd", groupingState, std::bind(&RotateAndCaptureState::_sliceEnd, this));
@@ -181,6 +182,7 @@ CustomState* RotateAndCaptureState::_rotateAndCaptureAtHeadingState(QState* pare
     sliceBeginState->addTransition(sliceBeginState, &FunctionState::functionCompleted, announceRotateState);
     announceRotateState->addTransition(announceRotateState, &SayState::functionCompleted, rotateCommandState);
     rotateCommandState->addTransition(rotateCommandState, &SendMavlinkCommandState::success, waitForHeadingChangeState);
+    //rotateCommandState->addTransition(rotateCommandState, &FunctionState::functionCompleted, waitForHeadingChangeState);
     waitForHeadingChangeState->addTransition(waitForHeadingChangeState, &FactWaitForValueTarget::success, delayForKGroupsState);
     delayForKGroupsState->addTransition(delayForKGroupsState, &DelayState::delayComplete, sliceEndState);
     sliceEndState->addTransition(sliceEndState, &FunctionState::functionCompleted, finalState);

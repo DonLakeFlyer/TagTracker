@@ -21,10 +21,9 @@ private slots:
     void _flightModeChanged(const QString& flightMode);
     void _takeoffTimeout();
     void _settleTimeout();
-
-private:
     void _disconnectAll();
 
+private:
     Vehicle*    _vehicle;
     double      _takeoffAltRel;
     QTimer      _timeoutTimer;

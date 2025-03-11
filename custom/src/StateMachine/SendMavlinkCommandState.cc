@@ -23,6 +23,8 @@ SendMavlinkCommandState::SendMavlinkCommandState(QState* parentState, MAV_CMD co
             qCDebug(CustomPluginLog) << QStringLiteral("Sending %1 command").arg(MissionCommandTree::instance()->friendlyName(_command)) << " - " << Q_FUNC_INFO;
             _sendMavlinkCommand();
         });
+
+    connect(this, &QState::exited, this, &SendMavlinkCommandState::_disconnectAll);
 }
 
 void SendMavlinkCommandState::_sendMavlinkCommand()
@@ -59,7 +61,7 @@ void SendMavlinkCommandState::_mavCommandResult(int vehicleId, int component, in
         return;
     }
 
-    disconnect(_vehicle, &Vehicle::mavCommandResult, this, &SendMavlinkCommandState::_mavCommandResult);
+    _disconnectAll();
 
     QString commandName = MissionCommandTree::instance()->friendlyName(_command);
 
@@ -78,3 +80,7 @@ void SendMavlinkCommandState::_mavCommandResult(int vehicleId, int component, in
     }
 }
 
+void SendMavlinkCommandState::_disconnectAll()
+{
+    disconnect(_vehicle, &Vehicle::mavCommandResult, this, &SendMavlinkCommandState::_mavCommandResult);
+}

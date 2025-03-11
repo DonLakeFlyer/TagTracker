@@ -22,6 +22,7 @@ TakeoffState::TakeoffState(QState* parentState, double takeoffAltRel)
     connect(&_settleTimer, &QTimer::timeout, this, &TakeoffState::_settleTimeout);
 
     connect(this, &QState::entered, this, &TakeoffState::_onEntry);
+    connect(this, &QState::exited, this, &TakeoffState::_disconnectAll);
 }
 
 void TakeoffState::_onEntry()

@@ -24,11 +24,11 @@ private slots:
     void _ackResponseTimedOut();
     void _mavlinkMessageReceived(const mavlink_message_t& message);
     void _sendTunnelCommand();
+    void _disconnectAll();
 
 private:
     void _handleTunnelMessage (const mavlink_tunnel_t& tunnel);
     void _handleTunnelCommandAck(const mavlink_tunnel_t& tunnel);
-    void _disconnectAll();
 
     Vehicle*    _vehicle = nullptr;
     uint8_t*    _payload = nullptr;

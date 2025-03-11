@@ -107,6 +107,7 @@ signals:
 
 private slots:
     void _controllerHeartbeatFailed(void);
+    void _stopDetectionOnDisarmed(bool armed);
 
 private:
     typedef enum {

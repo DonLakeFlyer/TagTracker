@@ -242,26 +242,29 @@ void CustomPlugin::autoDetection()
 {
     qCDebug(CustomPluginLog) << Q_FUNC_INFO;
 
+    // We always stop detection on disarm
+    connect(MultiVehicleManager::instance()->activeVehicle(), &Vehicle::armedChanged, this, &CustomPlugin::_stopDetectionOnDisarmed);
+
     auto stateMachine = new CustomStateMachine("Auto Detection", this);
 
     auto announceAutoStartState = new SayState("AnnounceAuto", stateMachine, "Starting auto detection");
     auto startDetectionState    = new StartDetectionState(stateMachine);
     auto takeoffState           = new TakeoffState(stateMachine, _customSettings->takeoffAltitude()->rawValue().toDouble());
-    auto rtlCancelOnState       = new FunctionState("RTLCancelOn", stateMachine, std::bind(&CustomStateMachine::addGuidedModeCancelledTransition, stateMachine));
+    auto eventModeRTLState      = new FunctionState("eventModeRTLState", stateMachine, [stateMachine] () { stateMachine->setEventMode(CustomStateMachine::CancelOnFlightModeChange | CustomStateMachine::RTLOnError); });
     auto rotateState            = new RotateAndCaptureState(stateMachine);
     auto stopDetectionState     = new StopDetectionState(stateMachine);
-    auto rtlCancelOffState      = new FunctionState("RTLCancelOff", stateMachine, std::bind(&CustomStateMachine::removeGuidedModeCancelledTransition, stateMachine));
     auto announceAutoEndState   = new SayState("AnnounceAutoEnd", stateMachine, "Auto detection complete. Returning");
+    auto eventModeNoneState     = new FunctionState("eventModeNoneState", stateMachine, [stateMachine] () { stateMachine->setEventMode(0); });
     auto rtlState               = new SetFlightModeState(stateMachine, MultiVehicleManager::instance()->activeVehicle()->rtlFlightMode());
     auto finalState             = new QFinalState(stateMachine);
 
     // Transitions
     announceAutoStartState->addTransition   (announceAutoStartState,    &SayState::functionCompleted,       startDetectionState);
     startDetectionState->addTransition      (startDetectionState,       &CustomState::finished,             takeoffState);
-    takeoffState->addTransition             (takeoffState,              &TakeoffState::takeoffComplete,     rtlCancelOnState);
-    rtlCancelOnState->addTransition         (rtlCancelOnState,          &FunctionState::functionCompleted,  rotateState);
-    rotateState->addTransition              (rotateState,               &QState::finished,                  rtlCancelOffState);
-    rtlCancelOffState->addTransition        (rtlCancelOffState,         &FunctionState::functionCompleted,  stopDetectionState);
+    takeoffState->addTransition             (takeoffState,              &TakeoffState::takeoffComplete,     eventModeRTLState);
+    eventModeRTLState->addTransition        (eventModeRTLState,         &FunctionState::functionCompleted,  rotateState);
+    rotateState->addTransition              (rotateState,               &QState::finished,                  eventModeNoneState);
+    eventModeNoneState->addTransition       (eventModeNoneState,        &FunctionState::functionCompleted,  stopDetectionState);
     stopDetectionState->addTransition       (stopDetectionState,        &CustomState::finished,             announceAutoEndState);
     announceAutoEndState->addTransition     (announceAutoEndState,      &SayState::functionCompleted,       rtlState);
     rtlState->addTransition                 (rtlState,                  &QState::finished,                  finalState);
@@ -275,7 +278,6 @@ void CustomPlugin::startRotation(void)
     qCDebug(CustomPluginLog) << Q_FUNC_INFO;
 
     auto stateMachine = new CustomStateMachine("Start Rotation", this);
-    stateMachine->addGuidedModeCancelledTransition();
 
     auto rotateState    = new RotateAndCaptureState(stateMachine);
     auto finalState     = new QFinalState(stateMachine);
@@ -450,4 +452,11 @@ void CustomPlugin::clearMap()
     _maxSNR = qQNaN();
     emit minSNRChanged(_minSNR);
     emit maxSNRChanged(_maxSNR);
+}
+
+void CustomPlugin::_stopDetectionOnDisarmed(bool armed)
+{
+    if (!armed) {
+        stopDetection();
+    }
 }
