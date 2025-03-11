@@ -9,10 +9,43 @@ set_property(DIRECTORY ${CMAKE_SOURCE_DIR}
     CUSTOMCLASS=CustomPlugin
 )
 
-# Tag Tracker does not support video
-#add_compile_definitions(
-#    QGC_HERELINK_AIRUNIT_VIDEO
-#)
+if(ANDROID)
+    set(CUSTOM_ANDROID_DIR "${CMAKE_SOURCE_DIR}/custom/android")
+    if(EXISTS "${CUSTOM_ANDROID_DIR}")
+        file(GLOB CUSTOM_ANDROID_FILES "${CUSTOM_ANDROID_DIR}/*")
+        if(CUSTOM_ANDROID_FILES)
+            message(STATUS "Custom Android package template found. Overlaying custom files...")
+            set(DEFAULT_ANDROID_DIR "${CMAKE_SOURCE_DIR}/android")
+            set(FINAL_ANDROID_DIR "${CMAKE_BINARY_DIR}/custom/android")
+            file(COPY "${DEFAULT_ANDROID_DIR}/." DESTINATION "${FINAL_ANDROID_DIR}")
+            file(COPY "${CUSTOM_ANDROID_DIR}/." DESTINATION "${FINAL_ANDROID_DIR}")
+            set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+                            "${DEFAULT_ANDROID_DIR}/"
+                            "${CUSTOM_ANDROID_DIR}/"
+                        )
+            set(QGC_ANDROID_PACKAGE_SOURCE_DIR "${FINAL_ANDROID_DIR}" CACHE PATH "Path to a custom Android package template" FORCE)
+            message(STATUS "Android package template path will be set to: ${QGC_ANDROID_PACKAGE_SOURCE_DIR}")
+        else()
+            message(STATUS "Custom Android package template empty. Using default.")
+        endif()
+    else()
+        message(STATUS "No custom Android package template found. Using default.")
+    endif()
+endif()
+
+find_package(Python3)
+if(Python3_FOUND)
+    execute_process(
+        COMMAND ${Python3_EXECUTABLE}
+        RESULT_VARIABLE PYTHON_RESULT
+        OUTPUT_VARIABLE PYTHON_OUTPUT
+        ERROR_VARIABLE PYTHON_ERROR
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        INPUT_FILE updateqrc.py
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    cmake_print_variables(PYTHON_RESULT PYTHON_OUTPUT PYTHON_ERROR)
+endif()
 
 if(ANDROID)
     add_compile_definitions(TAG_TRACKER_HERELINK_BUILD)
@@ -102,7 +135,7 @@ target_link_libraries(CustomPlugin
         PX4FirmwarePlugin
         QmlControls
         Vehicle
-        Audio
+        Utilities
     PUBLIC
         Qt6::Core
         Qt6::StateMachine
