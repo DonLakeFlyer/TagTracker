@@ -23,6 +23,7 @@ SendTunnelCommandState::SendTunnelCommandState(const QString& stateName, QState*
     _ackResponseTimer.setInterval(2000);
 
     connect(this, &QState::entered, this, &SendTunnelCommandState::_sendTunnelCommand);
+    connect(this, &QState::exited, this, &SendTunnelCommandState::_disconnectAll);
 }
 
 SendTunnelCommandState::~SendTunnelCommandState()
@@ -120,7 +121,6 @@ void SendTunnelCommandState::_handleTunnelCommandAck(const mavlink_tunnel_t& tun
     memcpy(&ack, tunnel.payload, sizeof(ack));
 
     if (ack.command == _sentTunnelCommand) {
-        _ackResponseTimer.stop();
         _disconnectAll();
 
         qCDebug(CustomPluginLog) << "Tunnel command ack received - command:result" << commandIdToText(ack.command) << ack.result;
@@ -149,6 +149,7 @@ void SendTunnelCommandState::_ackResponseTimedOut(void)
 
 void SendTunnelCommandState::_disconnectAll()
 {
+    _ackResponseTimer.stop();
     disconnect(&_ackResponseTimer, &QTimer::timeout, this, &SendTunnelCommandState::_ackResponseTimedOut);
     disconnect(_vehicle, &Vehicle::mavlinkMessageReceived, this, &SendTunnelCommandState::_mavlinkMessageReceived);
 }

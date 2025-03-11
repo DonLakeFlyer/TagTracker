@@ -13,6 +13,7 @@ class Vehicle;
 class GuidedModeCancelledTransition;
 class FunctioState;
 class SayState;
+class SetFlightModeState;
 
 class CustomStateMachine : public QStateMachine
 {
@@ -22,11 +23,17 @@ public:
 
     void setError(const QString& errorString);
 
-    void addGuidedModeCancelledTransition();
-    void removeGuidedModeCancelledTransition();
+    enum {
+        CancelOnFlightModeChange = 0x01,
+        RTLOnError              = 0x02
+    };
+
+signals:
+    void error();
 
 public slots:
     void displayError();
+    void setEventMode(uint eventMode);
 
 private slots:
     void _flightModeChanged(const QString& flightMode);
@@ -34,12 +41,9 @@ private slots:
 private:
     void _init();
 
-    Vehicle*        _vehicle = nullptr;
-    QString         _errorString;
-    FunctionState*  _errorState = nullptr;
-    QFinalState*    _finalState = nullptr;
-    GuidedModeCancelledTransition* _guidedModeCancelledTransition = nullptr;
-    SayState*       _announceCancelState = nullptr;
+    Vehicle*    _vehicle = nullptr;
+    QString     _errorString;
+    uint        _eventMode = 0;
 
     friend class CustomState;
 };

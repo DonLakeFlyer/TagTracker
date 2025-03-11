@@ -13,6 +13,7 @@ SetFlightModeState::SetFlightModeState(QState* parentState, const QString& fligh
     _timeoutTimer.setInterval(1000);
 
     connect(this, &SetFlightModeState::entered, this, &SetFlightModeState::_setFlightMode);
+    connect(this, &SetFlightModeState::exited, this, &SetFlightModeState::_disconnectAll);
 }
 
 void SetFlightModeState::_setFlightMode()

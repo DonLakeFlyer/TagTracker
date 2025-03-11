@@ -20,10 +20,9 @@ private slots:
     void _setFlightMode();
     void _timeout();
     void _validateFlightModeChange(const QString& flightMode);
-
-private:
     void _disconnectAll();
 
+private:
     QString     _flightMode;
     QTimer      _timeoutTimer;
     Vehicle*    _vehicle;

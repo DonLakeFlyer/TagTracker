@@ -19,6 +19,7 @@ signals:
 
 private slots:
     void _mavCommandResult(int vehicleId, int component, int command, int result, bool noResponseFromVehicle);
+    void _disconnectAll();
 
 private:
     void _sendMavlinkCommand();
