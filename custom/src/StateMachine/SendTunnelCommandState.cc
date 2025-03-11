@@ -120,7 +120,6 @@ void SendTunnelCommandState::_handleTunnelCommandAck(const mavlink_tunnel_t& tun
     memcpy(&ack, tunnel.payload, sizeof(ack));
 
     if (ack.command == _sentTunnelCommand) {
-        _sentTunnelCommand = 0;
         _ackResponseTimer.stop();
         _disconnectAll();
 
@@ -128,9 +127,11 @@ void SendTunnelCommandState::_handleTunnelCommandAck(const mavlink_tunnel_t& tun
         if (ack.result == COMMAND_RESULT_SUCCESS) {
             emit commandSucceeded();
         } else {
-            QString message = QStringLiteral("%1 failed. Bad command result: %2").arg(commandIdToText(_sentTunnelCommand).arg(ack.result));
+            QString message = QStringLiteral("%1 failed. Bad command result: %2").arg(commandIdToText(_sentTunnelCommand)).arg(ack.result);
             setError(message);
         }
+
+        _sentTunnelCommand = 0;
     } else {
         qWarning() << "SendTunnelCommandState::_handleTunnelCommandAck: Received unexpected command id ack expected:actual" <<
                       commandIdToText(_sentTunnelCommand) <<
@@ -140,9 +141,9 @@ void SendTunnelCommandState::_handleTunnelCommandAck(const mavlink_tunnel_t& tun
 
 void SendTunnelCommandState::_ackResponseTimedOut(void)
 {
+    QString message = QStringLiteral("%1 failed. No response from vehicle.").arg(commandIdToText(_sentTunnelCommand));
     _sentTunnelCommand = 0;
     _disconnectAll();
-    QString message = QStringLiteral("%1 failed. No response from vehicle.").arg(commandIdToText(_sentTunnelCommand));
     setError(message);
 }
 

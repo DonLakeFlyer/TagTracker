@@ -14,8 +14,9 @@ GuidedToolStripAction {
     text:       customController.autoDetectionTitle
     iconSource: "/res/action.svg"
     visible:    true
-    enabled:    QGroundControl.multiVehicleManager.activeVehicle
+    enabled:    activeVehicle && !activeVehicle.flying
     actionID:   customController.actionAutoDetection
 
     property var customController: _guidedController._customController
+    property var activeVehicle:    QGroundControl.multiVehicleManager.activeVehicle
 }

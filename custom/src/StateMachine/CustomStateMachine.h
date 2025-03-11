@@ -12,6 +12,7 @@
 class Vehicle;
 class GuidedModeCancelledTransition;
 class FunctioState;
+class SayState;
 
 class CustomStateMachine : public QStateMachine
 {
@@ -20,9 +21,6 @@ public:
     CustomStateMachine(const QString& machineName, QObject* parent = nullptr);
 
     void setError(const QString& errorString);
-
-    CustomState* errorState() { return _errorState; }
-    QFinalState* finalState() { return _finalState; }
 
     void addGuidedModeCancelledTransition();
     void removeGuidedModeCancelledTransition();
@@ -41,6 +39,7 @@ private:
     FunctionState*  _errorState = nullptr;
     QFinalState*    _finalState = nullptr;
     GuidedModeCancelledTransition* _guidedModeCancelledTransition = nullptr;
+    SayState*       _announceCancelState = nullptr;
 
     friend class CustomState;
 };

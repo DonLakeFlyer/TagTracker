@@ -30,7 +30,4 @@ protected:
     // QAbstractTransition overrides
     bool eventTest(QEvent *e) override { return e->type() == ErrorEvent::type(); }
     void onTransition(QEvent *) override { }
-
-private:
-    QString m_value;
 };
