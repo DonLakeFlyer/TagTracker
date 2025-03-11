@@ -77,11 +77,11 @@ if(WIN32)
     )
 endif()
 
-CPMFindPackage(
-    NAME sdl2
-    VERSION 2.0.20
+CPMAddPackage(
+    NAME SDL2
+    VERSION 2.32.0
     GITHUB_REPOSITORY libsdl-org/SDL
-    GIT_TAG release-2.30.11
+    GIT_TAG release-2.32.0
     OPTIONS
         "SDL2_DISABLE_INSTALL ON"
         "SDL2_DISABLE_INSTALL ON"
@@ -118,4 +118,6 @@ CPMFindPackage(
 
 if(TARGET SDL2::SDL2-static)
     target_link_libraries(Joystick PRIVATE SDL2::SDL2-static)
+elseif(TARGET SDL2::SDL2)
+    target_link_libraries(Joystick PRIVATE SDL2::SDL2)
 endif()

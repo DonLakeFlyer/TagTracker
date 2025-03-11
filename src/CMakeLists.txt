@@ -10,7 +10,6 @@ qt_add_library(QGC STATIC
 add_subdirectory(ADSB)
 add_subdirectory(AnalyzeView)
 add_subdirectory(API)
-add_subdirectory(Audio)
 add_subdirectory(AutoPilotPlugins)
 add_subdirectory(Camera)
 add_subdirectory(Comms)
@@ -20,7 +19,6 @@ add_subdirectory(FirmwarePlugin)
 # add_subdirectory(FlightDisplay)
 # add_subdirectory(FlightMap)
 add_subdirectory(FollowMe)
-add_subdirectory(Geo)
 add_subdirectory(Gimbal)
 add_subdirectory(GPS)
 add_subdirectory(Joystick)
@@ -36,7 +34,6 @@ add_subdirectory(Terrain)
 add_subdirectory(Utilities)
 add_subdirectory(UTMSP)
 add_subdirectory(Vehicle)
-add_subdirectory(VehicleSetup)
 add_subdirectory(VideoManager)
 add_subdirectory(Viewer3D)
 
@@ -53,11 +50,9 @@ target_link_libraries(QGC
         Qt6::QuickControls2
         API
         AnalyzeView
-        Audio
         AutoPilotPlugins
         Camera
         Comms
-        CommonAutoPilotPlugin
         FactSystem
         FirmwarePlugin
         # FirstRunPromptDialogs
@@ -66,7 +61,6 @@ target_link_libraries(QGC
         FollowMe
         Gimbal
         GPS
-        GStreamerReceiver
         Joystick
         MAVLink
         MissionManager
@@ -78,7 +72,6 @@ target_link_libraries(QGC
         # UI
         Utilities
         Vehicle
-        VehicleSetup
         Viewer3D
         VideoManager
     PUBLIC
