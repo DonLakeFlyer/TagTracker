@@ -33,11 +33,13 @@ target_link_libraries(MissionManagerTest
         API
         FirmwarePlugin
         Settings
+        TerrainTest
         Utilities
         Vehicle
-        TerrainTest
     PUBLIC
         Qt6::Positioning
+        FactSystem
+        MAVLink
         MissionManager
         qgcunittest
         QmlControls
