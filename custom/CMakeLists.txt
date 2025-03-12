@@ -111,7 +111,7 @@ target_link_libraries(CustomPlugin
         PX4FirmwarePlugin
         QmlControls
         Vehicle
-        Audio
+        Utilities
     PUBLIC
         Qt6::Core
         Qt6::StateMachine
