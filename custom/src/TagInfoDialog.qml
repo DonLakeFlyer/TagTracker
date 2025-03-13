@@ -33,7 +33,15 @@ QGCPopupDialog {
     }
     
     ColumnLayout {
-        spacing: ScreenTools.defaultFontPixelHeight
+        spacing: ScreenTools.defaultFontPixelHeight / 2
+
+        LabelledFactTextField {
+            fact: tagInfo.name
+        }
+
+        LabelledFactTextField {
+            fact: tagInfo.frequencyMHz
+        }
 
         LabelledComboBox {
             id:                 manufacturerCombo
@@ -64,14 +72,5 @@ QGCPopupDialog {
 
         }
 
-        FactTextFieldGrid {
-            useNameForLabels:   false
-            Layout.fillWidth:   true
-
-            factList: [
-                tagInfo.name,
-                tagInfo.frequencyMHz,
-            ]
-        }
     }
 }
