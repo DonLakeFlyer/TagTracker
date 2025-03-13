@@ -12,13 +12,13 @@ QtObject {
     readonly property int actionClearLogs:                  customActionStart + 7
 
     readonly property string autoDetectionTitle:            qsTr("Takeoff")
-    readonly property string startDetectionTitle:           qsTr("Start")
-    readonly property string stopDetectionTitle:            qsTr("Stop")
+    readonly property string startDetectionTitle:           qsTr("Start Detection")
+    readonly property string stopDetectionTitle:            qsTr("Stop Detection")
     readonly property string startRotationTitle:            qsTr("Rotate")
-    readonly property string rawCaptureTitle:               qsTr("Capture")
+    readonly property string rawCaptureTitle:               qsTr("Airspy Capture")
     readonly property string downloadLogsTitle:             qsTr("Download")
-    readonly property string saveLogsTitle:                 qsTr("Save")
-    readonly property string clearLogsTitle:                qsTr("Clear")
+    readonly property string saveLogsTitle:                 qsTr("Save Logs")
+    readonly property string clearLogsTitle:                qsTr("Clear Logs")
 
     readonly property string autoDetectionMessage:          qsTr("Takeoff, rotate, return.")
     readonly property string startDetectionMessage:         qsTr("Start pulse detection for the specified tag(s).")

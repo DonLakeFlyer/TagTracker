@@ -45,7 +45,6 @@ ToolStrip {
             GuidedActionLand { },
             GuidedActionRTL { },
             GuidedActionPause { },
-            CustomGuidedActionStartStopDetection { },
             CustomGuidedActionStartRotation { },
             FlyViewAdditionalActionsButton { }
         ]
