@@ -38,7 +38,6 @@ Item {
     property var    tagDatabase:                QGroundControl.corePlugin.tagDatabase
     property var    customSettings:             QGroundControl.corePlugin.customSettings
 
-
     Row {
         id:             rowLayout
         anchors.top:    parent.top
@@ -141,32 +140,11 @@ Item {
         ColumnLayout {
             spacing: ScreenTools.defaultFontPixelHeight
 
-            RowLayout {
-                spacing: ScreenTools.defaultFontPixelWidth
-
-                QGCButton {
-                    text:       qsTr("Manufacturers")
-                    onClicked:  manufacturersDialogComponent.createObject(mainWindow).open()
-                }
-
-                QGCButton {
-                    text:       qsTr("New Tag")
-                    onClicked: { 
-                        if (tagDatabase.tagManufacturerList.count == 0) {
-                            mainWindow.showMessageDialog(qsTr("New Tag"), qsTr("You must add a Manufacturer first."))
-                        } else {
-                            tagInfoDialogComponent.createObject(mainWindow, { tagInfo: tagDatabase.newTagInfo() }).open()
-                        }
-                    }
-                }
-            }
-
             GridLayout {
-                rows:       tagDatabase.tagInfoList.count + 1
+                rows:       tagDatabase.tagInfoList.count
                 columns:    4
                 flow:       GridLayout.TopToBottom
 
-                QGCLabel { }
                 Repeater {
                     model: tagDatabase.tagInfoList
 
@@ -186,21 +164,18 @@ Item {
                     }
                 }
 
-                QGCLabel { text: qsTr("Name") }
                 Repeater {
                     model: tagDatabase.tagInfoList
 
                     QGCLabel { text: object.name.valueString }
                 }
 
-                QGCLabel { text: qsTr("Frequency") }
                 Repeater {
                     model: tagDatabase.tagInfoList
 
                     QGCLabel { text: object.frequencyMHz.valueString }
                 }
 
-                QGCLabel { }
                 Repeater {
                     model: tagDatabase.tagInfoList
 
@@ -210,7 +185,6 @@ Item {
                     }
                 }
 
-                QGCLabel { }
                 Repeater {
                     model: tagDatabase.tagInfoList
 
@@ -229,87 +203,113 @@ Item {
     Component {
         id: indicatorExpandedComponent
 
-        SettingsGroupLayout {
+        ColumnLayout {
             property var _customSettings:               QGroundControl.corePlugin.customSettings
             property Fact _antennaTypeFact:             _customSettings.antennaType
             property Fact _autoTakeoffRotateRTLFact:    _customSettings.autoTakeoffRotateRTL
             property int _antennaTypeDirectional:       1
 
-            LabelledFactComboBox {
-                Layout.fillWidth:   true
-                label:              fact.shortDescription
-                fact:               _customSettings.useSNRForPulseStrength
-            }
+            SettingsGroupLayout {
+                RowLayout {
+                    spacing: ScreenTools.defaultFontPixelWidth
 
-            FactCheckBoxSlider {
-                Layout.fillWidth:   true
-                text:               fact.shortDescription
-                fact:               _customSettings.showPulseOnMap
-            }
+                    QGCButton {
+                        text:       qsTr("Add Tag")
+                        onClicked: { 
+                            if (tagDatabase.tagManufacturerList.count == 0) {
+                                mainWindow.showMessageDialog(qsTr("Add Tag"), qsTr("You must add a Manufacturer first."))
+                            } else {
+                                tagInfoDialogComponent.createObject(mainWindow, { tagInfo: tagDatabase.newTagInfo() }).open()
+                            }
+                        }
+                    }
 
-            LabelledFactTextField {
-                Layout.fillWidth:   true
-                label:              fact.shortDescription
-                fact:               _customSettings.takeoffAltitude
-            }
-
-            LabelledFactTextField {
-                Layout.fillWidth:   true
-                label:              fact.shortDescription
-                fact:               _customSettings.divisions
-            }
-
-            LabelledFactTextField {
-                Layout.fillWidth:   true
-                label:              fact.shortDescription
-                fact:               _customSettings.k
-            }
-
-            LabelledFactTextField {
-                label:              fact.shortDescription
-                fact:               _customSettings.falseAlarmProbability
-            }
-
-            LabelledFactTextField {
-                Layout.fillWidth:   true
-                label:              fact.shortDescription
-                fact:               _customSettings.maxPulseStrength
-            }
-
-            LabelledFactTextField {
-                Layout.fillWidth:   true
-                label:              fact.shortDescription
-                fact:               _customSettings.antennaOffset
-            }
-
-            LabelledFactComboBox {
-                Layout.fillWidth:   true
-                label:              fact.shortDescription
-                fact:               _customSettings.gain
-            }
-
-            LabelledFactComboBox {
-                Layout.fillWidth:   true
-                label:              fact.shortDescription
-                fact:               _antennaTypeFact
-            }
-
-            FactCheckBoxSlider {
-                Layout.fillWidth:   true
-                text:               fact.shortDescription
-                fact:               _autoTakeoffRotateRTLFact
-                enabled:            _antennaTypeFact.rawValue === _antennaTypeDirectional
-
-                Connections {
-                    target: _antennaTypeFact
-                    onRawValueChanged: _autoTakeoffRotateRTLFact.value = _antennaTypeFact.rawValue === _antennaTypeDirectional
+                    QGCButton {
+                        text:       qsTr("Manufacturers")
+                        onClicked:  manufacturersDialogComponent.createObject(mainWindow).open()
+                    }
                 }
             }
 
-            FactCheckBoxSlider {
-                Layout.fillWidth:   true
-                text:               fact.shortDescription
-                fact:               _customSettings.allowMultiTagDetection
+            SettingsGroupLayout {
+                LabelledFactTextField {
+                    Layout.fillWidth:   true
+                    label:              fact.shortDescription
+                    fact:               _customSettings.takeoffAltitude
+                }
+
+                LabelledFactTextField {
+                    Layout.fillWidth:   true
+                    label:              fact.shortDescription
+                    fact:               _customSettings.divisions
+                }
+
+                LabelledFactComboBox {
+                    Layout.fillWidth:   true
+                    label:              fact.shortDescription
+                    fact:               _customSettings.gain
+                }
+            }
+
+            SettingsGroupLayout {
+                LabelledFactComboBox {
+                    Layout.fillWidth:   true
+                    label:              fact.shortDescription
+                    fact:               _customSettings.useSNRForPulseStrength
+                }
+
+                FactCheckBoxSlider {
+                    Layout.fillWidth:   true
+                    text:               fact.shortDescription
+                    fact:               _customSettings.showPulseOnMap
+                }
+
+                LabelledFactTextField {
+                    Layout.fillWidth:   true
+                    label:              fact.shortDescription
+                    fact:               _customSettings.k
+                }
+
+                LabelledFactTextField {
+                    label:              fact.shortDescription
+                    fact:               _customSettings.falseAlarmProbability
+                }
+
+                LabelledFactTextField {
+                    Layout.fillWidth:   true
+                    label:              fact.shortDescription
+                    fact:               _customSettings.maxPulseStrength
+                }
+
+                LabelledFactTextField {
+                    Layout.fillWidth:   true
+                    label:              fact.shortDescription
+                    fact:               _customSettings.antennaOffset
+                }
+
+                LabelledFactComboBox {
+                    Layout.fillWidth:   true
+                    label:              fact.shortDescription
+                    fact:               _antennaTypeFact
+                }
+
+                FactCheckBoxSlider {
+                    Layout.fillWidth:   true
+                    text:               fact.shortDescription
+                    fact:               _autoTakeoffRotateRTLFact
+                    enabled:            _antennaTypeFact.rawValue === _antennaTypeDirectional
+
+                    Connections {
+                        target: _antennaTypeFact
+                        onRawValueChanged: _autoTakeoffRotateRTLFact.value = _antennaTypeFact.rawValue === _antennaTypeDirectional
+                    }
+                }
+
+                FactCheckBoxSlider {
+                    Layout.fillWidth:   true
+                    text:               fact.shortDescription
+                    fact:               _customSettings.allowMultiTagDetection
+                }
             }
         }
     }
