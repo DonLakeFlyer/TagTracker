@@ -79,8 +79,10 @@ qt_add_library(CustomPlugin STATIC
     src/StateMachine/FunctionState.cc
     src/StateMachine/FunctionState.h
     src/StateMachine/GuidedModeCancelledTransition.h
-    src/StateMachine/RotateAndCaptureState.cc
-    src/StateMachine/RotateAndCaptureState.h
+    src/StateMachine/FullRotateAndCaptureState.cc
+    src/StateMachine/FullRotateAndCaptureState.h
+    src/StateMachine/RotateAndCaptureStateBase.cc
+    src/StateMachine/RotateAndCaptureStateBase.h
     src/StateMachine/SetFlightModeState.cc
     src/StateMachine/SetFlightModeState.h
     src/StateMachine/SayState.h
@@ -90,6 +92,8 @@ qt_add_library(CustomPlugin STATIC
     src/StateMachine/SendTagsState.h
     src/StateMachine/SendTunnelCommandState.cc
     src/StateMachine/SendTunnelCommandState.h
+    src/StateMachine/SmartRotateAndCaptureState.cc
+    src/StateMachine/SmartRotateAndCaptureState.h
     src/StateMachine/StartDetectionState.cc
     src/StateMachine/StartDetectionState.h
     src/StateMachine/StopDetectionState.cc
