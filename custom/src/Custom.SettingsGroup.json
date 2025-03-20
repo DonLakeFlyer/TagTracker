@@ -92,6 +92,16 @@
     "default":      false
 },
 {
+    "name":         "rotationType",
+    "shortDesc":    "Rotation Type",
+    "type":         "uint32",
+    "default":      1,
+    "enumStrings":  "Full,Fast",
+    "enumValues":   "1,2",
+    "min":          1,
+    "max":          2
+},
+{
     "name":             "antennaType",
     "shortDesc":        "Antenna Type",
     "type":             "uint32",

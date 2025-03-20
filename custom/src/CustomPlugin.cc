@@ -5,7 +5,8 @@
 #include "SendTagsState.h"
 #include "CustomStateMachine.h"
 #include "SendTunnelCommandState.h"
-#include "RotateAndCaptureState.h"
+#include "FullRotateAndCaptureState.h"
+#include "SmartRotateAndCaptureState.h"
 #include "TakeoffState.h"
 #include "SetFlightModeState.h"
 #include "StartDetectionState.h"
@@ -251,7 +252,7 @@ void CustomPlugin::autoDetection()
     auto startDetectionState    = new StartDetectionState(stateMachine);
     auto takeoffState           = new TakeoffState(stateMachine, _customSettings->takeoffAltitude()->rawValue().toDouble());
     auto eventModeRTLState      = new FunctionState("eventModeRTLState", stateMachine, [stateMachine] () { stateMachine->setEventMode(CustomStateMachine::CancelOnFlightModeChange | CustomStateMachine::RTLOnError); });
-    auto rotateState            = new RotateAndCaptureState(stateMachine);
+    auto rotateState            = new FullRotateAndCaptureState(stateMachine);
     auto stopDetectionState     = new StopDetectionState(stateMachine);
     auto announceAutoEndState   = new SayState("AnnounceAutoEnd", stateMachine, "Auto detection complete. Returning");
     auto eventModeNoneState     = new FunctionState("eventModeNoneState", stateMachine, [stateMachine] () { stateMachine->setEventMode(0); });
@@ -279,8 +280,13 @@ void CustomPlugin::startRotation(void)
 
     auto stateMachine = new CustomStateMachine("Start Rotation", this);
 
-    auto rotateState    = new RotateAndCaptureState(stateMachine);
-    auto finalState     = new QFinalState(stateMachine);
+    CustomState* rotateState = nullptr;
+    if (_customSettings->rotationType()->rawValue().toInt() == 1) {
+        rotateState = new FullRotateAndCaptureState(stateMachine);
+     } else {
+        rotateState = new SmartRotateAndCaptureState(stateMachine);
+     }
+    auto finalState = new QFinalState(stateMachine);
 
     rotateState->addTransition(rotateState, &CustomState::finished, finalState);
 

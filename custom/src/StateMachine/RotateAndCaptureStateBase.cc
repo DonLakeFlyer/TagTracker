@@ -1,4 +1,4 @@
-#include "RotateAndCaptureState.h"
+#include "RotateAndCaptureStateBase.h"
 #include "SendMavlinkCommandState.h"
 #include "DelayState.h"
 #include "CustomPlugin.h"
@@ -15,8 +15,8 @@
 #include "TagDatabase.h"
 #include "FirmwarePlugin.h"
 
-RotateAndCaptureState::RotateAndCaptureState(QState* parentState)
-    : CustomState       ("RotateAndCaptureState", parentState)
+RotateAndCaptureStateBase::RotateAndCaptureStateBase(const QString& stateName, QState* parentState)
+    : CustomState       (stateName, parentState)
     , _vehicle          (MultiVehicleManager::instance()->activeVehicle())
     , _customPlugin     (qobject_cast<CustomPlugin*>(CustomPlugin::instance()))
     , _customSettings   (_customPlugin->customSettings())
@@ -28,55 +28,36 @@ RotateAndCaptureState::RotateAndCaptureState(QState* parentState)
     _customPlugin->rgAngleRatios().append(QList<double>());
     _customPlugin->rgCalcedBearings().append(qQNaN());
 
-    QList<double>& angleStrengths = _customPlugin->rgAngleStrengths().last();
-    QList<double>& angleRatios = _customPlugin->rgAngleRatios().last();
+    QList<double>& refAngleStrengths = _customPlugin->rgAngleStrengths().last();
+    QList<double>& refAngleRatios = _customPlugin->rgAngleRatios().last();
 
     // Prime angle strengths with no values
     for (int i=0; i<_rotationDivisions; i++) {
-        angleStrengths.append(qQNaN());
-        angleRatios.append(qQNaN());
+        refAngleStrengths.append(qQNaN());
+        refAngleRatios.append(qQNaN());
     }
 
     // We always start our rotation pulse captures with the antenna at 0 degrees heading
     double antennaOffset = _customSettings->antennaOffset()->rawValue().toDouble();
-    double degreesPerSlice = 360.0 / _rotationDivisions;
-    double nextHeading = -antennaOffset;
+    _degreesPerSlice = 360.0 / _rotationDivisions;
+    _firstHeading = -antennaOffset;
 
-    auto initRotationState = new FunctionState("InitNewRotationDuringFlight", this, std::bind(&RotateAndCaptureState::_initNewRotationDuringFlight, this));
+    _initRotationState              = new FunctionState("InitNewRotationDuringFlight", this, std::bind(&RotateAndCaptureStateBase::_initNewRotationDuringFlight, this));
+    _announceRotateCompleteState    = new SayState("AnnounceRotateComplete", this, "Rotation detection complete");
+    _finalState                     = new QFinalState(this);
 
     // Add rotation state machine entries
-    QList<CustomState*> rotationStates;
     for (int i=0; i<_rotationDivisions; i++) {
-        if (nextHeading >= 360) {
-            nextHeading -= 360;
-        } else if (nextHeading < 0) {
-            nextHeading += 360;
-        }
-
-        auto state = _rotateAndCaptureAtHeadingState(this, nextHeading);
-        rotationStates.append(state);
-
-        nextHeading += degreesPerSlice;
+        auto state = _rotateAndCaptureAtHeadingState(this, i);
+        _rotationStates.append(state);
     }
 
-    auto announceRotateCompleteState    = new SayState("AnnounceRotateComplete", this, "Rotation detection complete");
-    auto finalState                     = new QFinalState(this);
+    _announceRotateCompleteState->addTransition(_announceRotateCompleteState, &SayState::functionCompleted, _finalState);
 
-    // Transitions
-    initRotationState->addTransition(initRotationState, &FunctionState::functionCompleted, rotationStates.first());
-    for (int i=0; i<rotationStates.count(); i++) {
-        if (i == rotationStates.count() - 1) {
-            rotationStates[i]->addTransition(rotationStates[i], &QState::finished, announceRotateCompleteState);
-        } else {
-            rotationStates[i]->addTransition(rotationStates[i], &QState::finished, rotationStates[i+1]);
-        }
-    }
-    announceRotateCompleteState->addTransition(announceRotateCompleteState, &SayState::functionCompleted, finalState);
-
-    this->setInitialState(initRotationState);
+    this->setInitialState(_initRotationState);
 }
 
-void RotateAndCaptureState::_initNewRotationDuringFlight()
+void RotateAndCaptureStateBase::_initNewRotationDuringFlight()
 {
     CSVLogManager& logManager = _customPlugin->csvLogManager();
 
@@ -93,7 +74,7 @@ void RotateAndCaptureState::_initNewRotationDuringFlight()
     _customPlugin->customMapItems()->append(mapItem);
 }
 
-SendMavlinkCommandState* RotateAndCaptureState::_rotateMavlinkCommandState(QState* parentState, double headingDegrees)
+SendMavlinkCommandState* RotateAndCaptureStateBase::_rotateMavlinkCommandState(QState* parentState, double headingDegrees)
 {
     SendMavlinkCommandState* state = nullptr;
 
@@ -120,22 +101,22 @@ SendMavlinkCommandState* RotateAndCaptureState::_rotateMavlinkCommandState(QStat
     return state;
 }
 
-void RotateAndCaptureState::_sliceBegin(void)
+void RotateAndCaptureStateBase::_sliceBegin(void)
 {
     _detectorList->resetMaxStrength();
     _detectorList->resetPulseGroupCount();
 }
 
-void RotateAndCaptureState::_sliceEnd(void)
+void RotateAndCaptureStateBase::_sliceEnd(int sliceIndex)
 {
     double maxStrength = _detectorList->maxStrength();
 
-    qCDebug(CustomPluginLog) << QStringLiteral("Slice %1 max snr %2").arg(_currentSlice).arg(maxStrength) << " - " << Q_FUNC_INFO;
+    qCDebug(CustomPluginLog) << QStringLiteral("Slice %1 max snr %2").arg(sliceIndex).arg(maxStrength) << " - " << Q_FUNC_INFO;
 
     auto& rgAngleStrengths = _customPlugin->rgAngleStrengths();
     auto& rgAngleRatios = _customPlugin->rgAngleRatios();
 
-    rgAngleStrengths.last()[_currentSlice] = maxStrength;
+    rgAngleStrengths.last()[sliceIndex] = maxStrength;
 
     // Adjust the angle ratios to this new information
     maxStrength = 0;
@@ -151,13 +132,14 @@ void RotateAndCaptureState::_sliceEnd(void)
         }
     }
 
-    _currentSlice++;
     _customPlugin->signalAngleRatiosChanged();
 }
 
 
-CustomState* RotateAndCaptureState::_rotateAndCaptureAtHeadingState(QState* parentState, double headingDegrees)
+CustomState* RotateAndCaptureStateBase::_rotateAndCaptureAtHeadingState(QState* parentState, int sliceIndex)
 {
+    double headingDegrees = _sliceIndexToHeading(sliceIndex);
+
     // We wait at each rotation for enough time to go by to capture a user specified set of k groups
     uint32_t maxK = _customSettings->k()->rawValue().toUInt();
     auto kGroups = _customSettings->rotationKWaitCount()->rawValue().toInt();
@@ -169,25 +151,36 @@ CustomState* RotateAndCaptureState::_rotateAndCaptureAtHeadingState(QState* pare
             qCDebug(CustomPluginLog) << QStringLiteral("Rotating to heading %1").arg(headingDegrees) << " - " << Q_FUNC_INFO;
     }); 
 
-    auto sliceBeginState            = new FunctionState("SliceBegin", groupingState, std::bind(&RotateAndCaptureState::_sliceBegin, this));
     auto announceRotateState        = new SayState("AnnounceRotate", groupingState, QStringLiteral("Detection at %1 degrees").arg(headingDegrees));
     auto rotateCommandState         = _rotateMavlinkCommandState(groupingState, headingDegrees);
     //auto rotateCommandState         = new FunctionState("ErrorTesting", groupingState, [sliceBeginState] () { sliceBeginState->machine()->setError("Error Testing"); });
     auto waitForHeadingChangeState  = new FactWaitForValueTarget(groupingState, _vehicle->heading(), headingDegrees, 1.0 /* _targetVariance */, 10 * 1000 /* _waitMsecs */);
+    auto sliceBeginState            = new FunctionState("SliceBegin", groupingState, std::bind(&RotateAndCaptureStateBase::_sliceBegin, this));
     auto delayForKGroupsState       = new DelayState(groupingState, rotationCaptureWaitMsecs);
-    auto sliceEndState              = new FunctionState("SliceEnd", groupingState, std::bind(&RotateAndCaptureState::_sliceEnd, this));
+    auto sliceEndState              = new FunctionState("SliceEnd", groupingState, [this, sliceIndex] () { _sliceEnd(sliceIndex); });
     auto finalState                 = new QFinalState(groupingState);
 
     // Transitions
-    sliceBeginState->addTransition(sliceBeginState, &FunctionState::functionCompleted, announceRotateState);
     announceRotateState->addTransition(announceRotateState, &SayState::functionCompleted, rotateCommandState);
     rotateCommandState->addTransition(rotateCommandState, &SendMavlinkCommandState::success, waitForHeadingChangeState);
     //rotateCommandState->addTransition(rotateCommandState, &FunctionState::functionCompleted, waitForHeadingChangeState);
-    waitForHeadingChangeState->addTransition(waitForHeadingChangeState, &FactWaitForValueTarget::success, delayForKGroupsState);
+    waitForHeadingChangeState->addTransition(waitForHeadingChangeState, &FactWaitForValueTarget::success, sliceBeginState);
+    sliceBeginState->addTransition(sliceBeginState, &FunctionState::functionCompleted, delayForKGroupsState);
     delayForKGroupsState->addTransition(delayForKGroupsState, &DelayState::delayComplete, sliceEndState);
     sliceEndState->addTransition(sliceEndState, &FunctionState::functionCompleted, finalState);
 
-    groupingState->setInitialState(sliceBeginState);
+    groupingState->setInitialState(announceRotateState);
 
     return groupingState;
+}
+
+double RotateAndCaptureStateBase::_sliceIndexToHeading(int sliceIndex)
+{
+    double heading = _firstHeading + (sliceIndex * _degreesPerSlice);
+    if (heading > 360.0) {
+        heading -= 360.0;
+    } else if (heading < 0.0) {
+        heading += 360.0;
+    }
+    return heading;
 }

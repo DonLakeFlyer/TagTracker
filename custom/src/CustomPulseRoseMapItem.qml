@@ -57,7 +57,9 @@ MapQuickItem {
                 property real centerX:          width / 2
                 property real centerY:          height / 2
                 property real arcRadians:       (Math.PI * 2) / _divisions
-                property real strengthRatio:    _corePlugin.angleRatios[_rotationIndex][index]
+                property real rawStrengthRatio: _corePlugin.angleRatios[_rotationIndex][index]
+                property bool noDetection:      rawStrengthRatio == 0
+                property real strengthRatio:    noDetection ? 1 : rawStrengthRatio
 
                 onPaint: {
                     var ctx = getContext("2d");
@@ -65,8 +67,8 @@ MapQuickItem {
 
                     ctx.beginPath();
                     ctx.fillStyle = "transparent";
-                    ctx.strokeStyle = "red";
-                    ctx.lineWidth = 3;
+                    ctx.strokeStyle = noDetection ? "white" : "red";
+                    ctx.lineWidth = noDetection ? 1 : 3;
                     ctx.moveTo(centerX, centerY);
                     ctx.arc(centerX, centerY, (width / 2) * arcCanvas.strengthRatio, 0, arcRadians, false);
                     ctx.lineTo(centerX, centerY);
