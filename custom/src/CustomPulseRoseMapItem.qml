@@ -66,7 +66,8 @@ MapQuickItem {
                     ctx.reset();
 
                     ctx.beginPath();
-                    ctx.fillStyle = "transparent";
+                    ctx.globalAlpha = 0.5;
+                    ctx.fillStyle = noDetection ? "white" : "red";
                     ctx.strokeStyle = noDetection ? "white" : "red";
                     ctx.lineWidth = noDetection ? 1 : 3;
                     ctx.moveTo(centerX, centerY);

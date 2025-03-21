@@ -67,6 +67,8 @@ qt_add_library(CustomPlugin STATIC
     src/PulseMapItem.h
     src/CustomLoggingCategory.cc
     src/CustomLoggingCategory.h
+    src/StateMachine/CaptureAtSliceState.cc
+    src/StateMachine/CaptureAtSliceState.h
     src/StateMachine/CustomState.cc
     src/StateMachine/CustomState.h
     src/StateMachine/CustomStateMachine.cc
@@ -76,6 +78,8 @@ qt_add_library(CustomPlugin STATIC
     src/StateMachine/ErrorTransition.h
     src/StateMachine/FactWaitForValueTarget.cc
     src/StateMachine/FactWaitForValueTarget.h
+    src/StateMachine/SliceSequenceCaptureState.cc
+    src/StateMachine/SliceSequenceCaptureState.h
     src/StateMachine/FunctionState.cc
     src/StateMachine/FunctionState.h
     src/StateMachine/GuidedModeCancelledTransition.h

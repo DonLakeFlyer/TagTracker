@@ -4,6 +4,8 @@
 #include "DetectorList.h"
 #include "CustomPlugin.h"
 #include "CustomLoggingCategory.h"
+#include "CaptureAtSliceState.h"
+#include "SliceSequenceCaptureState.h"
 
 #include <QSignalTransition>
 #include <QFinalState>
@@ -19,18 +21,28 @@ static int _clampSliceIndex(int index, int rotationDivisions)
 }
 
 DetermineSearchTypeState::DetermineSearchTypeState(SmartRotateAndCaptureState* parentState, int rotationDivisions)
-    : FunctionState                 ("DetermineSearchTypeState", parentState, std::bind(&DetermineSearchTypeState::_determineSearchType, this))
+    : FunctionState                 ("DetermineSearchTypeState", parentState, std::bind(&DetermineSearchTypeState::_determineNextSearchType, this))
     , _smartRotateAndCaptureState   (parentState)
     , _rotationDivisions            (rotationDivisions)
 {
-
+    switch (_rotationDivisions) {
+    case 8:
+        _fourPointSliceStartList << 0 << 1;
+        break;
+    case 16:
+        _fourPointSliceStartList << 0 << 2 << 1 << 3;
+        break;
+    default:
+        qCCritical(CustomPluginLog) << QStringLiteral("Unsupported rotation divisions %1").arg(_rotationDivisions) << " - " << Q_FUNC_INFO;
+        for (int i=0; i<_rotationDivisions; i++) {
+            _fourPointSliceStartList << 0;
+        }
+        break;
+    }
 }
 
-void DetermineSearchTypeState::_determineSearchType()
+void DetermineSearchTypeState::_calcStrengthInfo()
 {
-    // We have completed the initial search and are now looking for the strongest slice or quadrant
-    // Quadrant being the area between two initial adjacent slices
-
     // Find the strongest single slice and quadrant
 
     auto& rgAngleStrengths = qobject_cast<CustomPlugin*>(CustomPlugin::instance())->rgAngleStrengths().last();
@@ -67,83 +79,79 @@ void DetermineSearchTypeState::_determineSearchType()
 
     qCDebug(CustomPluginLog) << QStringLiteral("Max strength %1 at slice %2").arg(_maxSliceStrength).arg(_maxSlice) << " - " << Q_FUNC_INFO;
     qCDebug(CustomPluginLog) << QStringLiteral("Max quadrant strength %1 at slice %2, clockwise %3").arg(_maxQuadrantStrength).arg(_maxQuadrantSlice).arg(_clockwiseSearch) << " - " << Q_FUNC_INFO;
+}
 
-    if (_maxQuadrantSlice == -1) {
-        // This means we only have a single strong slice
+void DetermineSearchTypeState::_nextSearchTypeFromFourPoint()
+{
+    // We have completed a four point search
+    // Quadrant being the area between two initial adjacent slices
+
+    _calcStrengthInfo();
+
+    if (_maxSlice == -1) {
+        // No pulses detected.  Do another four point search if we haven't exhausted all possibilities yet
+
+        // FIXME: NYI
+    } else if (_maxQuadrantSlice == -1) {
+        // This means we only have a single strong slice. We look to the left and right to determine quadrant direction
+        _lastSearchType = SingleSliceSearch;
         emit singleSliceDetection();
     } else {
         // We found a strong quadrant. Continue searching within the quadrant
-        auto withinQuadrantSearchState = new WithinQuadrantSearchState(_smartRotateAndCaptureState, _rotationDivisions, _maxQuadrantSlice, _clockwiseSearch);
-        addTransition(this, &DetermineSearchTypeState::withinQuadrantSearch, withinQuadrantSearchState);
-        withinQuadrantSearchState->addTransition(withinQuadrantSearchState, &QState::finished, _smartRotateAndCaptureState->_announceRotateCompleteState);
+
+        _lastSearchType = QuadrantSearch;
+        _lastSliceIndex = _maxQuadrantSlice + (_clockwiseSearch ? 1 : -1);
+        _lastClockwiseSearch = _clockwiseSearch;
+
+        int quadrantSliceCount = _rotationDivisions / 4 - 1;
+    
+        auto quadrantSearchState = new SliceSequenceCaptureState(
+                                            _smartRotateAndCaptureState,    // parentState
+                                            _lastSliceIndex,                // firstSlice
+                                            0,                              // skipCount
+                                            _lastClockwiseSearch,           // clockwiseDirection
+                                            quadrantSliceCount);            // sliceCount
+
+        addTransition(this, &DetermineSearchTypeState::withinQuadrantSearch, quadrantSearchState);
+        quadrantSearchState->addTransition(quadrantSearchState, &QState::finished, _smartRotateAndCaptureState->_announceRotateCompleteState);
+
         emit withinQuadrantSearch();
     }
 }
 
-WithinQuadrantSearchState::WithinQuadrantSearchState(SmartRotateAndCaptureState* parentState, int rotationDivisions, int sliceIndex, bool clockwiseSearch)
-    : CustomState                   ("WithinQuadrantSearchState", parentState)
-    , _smartRotateAndCaptureState   (parentState)
-    , _rotationDivisions            (rotationDivisions)
-    , _sliceIndex                   (sliceIndex)
-    , _clockwiseSearch              (clockwiseSearch)
+void DetermineSearchTypeState::_nextSearchTypeFromSingleSlice()
 {
-    int quadrantSliceCount = _rotationDivisions / 4 - 1;
 
-    auto& rotationStates = _smartRotateAndCaptureState->_rotationStates;
-    auto finalState = new QFinalState(this);
+}
 
-    int currentSlice = _sliceIndex;
-    QList<CustomState*> quadrantStates;
-    for (int i=0; i<quadrantSliceCount; i++) {
-        currentSlice = _clampSliceIndex(currentSlice + (_clockwiseSearch ? 1 : -1), _rotationDivisions);
-        quadrantStates.append(_smartRotateAndCaptureState->_rotateAndCaptureAtHeadingState(this, currentSlice));
+void DetermineSearchTypeState::_determineNextSearchType()
+{
+    switch (_lastSearchType) {
+    case FourPointRotate:
+        _nextSearchTypeFromFourPoint();
+        break;
+    case SingleSliceSearch:
+        _nextSearchTypeFromSingleSlice();
+        break;
+    default:
+        qCCritical(CustomPluginLog) << QStringLiteral("Unsupported search type%1").arg(_lastSearchType) << " - " << Q_FUNC_INFO;
+        break;
     }
-
-    for (int i=0; i<quadrantSliceCount; i++) {
-        auto currentState = quadrantStates[i];
-        
-        if (i == quadrantSliceCount - 1) {
-            // This is the final slice in the quadrant
-            currentState->addTransition(currentState, &QState::finished, finalState);
-        } else {
-            // Move to the next slice
-            auto nextState = quadrantStates[i + 1];
-            currentState->addTransition(currentState, &QState::finished, nextState);
-        }
-    }
-
-    setInitialState(quadrantStates.first());
 }
 
 SmartRotateAndCaptureState::SmartRotateAndCaptureState(QState* parentState)
     : RotateAndCaptureStateBase("SmartRotateAndCaptureState", parentState)
 {
     // States
-    auto initialFourPointRotateState = _initialFourPointRotateState();
+    auto fourPointState = new SliceSequenceCaptureState(
+                                    this,                       // parentState
+                                    0,                          // firstSlice
+                                    _rotationDivisions / 4 - 1, // skipCount
+                                    true,                       // clockwiseDirection
+                                    4);                         // sliceCount
     auto determineSearchTypeState = new DetermineSearchTypeState(this, _rotationDivisions);
 
     // Transitions
-    _initRotationState->addTransition(_initRotationState, &FunctionState::functionCompleted, initialFourPointRotateState);
-    initialFourPointRotateState->addTransition(initialFourPointRotateState, &QState::finished, determineSearchTypeState);
-    determineSearchTypeState->addTransition(determineSearchTypeState, &DetermineSearchTypeState::singleSliceDetection, _finalState);
-}
-
-CustomState* SmartRotateAndCaptureState::_initialFourPointRotateState()
-{
-    auto initialFourPointRotateState = new CustomState("InitialFourPointRotateState", this);
-
-    auto northState = _rotateAndCaptureAtHeadingState(initialFourPointRotateState, 0);
-    auto eastState  = _rotateAndCaptureAtHeadingState(initialFourPointRotateState, _rotationDivisions / 4);
-    auto southState = _rotateAndCaptureAtHeadingState(initialFourPointRotateState, _rotationDivisions / 2);
-    auto westState  = _rotateAndCaptureAtHeadingState(initialFourPointRotateState, _rotationDivisions / 2 + _rotationDivisions / 4);
-    auto finalState = new QFinalState(initialFourPointRotateState);
-
-    auto northTransition    = northState->addTransition(northState, &QState::finished, eastState);
-    auto eastTransition     = eastState->addTransition(eastState, &QState::finished, southState);
-    auto southTransition    = southState->addTransition(southState, &QState::finished, westState);
-    auto westTransition     = westState->addTransition(westState, &QState::finished, finalState);
-
-    initialFourPointRotateState->setInitialState(northState);
-
-    return initialFourPointRotateState;
+    _initRotationState->addTransition(_initRotationState, &FunctionState::functionCompleted, fourPointState);
+    fourPointState->addTransition(fourPointState, &QState::finished, determineSearchTypeState);
 }

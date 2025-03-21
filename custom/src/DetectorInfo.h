@@ -48,7 +48,7 @@ private:
     uint32_t        _heartbeatTimerInterval = 0;
     QTimer          _heartbeatTimeoutTimer;
     QTimer          _stalePulseStrengthTimer;
-    double          _maxStrength                 = 0.0;
+    double          _maxStrength            = 0.0;
     uint32_t        _heartbeatCount         = 0;
     uint32_t        _pulseGroupGrount       = 0;
 };

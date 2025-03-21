@@ -249,9 +249,9 @@ void CustomPlugin::autoDetection()
     auto stateMachine = new CustomStateMachine("Auto Detection", this);
 
     auto announceAutoStartState = new SayState("AnnounceAuto", stateMachine, "Starting auto detection");
-    auto startDetectionState    = new StartDetectionState(stateMachine);
     auto takeoffState           = new TakeoffState(stateMachine, _customSettings->takeoffAltitude()->rawValue().toDouble());
     auto eventModeRTLState      = new FunctionState("eventModeRTLState", stateMachine, [stateMachine] () { stateMachine->setEventMode(CustomStateMachine::CancelOnFlightModeChange | CustomStateMachine::RTLOnError); });
+    auto startDetectionState    = new StartDetectionState(stateMachine);
     auto rotateState            = new FullRotateAndCaptureState(stateMachine);
     auto stopDetectionState     = new StopDetectionState(stateMachine);
     auto announceAutoEndState   = new SayState("AnnounceAutoEnd", stateMachine, "Auto detection complete. Returning");
@@ -260,10 +260,10 @@ void CustomPlugin::autoDetection()
     auto finalState             = new QFinalState(stateMachine);
 
     // Transitions
-    announceAutoStartState->addTransition   (announceAutoStartState,    &SayState::functionCompleted,       startDetectionState);
-    startDetectionState->addTransition      (startDetectionState,       &CustomState::finished,             takeoffState);
+    announceAutoStartState->addTransition   (announceAutoStartState,    &SayState::functionCompleted,       takeoffState);
     takeoffState->addTransition             (takeoffState,              &TakeoffState::takeoffComplete,     eventModeRTLState);
-    eventModeRTLState->addTransition        (eventModeRTLState,         &FunctionState::functionCompleted,  rotateState);
+    eventModeRTLState->addTransition        (eventModeRTLState,         &FunctionState::functionCompleted,  startDetectionState);
+    startDetectionState->addTransition      (startDetectionState,       &CustomState::finished,             rotateState);
     rotateState->addTransition              (rotateState,               &QState::finished,                  eventModeNoneState);
     eventModeNoneState->addTransition       (eventModeNoneState,        &FunctionState::functionCompleted,  stopDetectionState);
     stopDetectionState->addTransition       (stopDetectionState,        &CustomState::finished,             announceAutoEndState);
@@ -280,17 +280,36 @@ void CustomPlugin::startRotation(void)
 
     auto stateMachine = new CustomStateMachine("Start Rotation", this);
 
+    // States
+
+    bool needStartDetection = _controllerStatus != ControllerStatusDetecting;
+
+    StartDetectionState* startDetectionState = nullptr;
+    StopDetectionState* stopDetectionState = nullptr;
+    if (needStartDetection) {
+        startDetectionState = new StartDetectionState(stateMachine);
+        stopDetectionState = new StopDetectionState(stateMachine);
+    }
+    auto finalState = new QFinalState(stateMachine);
+
     CustomState* rotateState = nullptr;
     if (_customSettings->rotationType()->rawValue().toInt() == 1) {
         rotateState = new FullRotateAndCaptureState(stateMachine);
-     } else {
+    } else {
         rotateState = new SmartRotateAndCaptureState(stateMachine);
-     }
-    auto finalState = new QFinalState(stateMachine);
+    }
 
-    rotateState->addTransition(rotateState, &CustomState::finished, finalState);
+    // Transitions
+    if (needStartDetection) {
+        startDetectionState->addTransition(startDetectionState, &CustomState::finished, rotateState);
+        rotateState->addTransition(rotateState, &QState::finished, stopDetectionState);
+        stopDetectionState->addTransition(stopDetectionState, &CustomState::finished, finalState);
+    } else {
+        rotateState->addTransition(rotateState, &CustomState::finished, finalState);
+    }
 
-    stateMachine->setInitialState(rotateState);
+    stateMachine->setInitialState(startDetectionState ? startDetectionState : rotateState);
+
     stateMachine->start();
 }
 
