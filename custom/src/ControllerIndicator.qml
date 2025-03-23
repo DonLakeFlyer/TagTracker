@@ -244,7 +244,7 @@ Item {
                     fact:               _customSettings.rotationType
                 }
 
-                LabelledFactTextField {
+                LabelledFactComboBox {
                     Layout.fillWidth:   true
                     label:              fact.shortDescription
                     fact:               _customSettings.divisions
