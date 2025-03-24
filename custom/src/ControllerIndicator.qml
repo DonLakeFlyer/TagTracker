@@ -140,6 +140,11 @@ Item {
         ColumnLayout {
             spacing: ScreenTools.defaultFontPixelHeight
 
+            QGCLabel {
+                text:       qsTr("No Tags Specified")
+                visible:    tagDatabase.tagInfoList.count === 0
+            }
+
             GridLayout {
                 rows:       tagDatabase.tagInfoList.count
                 columns:    4

@@ -33,8 +33,8 @@ QtObject {
         switch (actionCode) {
         case actionAutoDetection:
             confirmDialog.hideTrigger = true
-            confirmDialog.title = startDetectionTitle
-            confirmDialog.message = startDetectionMessage
+            confirmDialog.title = autoDetectionTitle
+            confirmDialog.message = autoDetectionMessage
             break
         case actionStartDetection:
             confirmDialog.hideTrigger = true
