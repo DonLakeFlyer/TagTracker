@@ -127,7 +127,7 @@ void SendTunnelCommandState::_handleTunnelCommandAck(const mavlink_tunnel_t& tun
         if (ack.result == COMMAND_RESULT_SUCCESS) {
             emit commandSucceeded();
         } else {
-            QString message = QStringLiteral("%1 failed. Bad command result: %2").arg(commandIdToText(_sentTunnelCommand)).arg(ack.result);
+            QString message = QStringLiteral("%1 failed. Bad command result: %2").arg(commandIdToText(_sentTunnelCommand)).arg(_commandResultToString(ack.result));
             setError(message);
         }
 
@@ -152,4 +152,14 @@ void SendTunnelCommandState::_disconnectAll()
     _ackResponseTimer.stop();
     disconnect(&_ackResponseTimer, &QTimer::timeout, this, &SendTunnelCommandState::_ackResponseTimedOut);
     disconnect(_vehicle, &Vehicle::mavlinkMessageReceived, this, &SendTunnelCommandState::_mavlinkMessageReceived);
+}
+
+QString SendTunnelCommandState::_commandResultToString(uint32_t result)
+{
+    switch (result) {
+    case COMMAND_RESULT_SUCCESS:
+        return QStringLiteral("Success");
+    case COMMAND_RESULT_FAILURE:
+        return QStringLiteral("Failure");
+    }
 }

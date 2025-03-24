@@ -8,16 +8,28 @@
 
 SendMavlinkCommandState::SendMavlinkCommandState(QState* parentState, MAV_CMD command, double param1, double param2, double param3, double param4, double param5, double param6, double param7)
     : CustomState   ("SendMavlinkCommandState", parentState)
-    , _vehicle      (MultiVehicleManager::instance()->activeVehicle())
-    , _command      (command)
-    , _param1       (param1)
-    , _param2       (param2)
-    , _param3       (param3)
-    , _param4       (param4)
-    , _param5       (param5)
-    , _param6       (param6)
-    , _param7       (param7)
 {
+    setup(command, param1, param2, param3, param4, param5, param6, param7);
+}
+
+SendMavlinkCommandState::SendMavlinkCommandState(QState* parentState)
+    : CustomState   ("SendMavlinkCommandState", parentState)
+{
+
+}
+
+void SendMavlinkCommandState::setup(MAV_CMD command, double param1, double param2, double param3, double param4, double param5, double param6, double param7)
+{
+    _vehicle = MultiVehicleManager::instance()->activeVehicle();
+    _command = command;
+    _param1 = param1;
+    _param2 = param2;
+    _param3 = param3;
+    _param4 = param4;
+    _param5 = param5;
+    _param6 = param6;
+    _param7 = param7;
+
     connect(this, &QState::entered, this, [this] () 
         { 
             qCDebug(CustomPluginLog) << QStringLiteral("Sending %1 command").arg(MissionCommandTree::instance()->friendlyName(_command)) << " - " << Q_FUNC_INFO;
