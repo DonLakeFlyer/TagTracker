@@ -666,6 +666,11 @@ uint32_t TagDatabase::channelizerTuner()
         }
     }
 
+    if (freqListHz.count() == 0) {
+        qCritical() << "No frequencies selected for channelizerTuner";
+        return 146000000;
+    }
+
     uint32_t freqMaxHz = *std::max_element(freqListHz.begin(), freqListHz.end());
     uint32_t freqMinHz = *std::min_element(freqListHz.begin(), freqListHz.end());
 
