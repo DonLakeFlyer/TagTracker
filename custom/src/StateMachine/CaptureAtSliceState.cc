@@ -77,44 +77,20 @@ SendMavlinkCommandState* CaptureAtSliceState::_rotateMavlinkCommandState(QState*
 
 void CaptureAtSliceState::_sliceBegin(void)
 {
-    _detectorList->resetMaxStrength();
-    _detectorList->resetPulseGroupCount();
+    auto& rgAngleStrengths = _customPlugin->rgAngleStrengths().last();
+    auto& rgAngleRatios = _customPlugin->rgAngleRatios().last();
+
+    if (qIsNaN(rgAngleStrengths[_sliceIndex])) {
+        rgAngleStrengths[_sliceIndex] = 0;
+        rgAngleRatios[_sliceIndex] = 0;
+        _customPlugin->signalAngleRatiosChanged();
+    }
 }
 
 void CaptureAtSliceState::_sliceEnd()
 {
-    double maxStrengthForSlice = _detectorList->maxStrength();
 
-    qCDebug(CustomPluginLog) << QStringLiteral("Slice %1 max snr %2").arg(_sliceIndex).arg(maxStrengthForSlice) << " - " << Q_FUNC_INFO;
-
-    auto& rgAngleStrengths = _customPlugin->rgAngleStrengths();
-    auto& rgAngleRatios = _customPlugin->rgAngleRatios();
-
-    rgAngleStrengths.last()[_sliceIndex] = maxStrengthForSlice;
-
-    double maxStrengthForFullRose = 0;
-    for (int i=0; i<_rotationDivisions; i++) {
-        if (rgAngleStrengths.last()[i] > maxStrengthForFullRose) {
-            maxStrengthForFullRose = rgAngleStrengths.last()[i];
-        }
-    }
-
-    for (int i=0; i<_rotationDivisions; i++) {
-        double strengthAtSlice = rgAngleStrengths.last()[i];
-        if (qIsNaN(strengthAtSlice)) {
-            // This slice has not been processed yet
-            continue;
-        } else if (maxStrengthForFullRose == 0) {
-            // Zero signals no pulse detected at slice
-            rgAngleRatios.last()[i] = 0;
-        } else {
-            rgAngleRatios.last()[i] = strengthAtSlice / maxStrengthForFullRose;
-        }
-    }
-
-    _customPlugin->signalAngleRatiosChanged();
 }
-
 
 CustomState* CaptureAtSliceState::_rotateAndCaptureAtHeadingState()
 {
@@ -129,13 +105,13 @@ CustomState* CaptureAtSliceState::_rotateAndCaptureAtHeadingState()
             qCDebug(CustomPluginLog) << QStringLiteral("Rotating to heading %1").arg(this->_sliceHeadingDegrees) << " - " << Q_FUNC_INFO;
     }); 
 
-    auto announceRotateState        = new SayState("AnnounceRotate", groupingState, QStringLiteral("Detection at %1 degrees").arg(_sliceHeadingDegrees));
+    auto announceRotateState        = new SayState("Announce Rotate", groupingState, QStringLiteral("Detection at %1 degrees").arg(_sliceHeadingDegrees));
     auto rotateCommandState         = _rotateMavlinkCommandState(groupingState);
     //auto rotateCommandState         = new FunctionState("ErrorTesting", groupingState, [sliceBeginState] () { sliceBeginState->machine()->setError("Error Testing"); });
     auto waitForHeadingChangeState  = new FactWaitForValueTarget(groupingState, _vehicle->heading(), _sliceHeadingDegrees, 1.0 /* _targetVariance */, 10 * 1000 /* _waitMsecs */);
-    auto sliceBeginState            = new FunctionState("SliceBegin", groupingState, std::bind(&CaptureAtSliceState::_sliceBegin, this));
+    auto sliceBeginState            = new FunctionState("Slice Begin", groupingState, std::bind(&CaptureAtSliceState::_sliceBegin, this));
     auto delayForKGroupsState       = new DelayState(groupingState, rotationCaptureWaitMsecs);
-    auto sliceEndState              = new FunctionState("SliceEnd", groupingState, [this] () { _sliceEnd(); });
+    auto sliceEndState              = new FunctionState("Slice End", groupingState, [this] () { _sliceEnd(); });
     auto finalState                 = new QFinalState(groupingState);
 
     // Transitions

@@ -21,6 +21,8 @@
 class CustomState;
 class QState;
 
+using namespace TunnelProtocol;
+
 class CustomPlugin : 
 #ifdef TAG_TRACKER_HERELINK_BUILD
     public HerelinkCorePlugin
@@ -66,6 +68,7 @@ public:
     QList<QList<double>>&   rgAngleRatios() { return _rgAngleRatios; }
     QList<double>&          rgCalcedBearings() { return _rgCalcedBearings; }
     CSVLogManager&          csvLogManager() { return _csvLogManager; }
+    void                    setActiveRotation(bool active) { _activeRotation = active; }
 
     void signalAngleRatiosChanged() { emit angleRatiosChanged(); }
     void signalCalcedBearingsChanged() { emit calcedBearingsChanged(); }
@@ -135,6 +138,7 @@ private:
     } HeartbeatInfo_t;
 
     void    _handleTunnelPulse          (Vehicle* vehicle, const mavlink_tunnel_t& tunnel);
+    void    _updateSliceInfo            (const PulseInfo_t& pulseInfo);
     void    _handleTunnelHeartbeat      (const mavlink_tunnel_t& tunnel);
     void    _say                        (QString text);
     int     _rawPulseToPct              (double rawPulse);
@@ -148,13 +152,13 @@ private:
     QVariantList            _instrumentPages;
     int                     _vehicleStateIndex;
     QList<VehicleState_t>   _vehicleStates;
+    bool                    _activeRotation     = false;
     QList<QList<double>>    _rgAngleStrengths;
     QList<QList<double>>    _rgAngleRatios;
     QList<double>           _rgCalcedBearings;
     bool                    _flightStateMachineActive;
     int                     _currentSlice;
     int                     _cSlice;
-    int                     _detectionStatus    = -1;
     bool                    _retryRotation      = false;
     int                     _controllerStatus   = ControllerStatusIdle;
     float                   _controllerCPUTemp  = 0.0;

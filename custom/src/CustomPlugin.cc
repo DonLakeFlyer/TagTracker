@@ -191,6 +191,8 @@ void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& 
                                         pulseInfo.tag_id <<
                                         "snr" <<
                                         pulseInfo.snr <<
+                                        "heading" <<
+                                        pulseInfo.orientation_z <<
                                         "stft_score" <<
                                         pulseInfo.stft_score <<
                                         "group_seq_counter" <<
@@ -199,6 +201,7 @@ void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& 
                                         pulseInfo.start_time_seconds;
 
             _csvLogManager.csvLogPulse(pulseInfo);
+            _updateSliceInfo(pulseInfo);
 
             if (qIsNaN(_minSNR) || pulseInfo.snr < _minSNR) {
                 _minSNR = pulseInfo.snr;
@@ -237,6 +240,58 @@ void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& 
 #endif                                    
     }
 
+}
+
+void CustomPlugin::_updateSliceInfo(const PulseInfo_t& pulseInfo)
+{
+    if (!_activeRotation) {
+        return;
+    }
+    if (_rgAngleStrengths.isEmpty()) {
+        qWarning() << "No angle strengths list" << " - " << Q_FUNC_INFO;
+        return;
+    }
+
+    // Determine which slice this pulse applies to
+    double degreesPerSlice = 360.0 / rgAngleStrengths().last().count();
+    double heading = pulseInfo.orientation_z;
+    double adjustedHeading = heading + degreesPerSlice / 2;
+    adjustedHeading = fmod(adjustedHeading + 360.0, 360.0);
+    int sliceIndex = static_cast<int>(adjustedHeading / degreesPerSlice);
+
+    qCDebug(CustomPluginLog) << "heading" << heading << "adjustedHeading" << adjustedHeading << "sliceIndex" << sliceIndex << "snr" << pulseInfo.snr << " - " << Q_FUNC_INFO;
+
+    if (sliceIndex < 0 || sliceIndex >= rgAngleStrengths().last().count()) {
+        qWarning() << "Invalid sliceIndex" << sliceIndex;
+        return;
+    }
+    auto& currentAngleStrengths = rgAngleStrengths().last();
+    if (qIsNaN(currentAngleStrengths[sliceIndex]) || pulseInfo.snr > currentAngleStrengths[sliceIndex]) {
+        // We have a new pulse which is greater than the current max for this slice
+        // Update the slice and recalculate the ratios
+
+        qCDebug(CustomPluginLog) << "New max for slice" << sliceIndex << "snr" << pulseInfo.snr << " - " << Q_FUNC_INFO;
+        currentAngleStrengths[sliceIndex] = pulseInfo.snr;
+
+        double maxOverallStrength = 0;
+        for (int i=0; i<currentAngleStrengths.count(); i++) {
+            if (currentAngleStrengths[i] > maxOverallStrength) {
+                maxOverallStrength = currentAngleStrengths[i];
+            }
+        }
+
+        // Recalc ratios based on new info
+        auto& currentAngleRatios = rgAngleRatios().last();
+        for (int i=0; i<currentAngleStrengths.count(); i++) {
+            double angleStrength = currentAngleStrengths[i];
+            if (!qIsNaN(angleStrength)) {
+                currentAngleRatios[i] = currentAngleStrengths[i] / maxOverallStrength;
+                qCDebug(CustomPluginLog) << "New angle ratio for slice" << i << "ratio" << currentAngleRatios[i] << "strength" << angleStrength << "maxOverallStrength" << maxOverallStrength << " - " << Q_FUNC_INFO;
+            }
+        }
+    
+        emit angleRatiosChanged();
+    }
 }
 
 void CustomPlugin::autoDetection()

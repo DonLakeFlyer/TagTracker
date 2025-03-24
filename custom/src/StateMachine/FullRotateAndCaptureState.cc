@@ -1,17 +1,21 @@
 #include "FullRotateAndCaptureState.h"
 #include "FunctionState.h"
 #include "SayState.h"
+#include "SliceSequenceCaptureState.h"
 
 FullRotateAndCaptureState::FullRotateAndCaptureState(QState* parentState)
     : RotateAndCaptureStateBase("FullRotateAndCaptureState", parentState)
 {
+    // States
+    auto sliceSequenceState = new SliceSequenceCaptureState(
+                                        "Initial Four Point Rotate",
+                                        this,                       // parentState
+                                        0,                          // firstSlice
+                                        0,                          // skipCount
+                                        true,                       // clockwiseDirection
+                                        _rotationDivisions);        // sliceCount
+
     // Transitions
-    _initRotationState->addTransition(_initRotationState, &FunctionState::functionCompleted, _rotationStates.first());
-    for (int i=0; i<_rotationStates.count(); i++) {
-        if (i == _rotationStates.count() - 1) {
-            _rotationStates[i]->addTransition(_rotationStates[i], &QState::finished, _announceRotateCompleteState);
-        } else {
-            _rotationStates[i]->addTransition(_rotationStates[i], &QState::finished, _rotationStates[i+1]);
-        }
-    }
+    _rotationBeginState->addTransition(_rotationBeginState, &FunctionState::functionCompleted, sliceSequenceState);
+    sliceSequenceState->addTransition(sliceSequenceState, &QState::finished, _rotationEndState);
 }
