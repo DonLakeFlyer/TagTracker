@@ -25,6 +25,7 @@ private slots:
     void _mavlinkMessageReceived(const mavlink_message_t& message);
     void _sendTunnelCommand();
     void _disconnectAll();
+    QString _commandResultToString(uint32_t result);
 
 private:
     void _handleTunnelMessage (const mavlink_tunnel_t& tunnel);

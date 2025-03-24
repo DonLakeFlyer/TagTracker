@@ -11,7 +11,7 @@ QtObject {
     readonly property int actionSaveLogs:                   customActionStart + 6
     readonly property int actionClearLogs:                  customActionStart + 7
 
-    readonly property string autoDetectionTitle:            qsTr("Takeoff")
+    readonly property string autoDetectionTitle:            qsTr("Auto")
     readonly property string startDetectionTitle:           qsTr("Start Detection")
     readonly property string stopDetectionTitle:            qsTr("Stop Detection")
     readonly property string startRotationTitle:            qsTr("Rotate")
