@@ -94,23 +94,17 @@ void CaptureAtSliceState::_sliceEnd()
 
 CustomState* CaptureAtSliceState::_rotateAndCaptureAtHeadingState()
 {
-    // We wait at each rotation for enough time to go by to capture a user specified set of k groups
-    uint32_t maxK                   = _customSettings->k()->rawValue().toUInt();
-    auto kGroups                    = _customSettings->rotationKWaitCount()->rawValue().toInt();
-    auto maxIntraPulseMsecs         = TagDatabase::instance()->maxIntraPulseMsecs();
-    int rotationCaptureWaitMsecs    = maxIntraPulseMsecs * ((kGroups * maxK) + 1);
-    
     auto groupingState = new CustomState("RotateAndCaptureAtHeadingState", this);
     connect(groupingState, &QState::entered, this, [this] () {
             qCDebug(CustomPluginLog) << QStringLiteral("Rotating to heading %1").arg(this->_sliceHeadingDegrees) << " - " << Q_FUNC_INFO;
     }); 
 
-    auto announceRotateState        = new SayState("Announce Rotate", groupingState, QStringLiteral("Detection at %1 degrees").arg(_sliceHeadingDegrees));
+    auto announceRotateState        = new SayState("Announce Rotate", groupingState, QStringLiteral("Searching at %1 degrees").arg(_sliceHeadingDegrees));
     auto rotateCommandState         = _rotateMavlinkCommandState(groupingState);
     //auto rotateCommandState         = new FunctionState("ErrorTesting", groupingState, [sliceBeginState] () { sliceBeginState->machine()->setError("Error Testing"); });
     auto waitForHeadingChangeState  = new FactWaitForValueTarget(groupingState, _vehicle->heading(), _sliceHeadingDegrees, 1.0 /* _targetVariance */, 10 * 1000 /* _waitMsecs */);
     auto sliceBeginState            = new FunctionState("Slice Begin", groupingState, std::bind(&CaptureAtSliceState::_sliceBegin, this));
-    auto delayForKGroupsState       = new DelayState(groupingState, rotationCaptureWaitMsecs);
+    auto delayForKGroupsState       = new DelayState(groupingState, _customPlugin->maxWaitMSecsForKGroup());
     auto sliceEndState              = new FunctionState("Slice End", groupingState, [this] () { _sliceEnd(); });
     auto finalState                 = new QFinalState(groupingState);
 

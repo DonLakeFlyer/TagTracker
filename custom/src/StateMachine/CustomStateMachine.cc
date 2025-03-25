@@ -24,6 +24,7 @@ CustomStateMachine::CustomStateMachine(const QString& machineName, QObject* pare
     });
     connect(this, &CustomStateMachine::stopped, this, [this] () {
         qCDebug(CustomPluginLog) << "State machine finished:" << objectName();
+        qobject_cast<CustomPlugin*>(CustomPlugin::instance())->rotationIsEnding();
         disconnect(_vehicle, &Vehicle::flightModeChanged, this, &CustomStateMachine::_flightModeChanged);
     });
 

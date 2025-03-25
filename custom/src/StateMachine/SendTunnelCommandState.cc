@@ -141,15 +141,24 @@ void SendTunnelCommandState::_handleTunnelCommandAck(const mavlink_tunnel_t& tun
 
 void SendTunnelCommandState::_ackResponseTimedOut(void)
 {
-    QString message = QStringLiteral("%1 failed. No response from vehicle.").arg(commandIdToText(_sentTunnelCommand));
-    _sentTunnelCommand = 0;
+    QString message = QStringLiteral("%1 failed. No response from vehicle after %1 retries.").arg(commandIdToText(_sentTunnelCommand)).arg(_retryCount);
+
     _disconnectAll();
-    setError(message);
+
+    if (_retryCount < _maxRetries) {
+        qCDebug(CustomPluginLog) << message << "Retrying...";
+        _retryCount++;
+        _sendTunnelCommand();
+    } else {
+        qCWarning(CustomPluginLog) << message;
+        setError(message);
+    }
 }
 
 void SendTunnelCommandState::_disconnectAll()
 {
     _ackResponseTimer.stop();
+    _sentTunnelCommand = 0;
     disconnect(&_ackResponseTimer, &QTimer::timeout, this, &SendTunnelCommandState::_ackResponseTimedOut);
     disconnect(_vehicle, &Vehicle::mavlinkMessageReceived, this, &SendTunnelCommandState::_mavlinkMessageReceived);
 }
@@ -161,5 +170,7 @@ QString SendTunnelCommandState::_commandResultToString(uint32_t result)
         return QStringLiteral("Success");
     case COMMAND_RESULT_FAILURE:
         return QStringLiteral("Failure");
+    default:
+        return QStringLiteral("Unknown result: %1").arg(result);
     }
 }
