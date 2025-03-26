@@ -14,6 +14,7 @@
 #include "FunctionState.h"
 #include "SayState.h"
 #include "RotateMavlinkCommandState.h"
+#include "RotateAndRateHeartbeatWaitState.h"
 
 #include "Vehicle.h"
 #include "QGCApplication.h"
@@ -186,7 +187,9 @@ void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& 
             return;
         }
 
-        if (!isDetectorHeartbeat) {
+        if (isDetectorHeartbeat) {
+            emit detectorHeartbeatReceived(pulseInfo.tag_id % 2 ? 1 : 2 /* oneBaseRateIndex */);
+        } else {
             qCDebug(CustomPluginLog) << Qt::fixed << qSetRealNumberPrecision(2) <<
                                         "Confirmed pulse tag_id" <<
                                         pulseInfo.tag_id <<
@@ -287,7 +290,7 @@ void CustomPlugin::_updateSliceInfo(const PulseInfo_t& pulseInfo)
             double angleStrength = currentAngleStrengths[i];
             if (!qIsNaN(angleStrength)) {
                 currentAngleRatios[i] = currentAngleStrengths[i] / maxOverallStrength;
-                qCDebug(CustomPluginLog) << "New angle ratio for slice" << i << "ratio" << currentAngleRatios[i] << "strength" << angleStrength << "maxOverallStrength" << maxOverallStrength << " - " << Q_FUNC_INFO;
+                //qCDebug(CustomPluginLog) << "New angle ratio for slice" << i << "ratio" << currentAngleRatios[i] << "strength" << angleStrength << "maxOverallStrength" << maxOverallStrength << " - " << Q_FUNC_INFO;
             }
         }
     
@@ -311,7 +314,6 @@ void CustomPlugin::autoDetection()
     auto announceAutoStartState = new SayState("AnnounceAuto", stateMachine, "Starting auto detection");
     auto takeoffState           = new TakeoffState(stateMachine, _customSettings->takeoffAltitude()->rawValue().toDouble());
     auto eventModeRTLState      = new FunctionState("eventModeRTLState", stateMachine, [stateMachine] () { stateMachine->setEventMode(CustomStateMachine::CancelOnFlightModeChange | CustomStateMachine::RTLOnError); });
-    auto rotateCommandState     = new RotateMavlinkCommandState(stateMachine, 0);
     auto startDetectionState    = new StartDetectionState(stateMachine);
     auto rotateAndCaptureState  = new FullRotateAndCaptureState(stateMachine);
     auto stopDetectionState     = new StopDetectionState(stateMachine);
@@ -323,8 +325,7 @@ void CustomPlugin::autoDetection()
     // Transitions
     announceAutoStartState->addTransition   (announceAutoStartState,    &SayState::functionCompleted,       takeoffState);
     takeoffState->addTransition             (takeoffState,              &TakeoffState::takeoffComplete,     eventModeRTLState);
-    eventModeRTLState->addTransition        (eventModeRTLState,         &FunctionState::functionCompleted,  rotateCommandState);
-    rotateCommandState->addTransition       (rotateCommandState,        &RotateMavlinkCommandState::success,startDetectionState);
+    eventModeRTLState->addTransition        (eventModeRTLState,         &FunctionState::functionCompleted,  startDetectionState);
     startDetectionState->addTransition      (startDetectionState,       &CustomState::finished,             rotateAndCaptureState);
     rotateAndCaptureState->addTransition    (rotateAndCaptureState,     &QState::finished,                  eventModeNoneState);
     eventModeNoneState->addTransition       (eventModeNoneState,        &FunctionState::functionCompleted,  stopDetectionState);
@@ -341,6 +342,7 @@ void CustomPlugin::startRotation(void)
     qCDebug(CustomPluginLog) << Q_FUNC_INFO;
 
     auto stateMachine = new CustomStateMachine("Start Rotation", this);
+    stateMachine->setEventMode(CustomStateMachine::CancelOnFlightModeChange);
 
     // States
 
@@ -563,4 +565,61 @@ bool CustomPlugin::_validateAtLeastOneTagSelected()
     qgcApp()->showAppMessage(tr("At least one tag must be selected"));
 
     return false;
+}
+
+void CustomPlugin::rotationIsStarting()
+{
+    _setActiveRotation(true);
+
+    // Setup new rotation data  
+    rgAngleStrengths().append(QList<double>());
+    rgAngleRatios().append(QList<double>());
+    rgCalcedBearings().append(qQNaN());
+
+    QList<double>& refAngleStrengths = rgAngleStrengths().last();
+    QList<double>& refAngleRatios = rgAngleRatios().last();
+
+    // Prime angle strengths with no values
+    for (int i=0; i<_customSettings->divisions()->rawValue().toInt(); i++) {
+        refAngleStrengths.append(qQNaN());
+        refAngleRatios.append(qQNaN());
+    }
+
+    CSVLogManager& logManager = csvLogManager();
+    logManager.csvStartRotationPulseLog();
+    logManager.csvLogRotationStart();
+
+    emit angleRatiosChanged();
+    emit calcedBearingsChanged();
+
+    // Create compass rose ui on map
+    QUrl url = QUrl::fromUserInput("qrc:/qml/CustomPulseRoseMapItem.qml");
+    PulseRoseMapItem* mapItem = new PulseRoseMapItem(url, rgAngleStrengths().count() - 1, MultiVehicleManager::instance()->activeVehicle()->coordinate(), this);
+    customMapItems()->append(mapItem);
+}
+
+void CustomPlugin::rotationIsEnding()
+{
+    if (_activeRotation) {
+        _setActiveRotation(false);
+        csvLogManager().csvLogRotationStop();
+        csvLogManager().csvStopRotationPulseLog(false /* calcBearing*/);
+    }
+}
+
+void CustomPlugin::_setActiveRotation(bool active)
+{
+    if (_activeRotation != active) {
+        _activeRotation = active;
+        emit activeRotationChanged(active);
+    }
+}
+
+int CustomPlugin::maxWaitMSecsForKGroup()
+{
+    uint32_t maxK           = _customSettings->k()->rawValue().toUInt();
+    auto kGroups            = _customSettings->rotationKWaitCount()->rawValue().toInt();
+    auto maxIntraPulseMsecs = TagDatabase::instance()->maxIntraPulseMsecs();
+
+    return maxIntraPulseMsecs * ((kGroups * maxK) + 1);;
 }

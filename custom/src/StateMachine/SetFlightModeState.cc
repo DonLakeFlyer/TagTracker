@@ -10,7 +10,7 @@ SetFlightModeState::SetFlightModeState(QState* parentState, const QString& fligh
     , _vehicle      (MultiVehicleManager::instance()->activeVehicle())
 {
     _timeoutTimer.setSingleShot(true);
-    _timeoutTimer.setInterval(1000);
+    _timeoutTimer.setInterval(2000);
 
     connect(this, &SetFlightModeState::entered, this, &SetFlightModeState::_setFlightMode);
     connect(this, &SetFlightModeState::exited, this, &SetFlightModeState::_disconnectAll);

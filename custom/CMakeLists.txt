@@ -87,6 +87,8 @@ qt_add_library(CustomPlugin STATIC
     src/StateMachine/FullRotateAndCaptureState.h
     src/StateMachine/RotateAndCaptureStateBase.cc
     src/StateMachine/RotateAndCaptureStateBase.h
+    src/StateMachine/RotateAndRateHeartbeatWaitState.cc
+    src/StateMachine/RotateAndRateHeartbeatWaitState.h
     src/StateMachine/RotateMavlinkCommandState.cc
     src/StateMachine/RotateMavlinkCommandState.h
     src/StateMachine/SetFlightModeState.cc

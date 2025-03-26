@@ -36,4 +36,6 @@ private:
     size_t      _payloadSize = 0;
     QTimer      _ackResponseTimer;
     uint32_t    _sentTunnelCommand = 0;
+    int         _retryCount = 0;
+    int         _maxRetries = 2;
 };

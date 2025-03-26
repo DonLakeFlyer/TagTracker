@@ -36,8 +36,11 @@ Item {
     property var totalToolInsets: _toolInsets   // These are the insets for your custom overlay additions
     property var mapControl
 
-    property real _minSNR:          QGroundControl.corePlugin.minSNR
-    property real _maxSNR:          QGroundControl.corePlugin.maxSNR
+    property var _customPlugin:     QGroundControl.corePlugin
+    property var _customSettings:   _customPlugin.customSettings
+
+    property real _minSNR:          _customPlugin.minSNR
+    property real _maxSNR:          _customPlugin.maxSNR
     property real _snrRange:        _maxSNR - _minSNR
     property real _pixelsPerSNR:    snrGradient.height / _snrRange
 
@@ -47,7 +50,6 @@ Item {
     property real   _tickFirstPixelY:       (_maxSNR - _maxTickSNR) * _pixelsPerSNR
     property real   _tickPixelIncrement:    _tickSNRIncrement * _pixelsPerSNR
 
-    property var _customSettings: QGroundControl.corePlugin.customSettings
 
     // since this file is a placeholder for the custom layer in a standard build, we will just pass through the parent insets
     QGCToolInsets {
@@ -72,12 +74,13 @@ Item {
         anchors.right:      parent.right
         height:             parent.height - (anchors.margins * 2) - parentToolInsets.bottomEdgeRightInset
         spacing:            ScreenTools.defaultFontPixelHeight / 4
-        visible:            _customSettings.showPulseOnMap.rawValue
 
         QGCButton {
             Layout.alignment:   Qt.AlignHCenter
             text:               qsTr("Clear Map")
-            onClicked:          QGroundControl.corePlugin.clearMap()
+            onClicked:          _customPlugin.clearMap()
+            enabled:            !_customPlugin.activeRotation
+            visible:           _customPlugin.customMapItems.count
         }
 
         Rectangle {
@@ -85,6 +88,7 @@ Item {
             Layout.alignment:   Qt.AlignRight
             width:              ScreenTools.defaultFontPixelWidth * 5
             Layout.fillHeight:  true
+            visible:            _customSettings.showPulseOnMap.rawValue
 
             gradient: Gradient {
                 GradientStop { position: 0; color: "red" }

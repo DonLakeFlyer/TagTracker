@@ -8,6 +8,7 @@
 #include "DetectorList.h"
 #include "PulseRoseMapItem.h"
 #include "SayState.h"
+#include "RotateAndRateHeartbeatWaitState.h"
 
 #include "MultiVehicleManager.h"
 #include "Vehicle.h"
@@ -24,59 +25,32 @@ RotateAndCaptureStateBase::RotateAndCaptureStateBase(const QString& stateName, Q
     , _rotationDivisions(_customSettings->divisions()->rawValue().toInt())
 {
     // States
+    auto initialRotateCommandState      = new RotateAndRateHeartbeatWaitState(this, 0);
     _rotationBeginState                 = new FunctionState("Rotation Begin", this, std::bind(&RotateAndCaptureStateBase::_rotationBegin, this));
     _rotationEndState                   = new FunctionState("Rotation End", this, std::bind(&RotateAndCaptureStateBase::_rotationEnd, this));
     auto announceRotateCompleteState    = new SayState("Announce Rotate Complete", this, "Rotation detection complete");
     auto finalState                     = new QFinalState(this);
 
     // Transitions
+    initialRotateCommandState->addTransition(initialRotateCommandState, &QState::finished, _rotationBeginState);
     _rotationEndState->addTransition(_rotationEndState, &FunctionState::functionCompleted, announceRotateCompleteState);
     announceRotateCompleteState->addTransition(announceRotateCompleteState, &SayState::functionCompleted, finalState);
 
-    this->setInitialState(_rotationBeginState);
+    this->setInitialState(initialRotateCommandState);
 }
 
 void RotateAndCaptureStateBase::_rotationBegin()
 {
-    // Setup new rotation data  
-    _customPlugin->setActiveRotation(true);
-    _customPlugin->rgAngleStrengths().append(QList<double>());
-    _customPlugin->rgAngleRatios().append(QList<double>());
-    _customPlugin->rgCalcedBearings().append(qQNaN());
-
-    QList<double>& refAngleStrengths = _customPlugin->rgAngleStrengths().last();
-    QList<double>& refAngleRatios = _customPlugin->rgAngleRatios().last();
-
-    // Prime angle strengths with no values
-    for (int i=0; i<_rotationDivisions; i++) {
-        refAngleStrengths.append(qQNaN());
-        refAngleRatios.append(qQNaN());
-    }
-
+    _customPlugin->rotationIsStarting();
     // We always start our rotation pulse captures with the antenna at 0 degrees heading
     double antennaOffset = _customSettings->antennaOffset()->rawValue().toDouble();
     _degreesPerSlice = 360.0 / _rotationDivisions;
     _firstHeading = -antennaOffset;
-
-    CSVLogManager& logManager = _customPlugin->csvLogManager();
-
-    logManager.csvStartRotationPulseLog();
-    logManager.csvLogRotationStart();
-
-    _customPlugin->signalAngleRatiosChanged();
-    _customPlugin->signalCalcedBearingsChanged();
-
-    // Create compass rose ui on map
-    QUrl url = QUrl::fromUserInput("qrc:/qml/CustomPulseRoseMapItem.qml");
-    PulseRoseMapItem* mapItem = new PulseRoseMapItem(url, _customPlugin->rgAngleStrengths().count() - 1, _vehicle->coordinate(), this);
-    _customPlugin->customMapItems()->append(mapItem);
 }
 
 void RotateAndCaptureStateBase::_rotationEnd()
 {
-    _customPlugin->setActiveRotation(false);
-    CSVLogManager& logManager = _customPlugin->csvLogManager();
-    logManager.csvLogRotationStop();
+    _customPlugin->rotationIsEnding();
 }
 
 double RotateAndCaptureStateBase::_sliceIndexToHeading(int sliceIndex)
