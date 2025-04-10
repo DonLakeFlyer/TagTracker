@@ -577,9 +577,8 @@ int CustomPlugin::maxWaitMSecsForKGroup()
 
 double CustomPlugin::normalizeHeading(double heading)
 {
-    if (heading > 360.0) {
-        heading -= 360.0;
-    } else if (heading < 0.0) {
+    heading = fmod(heading, 360.0);
+    if (heading < 0.0) {
         heading += 360.0;
     }
     return heading;
