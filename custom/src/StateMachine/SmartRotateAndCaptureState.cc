@@ -6,6 +6,8 @@
 #include "CustomLoggingCategory.h"
 #include "CaptureAtSliceState.h"
 #include "SliceSequenceCaptureState.h"
+#include "RotationInfo.h"
+#include "SliceInfo.h"
 
 #include <QSignalTransition>
 #include <QFinalState>
@@ -45,12 +47,15 @@ void DetermineSearchTypeState::_calcStrengthInfo()
 {
     // Find the strongest single slice and quadrant
 
-    auto& rgAngleStrengths = qobject_cast<CustomPlugin*>(CustomPlugin::instance())->rgAngleStrengths().last();
-    int sliceIncrement = _rotationDivisions / 4;
+    auto rotationInfoList = qobject_cast<CustomPlugin*>(CustomPlugin::instance())->rotationInfoList();
+    auto rotationInfo = rotationInfoList->value<RotationInfo*>(rotationInfoList->count() - 1);
+    auto slices = rotationInfo->slices();
+    int sliceCount = slices->count();
+    int sliceIncrement = sliceCount / 4;
 
-    for (int i=0; i < _rotationDivisions; i += sliceIncrement) {
+    for (int i=0; i < sliceCount; i += sliceIncrement) {
         // Determine strongest slice
-        double sliceStrength = rgAngleStrengths[i];
+        double sliceStrength = slices->value<SliceInfo*>(i)->maxSNR();
         if (sliceStrength > _maxSliceStrength) {
             _maxSliceStrength = sliceStrength;
             _maxSlice = i;
@@ -61,8 +66,8 @@ void DetermineSearchTypeState::_calcStrengthInfo()
         }
 
         // Determine strongest quadrant between two slices
-        double leftSliceStrength = rgAngleStrengths[i];
-        double rightSliceStrength = rgAngleStrengths[_clampSliceIndex(i + sliceIncrement, _rotationDivisions)];
+        double leftSliceStrength = slices->value<SliceInfo*>(i)->maxSNR();
+        double rightSliceStrength = slices->value<SliceInfo*>(_clampSliceIndex(i + sliceIncrement, _rotationDivisions))->maxSNR();
 
         if (!(leftSliceStrength > 0.0) || !(rightSliceStrength > 0.0)) {
             // We need both slices to have strength to consider this quadrant

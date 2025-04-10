@@ -8,7 +8,7 @@ FullRotateAndCaptureState::FullRotateAndCaptureState(QState* parentState)
 {
     // States
     auto sliceSequenceState = new SliceSequenceCaptureState(
-                                        "Initial Four Point Rotate",
+                                        "Full Rotation Slice Sequence",
                                         this,                       // parentState
                                         0,                          // firstSlice
                                         0,                          // skipCount

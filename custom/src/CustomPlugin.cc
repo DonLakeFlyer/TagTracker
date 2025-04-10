@@ -15,6 +15,7 @@
 #include "SayState.h"
 #include "RotateMavlinkCommandState.h"
 #include "RotateAndRateHeartbeatWaitState.h"
+#include "RotationInfo.h"
 
 #include "Vehicle.h"
 #include "QGCApplication.h"
@@ -178,7 +179,34 @@ void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& 
     memcpy(&pulseInfo, tunnel.payload, sizeof(pulseInfo));
 
     bool isDetectorHeartbeat = pulseInfo.frequency_hz == 0;
+
     if (pulseInfo.confirmed_status || isDetectorHeartbeat) {
+        if (!isDetectorHeartbeat) {
+            qCDebug(CustomPluginLog) << Qt::fixed << qSetRealNumberPrecision(2) <<
+                "Confirmed pulse tag_id" <<
+                pulseInfo.tag_id <<
+                "snr" <<
+                pulseInfo.snr <<
+                "heading" <<
+                pulseInfo.orientation_z <<
+                "stft_score" <<
+                pulseInfo.stft_score <<
+                "group_seq_counter" <<
+                pulseInfo.group_seq_counter <<
+                "at time" <<
+                pulseInfo.start_time_seconds;
+        }
+
+        if (_activeRotation) {
+            // Send pulse info to current rotation info
+            auto rotationInfo = _rotationInfoList.value<RotationInfo*>(_rotationInfoList.count() - 1);
+            if (rotationInfo) {
+                rotationInfo->pulseInfoReceived(pulseInfo);
+            } else {
+                qWarning() << "_handleTunnelPulse: No rotation info available - " << Q_FUNC_INFO;
+            }
+        }
+
         auto evenTagId  = pulseInfo.tag_id - (pulseInfo.tag_id % 2);
         auto tagInfo    = TagDatabase::instance()->findTagInfo(evenTagId);
 
@@ -190,22 +218,7 @@ void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& 
         if (isDetectorHeartbeat) {
             emit detectorHeartbeatReceived(pulseInfo.tag_id % 2 ? 1 : 2 /* oneBaseRateIndex */);
         } else {
-            qCDebug(CustomPluginLog) << Qt::fixed << qSetRealNumberPrecision(2) <<
-                                        "Confirmed pulse tag_id" <<
-                                        pulseInfo.tag_id <<
-                                        "snr" <<
-                                        pulseInfo.snr <<
-                                        "heading" <<
-                                        pulseInfo.orientation_z <<
-                                        "stft_score" <<
-                                        pulseInfo.stft_score <<
-                                        "group_seq_counter" <<
-                                        pulseInfo.group_seq_counter <<
-                                        "at time" <<
-                                        pulseInfo.start_time_seconds;
-
             _csvLogManager.csvLogPulse(pulseInfo);
-            _updateSliceInfo(pulseInfo);
 
             if (qIsNaN(_minSNR) || pulseInfo.snr < _minSNR) {
                 _minSNR = pulseInfo.snr;
@@ -244,58 +257,6 @@ void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& 
 #endif                                    
     }
 
-}
-
-void CustomPlugin::_updateSliceInfo(const PulseInfo_t& pulseInfo)
-{
-    if (!_activeRotation) {
-        return;
-    }
-    if (_rgAngleStrengths.isEmpty()) {
-        qWarning() << "No angle strengths list" << " - " << Q_FUNC_INFO;
-        return;
-    }
-
-    // Determine which slice this pulse applies to
-    double degreesPerSlice = 360.0 / rgAngleStrengths().last().count();
-    double heading = pulseInfo.orientation_z;
-    double adjustedHeading = heading + degreesPerSlice / 2;
-    adjustedHeading = fmod(adjustedHeading + 360.0, 360.0);
-    int sliceIndex = static_cast<int>(adjustedHeading / degreesPerSlice);
-
-    qCDebug(CustomPluginLog) << "heading" << heading << "adjustedHeading" << adjustedHeading << "sliceIndex" << sliceIndex << "snr" << pulseInfo.snr << " - " << Q_FUNC_INFO;
-
-    if (sliceIndex < 0 || sliceIndex >= rgAngleStrengths().last().count()) {
-        qWarning() << "Invalid sliceIndex" << sliceIndex;
-        return;
-    }
-    auto& currentAngleStrengths = rgAngleStrengths().last();
-    if (qIsNaN(currentAngleStrengths[sliceIndex]) || pulseInfo.snr > currentAngleStrengths[sliceIndex]) {
-        // We have a new pulse which is greater than the current max for this slice
-        // Update the slice and recalculate the ratios
-
-        qCDebug(CustomPluginLog) << "New max for slice" << sliceIndex << "snr" << pulseInfo.snr << " - " << Q_FUNC_INFO;
-        currentAngleStrengths[sliceIndex] = pulseInfo.snr;
-
-        double maxOverallStrength = 0;
-        for (int i=0; i<currentAngleStrengths.count(); i++) {
-            if (currentAngleStrengths[i] > maxOverallStrength) {
-                maxOverallStrength = currentAngleStrengths[i];
-            }
-        }
-
-        // Recalc ratios based on new info
-        auto& currentAngleRatios = rgAngleRatios().last();
-        for (int i=0; i<currentAngleStrengths.count(); i++) {
-            double angleStrength = currentAngleStrengths[i];
-            if (!qIsNaN(angleStrength)) {
-                currentAngleRatios[i] = currentAngleStrengths[i] / maxOverallStrength;
-                //qCDebug(CustomPluginLog) << "New angle ratio for slice" << i << "ratio" << currentAngleRatios[i] << "strength" << angleStrength << "maxOverallStrength" << maxOverallStrength << " - " << Q_FUNC_INFO;
-            }
-        }
-    
-        emit angleRatiosChanged();
-    }
 }
 
 void CustomPlugin::autoDetection()
@@ -571,30 +532,20 @@ void CustomPlugin::rotationIsStarting()
 {
     _setActiveRotation(true);
 
-    // Setup new rotation data  
-    rgAngleStrengths().append(QList<double>());
-    rgAngleRatios().append(QList<double>());
-    rgCalcedBearings().append(qQNaN());
-
-    QList<double>& refAngleStrengths = rgAngleStrengths().last();
-    QList<double>& refAngleRatios = rgAngleRatios().last();
-
-    // Prime angle strengths with no values
-    for (int i=0; i<_customSettings->divisions()->rawValue().toInt(); i++) {
-        refAngleStrengths.append(qQNaN());
-        refAngleRatios.append(qQNaN());
-    }
+    // Setup up new RotationInfo
+    int cSlices = _customSettings->divisions()->rawValue().toInt();
+    auto rotationInfo = new RotationInfo(cSlices, this);
+    _rotationInfoList.append(rotationInfo);
 
     CSVLogManager& logManager = csvLogManager();
     logManager.csvStartRotationPulseLog();
     logManager.csvLogRotationStart();
 
-    emit angleRatiosChanged();
     emit calcedBearingsChanged();
 
     // Create compass rose ui on map
     QUrl url = QUrl::fromUserInput("qrc:/qml/CustomPulseRoseMapItem.qml");
-    PulseRoseMapItem* mapItem = new PulseRoseMapItem(url, rgAngleStrengths().count() - 1, MultiVehicleManager::instance()->activeVehicle()->coordinate(), this);
+    PulseRoseMapItem* mapItem = new PulseRoseMapItem(url, _rotationInfoList.count() - 1, MultiVehicleManager::instance()->activeVehicle()->coordinate(), this);
     customMapItems()->append(mapItem);
 }
 
@@ -622,4 +573,13 @@ int CustomPlugin::maxWaitMSecsForKGroup()
     auto maxIntraPulseMsecs = TagDatabase::instance()->maxIntraPulseMsecs();
 
     return maxIntraPulseMsecs * ((kGroups * maxK) + 1);;
+}
+
+double CustomPlugin::normalizeHeading(double heading)
+{
+    heading = fmod(heading, 360.0);
+    if (heading < 0.0) {
+        heading += 360.0;
+    }
+    return heading;
 }
