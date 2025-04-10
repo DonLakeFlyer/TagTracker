@@ -45,10 +45,8 @@ FILE(GLOB BearingSourcesC uavrt_bearing/codegen/exe/bearing/*.c)
 qt_add_library(CustomPlugin STATIC
     src/CSVLogManager.cc
     src/CSVLogManager.h
-    src/HerelinkCorePlugin.cc
-    src/HerelinkCorePlugin.h
-    src/HerelinkOptions.cc
-    src/HerelinkOptions.h
+    src/CustomLoggingCategory.cc
+    src/CustomLoggingCategory.h
     src/CustomOptions.cc
     src/CustomOptions.h
     src/CustomPlugin.cc
@@ -59,14 +57,20 @@ qt_add_library(CustomPlugin STATIC
     src/DetectorInfo.h
     src/DetectorList.cc
     src/DetectorList.h
-    src/TagDatabase.cc
-    src/TagDatabase.h
+    src/HerelinkCorePlugin.cc
+    src/HerelinkCorePlugin.h
+    src/HerelinkOptions.cc
+    src/HerelinkOptions.h
     src/PulseInfoList.cc
     src/PulseInfoList.h
     src/PulseRoseMapItem.h
     src/PulseMapItem.h
-    src/CustomLoggingCategory.cc
-    src/CustomLoggingCategory.h
+    src/RotationInfo.cc
+    src/RotationInfo.h
+    src/SliceInfo.cc
+    src/SliceInfo.h
+    src/TagDatabase.cc
+    src/TagDatabase.h
     src/StateMachine/CaptureAtSliceState.cc
     src/StateMachine/CaptureAtSliceState.h
     src/StateMachine/CustomState.cc

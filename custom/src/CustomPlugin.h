@@ -49,7 +49,6 @@ public:
     };
 
     Q_PROPERTY(CustomSettings*      customSettings          READ    customSettings              CONSTANT)
-    Q_PROPERTY(QList<QList<double>> angleRatios             MEMBER  _rgAngleRatios              NOTIFY angleRatiosChanged)
     Q_PROPERTY(QList<double>        calcedBearings          MEMBER  _rgCalcedBearings           NOTIFY calcedBearingsChanged)
     Q_PROPERTY(bool                 flightMachineActive     MEMBER  _flightStateMachineActive   NOTIFY flightMachineActiveChanged)
     Q_PROPERTY(bool                 controllerLostHeartbeat MEMBER  _controllerLostHeartbeat    NOTIFY controllerLostHeartbeatChanged)
@@ -60,20 +59,19 @@ public:
     Q_PROPERTY(double               maxSNR                  MEMBER  _maxSNR                     NOTIFY maxSNRChanged)
     Q_PROPERTY(double               minSNR                  MEMBER  _minSNR                     NOTIFY minSNRChanged)
     Q_PROPERTY(bool                 activeRotation          MEMBER  _activeRotation             NOTIFY activeRotationChanged)
+    Q_PROPERTY(QmlObjectListModel*  rotationInfoList        READ    rotationInfoList          CONSTANT)
 
     CustomSettings*     customSettings  () { return _customSettings; }
     DetectorList *      detectorList() { return DetectorList::instance(); }
     QString             holdFlightMode();
     int                 maxWaitMSecsForKGroup();
 
-    QList<QList<double>>&   rgAngleStrengths() { return _rgAngleStrengths; }
-    QList<QList<double>>&   rgAngleRatios() { return _rgAngleRatios; }
     QList<double>&          rgCalcedBearings() { return _rgCalcedBearings; }
     CSVLogManager&          csvLogManager() { return _csvLogManager; }
     void                    rotationIsStarting();
     void                    rotationIsEnding();
+    QmlObjectListModel*     rotationInfoList() { return &_rotationInfoList; }
 
-    void signalAngleRatiosChanged() { emit angleRatiosChanged(); }
     void signalCalcedBearingsChanged() { emit calcedBearingsChanged(); }
 
     TagDatabase* tagDatabase();
@@ -96,8 +94,9 @@ public:
     QmlObjectListModel* customMapItems          (void) final;
     const QVariantList& toolBarIndicators       (void) final;
 
+    static double normalizeHeading(double heading);
+
 signals:
-    void angleRatiosChanged             (void);
     void calcedBearingsChanged          (void);
     void flightMachineActiveChanged     (bool flightMachineActive);
     void pulseInfoListsChanged          (void);
@@ -144,7 +143,6 @@ private:
     } HeartbeatInfo_t;
 
     void    _handleTunnelPulse          (Vehicle* vehicle, const mavlink_tunnel_t& tunnel);
-    void    _updateSliceInfo            (const PulseInfo_t& pulseInfo);
     void    _handleTunnelHeartbeat      (const mavlink_tunnel_t& tunnel);
     void    _say                        (QString text);
     int     _rawPulseToPct              (double rawPulse);
@@ -160,8 +158,6 @@ private:
     int                     _vehicleStateIndex;
     QList<VehicleState_t>   _vehicleStates;
     bool                    _activeRotation     = false;
-    QList<QList<double>>    _rgAngleStrengths;
-    QList<QList<double>>    _rgAngleRatios;
     QList<double>           _rgCalcedBearings;
     bool                    _flightStateMachineActive;
     int                     _currentSlice;
@@ -169,6 +165,8 @@ private:
     bool                    _retryRotation      = false;
     int                     _controllerStatus   = ControllerStatusIdle;
     float                   _controllerCPUTemp  = 0.0;
+
+    QmlObjectListModel      _rotationInfoList;
 
     CustomOptions*          _customOptions;
     CustomSettings*         _customSettings;

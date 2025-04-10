@@ -77,14 +77,7 @@ SendMavlinkCommandState* CaptureAtSliceState::_rotateMavlinkCommandState(QState*
 
 void CaptureAtSliceState::_sliceBegin(void)
 {
-    auto& rgAngleStrengths = _customPlugin->rgAngleStrengths().last();
-    auto& rgAngleRatios = _customPlugin->rgAngleRatios().last();
 
-    if (qIsNaN(rgAngleStrengths[_sliceIndex])) {
-        rgAngleStrengths[_sliceIndex] = 0;
-        rgAngleRatios[_sliceIndex] = 0;
-        _customPlugin->signalAngleRatiosChanged();
-    }
 }
 
 void CaptureAtSliceState::_sliceEnd()
