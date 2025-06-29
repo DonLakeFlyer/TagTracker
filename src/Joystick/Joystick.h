@@ -58,8 +58,8 @@ private:
 class Joystick : public QThread
 {
     Q_OBJECT
-    QML_ELEMENT
-    QML_UNCREATABLE("")
+    // QML_ELEMENT
+    // QML_UNCREATABLE("")
     Q_MOC_INCLUDE("QmlObjectListModel.h")
     Q_MOC_INCLUDE("Vehicle.h")
     Q_PROPERTY(bool                     accumulator             READ    accumulator             WRITE setAccumulator        NOTIFY accumulatorChanged)
@@ -221,6 +221,7 @@ signals:
     void gripperAction(GRIPPER_ACTIONS gripperAction);
     void landingGearDeploy();
     void landingGearRetract();
+    void motorInterlock(bool enable);
     void unknownAction(const QString &action);
 
 protected:
@@ -363,4 +364,6 @@ private:
     static constexpr const char *_buttonActionGripperRelease =     QT_TR_NOOP("Gripper Open");
     static constexpr const char *_buttonActionLandingGearDeploy=   QT_TR_NOOP("Landing gear deploy");
     static constexpr const char *_buttonActionLandingGearRetract=  QT_TR_NOOP("Landing gear retract");
+    static constexpr const char *_buttonActionMotorInterlockEnable=   QT_TR_NOOP("Motor Interlock enable");
+    static constexpr const char *_buttonActionMotorInterlockDisable=  QT_TR_NOOP("Motor Interlock disable");
 };

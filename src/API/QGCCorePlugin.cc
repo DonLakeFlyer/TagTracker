@@ -8,8 +8,9 @@
  ****************************************************************************/
 
 #include "QGCCorePlugin.h"
-#include "AppMessages.h"
+#include "QGCLogging.h"
 #include "AppSettings.h"
+#include "MavlinkSettings.h"
 #include "FactMetaData.h"
 #ifdef QGC_GST_STREAMING
 #include "GStreamer.h"
@@ -38,6 +39,7 @@
 #include <QtQml/qqml.h>
 #include <QtQml/QQmlApplicationEngine>
 #include <QtQml/QQmlContext>
+#include <QtQuick/QQuickItem>
 
 QGC_LOGGING_CATEGORY(QGCCorePluginLog, "qgc.api.qgccoreplugin");
 
@@ -79,27 +81,27 @@ const QVariantList &QGCCorePlugin::analyzePages()
     static const QVariantList analyzeList = {
         QVariant::fromValue(new QmlComponentInfo(
             tr("Log Download"),
-            QUrl::fromUserInput(QStringLiteral("qrc:/qml/LogDownloadPage.qml")),
+            QUrl::fromUserInput(QStringLiteral("qrc:/qml/QGroundControl/AnalyzeView/LogDownloadPage.qml")),
             QUrl::fromUserInput(QStringLiteral("qrc:/qmlimages/LogDownloadIcon.svg")))),
 #if !defined(Q_OS_ANDROID) && !defined(Q_OS_IOS)
         QVariant::fromValue(new QmlComponentInfo(
             tr("GeoTag Images"),
-            QUrl::fromUserInput(QStringLiteral("qrc:/qml/GeoTagPage.qml")),
+            QUrl::fromUserInput(QStringLiteral("qrc:/qml/QGroundControl/AnalyzeView/GeoTagPage.qml")),
             QUrl::fromUserInput(QStringLiteral("qrc:/qmlimages/GeoTagIcon.svg")))),
 #endif
         QVariant::fromValue(new QmlComponentInfo(
             tr("MAVLink Console"),
-            QUrl::fromUserInput(QStringLiteral("qrc:/qml/MAVLinkConsolePage.qml")),
+            QUrl::fromUserInput(QStringLiteral("qrc:/qml/QGroundControl/AnalyzeView/MAVLinkConsolePage.qml")),
             QUrl::fromUserInput(QStringLiteral("qrc:/qmlimages/MAVLinkConsoleIcon.svg")))),
 #ifndef QGC_DISABLE_MAVLINK_INSPECTOR
         QVariant::fromValue(new QmlComponentInfo(
             tr("MAVLink Inspector"),
-            QUrl::fromUserInput(QStringLiteral("qrc:/qml/MAVLinkInspectorPage.qml")),
+            QUrl::fromUserInput(QStringLiteral("qrc:/qml/QGroundControl/AnalyzeView/MAVLinkInspectorPage.qml")),
             QUrl::fromUserInput(QStringLiteral("qrc:/qmlimages/MAVLinkInspector.svg")))),
 #endif
         QVariant::fromValue(new QmlComponentInfo(
             tr("Vibration"),
-            QUrl::fromUserInput(QStringLiteral("qrc:/qml/VibrationPage.qml")),
+            QUrl::fromUserInput(QStringLiteral("qrc:/qml/QGroundControl/AnalyzeView/VibrationPage.qml")),
             QUrl::fromUserInput(QStringLiteral("qrc:/qmlimages/VibrationPageIcon")))),
     };
 
@@ -130,7 +132,7 @@ bool QGCCorePlugin::adjustSettingMetaData(const QString &settingsGroup, FactMeta
             return true;
         }
 #if defined(Q_OS_ANDROID) || defined(Q_OS_IOS)
-        else if (metaData.name() == AppSettings::telemetrySaveName) {
+        else if (metaData.name() == MavlinkSettings::telemetrySaveName) {
             metaData.setRawDefaultValue(false);
             return true;
         }
@@ -153,83 +155,112 @@ QString QGCCorePlugin::showAdvancedUIMessage() const
               "Are you sure you want to enable Advanced Mode?");
 }
 
-void QGCCorePlugin::factValueGridCreateDefaultSettings(const QString &defaultSettingsGroup)
+void QGCCorePlugin::factValueGridCreateDefaultSettings(FactValueGrid* factValueGrid)
 {
-    HorizontalFactValueGrid *const factValueGrid = new HorizontalFactValueGrid(defaultSettingsGroup);
+    if (factValueGrid->specificVehicleForCard()) {
+        bool includeFWValues = factValueGrid->vehicleClass() == QGCMAVLink::VehicleClassFixedWing || factValueGrid->vehicleClass() == QGCMAVLink::VehicleClassVTOL || factValueGrid->vehicleClass() == QGCMAVLink::VehicleClassAirship;
 
-    const bool includeFWValues = ((factValueGrid->vehicleClass() == QGCMAVLink::VehicleClassFixedWing) || (factValueGrid->vehicleClass() == QGCMAVLink::VehicleClassVTOL) || (factValueGrid->vehicleClass() == QGCMAVLink::VehicleClassAirship));
+        factValueGrid->setFontSize(FactValueGrid::LargeFontSize);
+        factValueGrid->appendColumn();
+        factValueGrid->appendColumn();
 
-    factValueGrid->setFontSize(FactValueGrid::LargeFontSize);
+        int rowIndex = 0;
+        int colIndex = 0;
 
-    (void) factValueGrid->appendColumn();
-    (void) factValueGrid->appendColumn();
-    (void) factValueGrid->appendColumn();
-    if (includeFWValues) {
+        // first cell
+        QmlObjectListModel* column = factValueGrid->columns()->value<QmlObjectListModel*>(colIndex++);
+        InstrumentValueData* value = column->value<InstrumentValueData*>(rowIndex);
+        value->setFact("Vehicle", "AltitudeRelative");
+        value->setIcon("arrow-thick-up.svg");
+        value->setText(value->fact()->shortDescription());
+        value->setShowUnits(true);
+
+        // second cell
+        column = factValueGrid->columns()->value<QmlObjectListModel*>(colIndex++);
+        value = column->value<InstrumentValueData*>(rowIndex);
+        if (includeFWValues) {
+            value->setFact("Vehicle", "AirSpeed");
+            value->setText("AirSpd");
+            value->setShowUnits(true);
+        } else {
+            value->setFact("Vehicle", "GroundSpeed");
+            value->setIcon("arrow-simple-right.svg");
+            value->setText(value->fact()->shortDescription());
+            value->setShowUnits(true);
+        }
+    } else {
+        const bool includeFWValues = ((factValueGrid->vehicleClass() == QGCMAVLink::VehicleClassFixedWing) || (factValueGrid->vehicleClass() == QGCMAVLink::VehicleClassVTOL) || (factValueGrid->vehicleClass() == QGCMAVLink::VehicleClassAirship));
+
+        factValueGrid->setFontSize(FactValueGrid::LargeFontSize);
+
         (void) factValueGrid->appendColumn();
-    }
-    factValueGrid->appendRow();
+        (void) factValueGrid->appendColumn();
+        (void) factValueGrid->appendColumn();
+        if (includeFWValues) {
+            (void) factValueGrid->appendColumn();
+        }
+        factValueGrid->appendRow();
 
-    int rowIndex = 0;
-    QmlObjectListModel *column = factValueGrid->columns()->value<QmlObjectListModel*>(0);
+        int rowIndex = 0;
+        QmlObjectListModel *column = factValueGrid->columns()->value<QmlObjectListModel*>(0);
 
-    InstrumentValueData *value = column->value<InstrumentValueData*>(rowIndex++);
-    value->setFact(QStringLiteral("Vehicle"), QStringLiteral("AltitudeRelative"));
-    value->setIcon(QStringLiteral("arrow-thick-up.svg"));
-    value->setText(value->fact()->shortDescription());
-    value->setShowUnits(true);
+        InstrumentValueData *value = column->value<InstrumentValueData*>(rowIndex++);
+        value->setFact(QStringLiteral("Vehicle"), QStringLiteral("AltitudeRelative"));
+        value->setIcon(QStringLiteral("arrow-thick-up.svg"));
+        value->setText(value->fact()->shortDescription());
+        value->setShowUnits(true);
 
-    value = column->value<InstrumentValueData*>(rowIndex++);
-    value->setFact(QStringLiteral("Vehicle"), QStringLiteral("DistanceToHome"));
-    value->setIcon(QStringLiteral("bookmark copy 3.svg"));
-    value->setText(value->fact()->shortDescription());
-    value->setShowUnits(true);
+        value = column->value<InstrumentValueData*>(rowIndex++);
+        value->setFact(QStringLiteral("Vehicle"), QStringLiteral("DistanceToHome"));
+        value->setIcon(QStringLiteral("bookmark copy 3.svg"));
+        value->setText(value->fact()->shortDescription());
+        value->setShowUnits(true);
 
-    rowIndex = 0;
-    column = factValueGrid->columns()->value<QmlObjectListModel*>(1);
-
-    value = column->value<InstrumentValueData*>(rowIndex++);
-    value->setFact(QStringLiteral("Vehicle"), QStringLiteral("ClimbRate"));
-    value->setIcon(QStringLiteral("arrow-simple-up.svg"));
-    value->setText(value->fact()->shortDescription());
-    value->setShowUnits(true);
-
-    value = column->value<InstrumentValueData*>(rowIndex++);
-    value->setFact(QStringLiteral("Vehicle"), QStringLiteral("GroundSpeed"));
-    value->setIcon(QStringLiteral("arrow-simple-right.svg"));
-    value->setText(value->fact()->shortDescription());
-    value->setShowUnits(true);
-
-    if (includeFWValues) {
         rowIndex = 0;
-        column = factValueGrid->columns()->value<QmlObjectListModel*>(2);
+        column = factValueGrid->columns()->value<QmlObjectListModel*>(1);
 
         value = column->value<InstrumentValueData*>(rowIndex++);
-        value->setFact(QStringLiteral("Vehicle"), QStringLiteral("AirSpeed"));
-        value->setText(QStringLiteral("AirSpd"));
+        value->setFact(QStringLiteral("Vehicle"), QStringLiteral("ClimbRate"));
+        value->setIcon(QStringLiteral("arrow-simple-up.svg"));
+        value->setText(value->fact()->shortDescription());
         value->setShowUnits(true);
 
         value = column->value<InstrumentValueData*>(rowIndex++);
-        value->setFact(QStringLiteral("Vehicle"), QStringLiteral("ThrottlePct"));
-        value->setText(QStringLiteral("Thr"));
+        value->setFact(QStringLiteral("Vehicle"), QStringLiteral("GroundSpeed"));
+        value->setIcon(QStringLiteral("arrow-simple-right.svg"));
+        value->setText(value->fact()->shortDescription());
+        value->setShowUnits(true);
+
+        if (includeFWValues) {
+            rowIndex = 0;
+            column = factValueGrid->columns()->value<QmlObjectListModel*>(2);
+
+            value = column->value<InstrumentValueData*>(rowIndex++);
+            value->setFact(QStringLiteral("Vehicle"), QStringLiteral("AirSpeed"));
+            value->setText(QStringLiteral("AirSpd"));
+            value->setShowUnits(true);
+
+            value = column->value<InstrumentValueData*>(rowIndex++);
+            value->setFact(QStringLiteral("Vehicle"), QStringLiteral("ThrottlePct"));
+            value->setText(QStringLiteral("Thr"));
+            value->setShowUnits(true);
+        }
+
+        rowIndex = 0;
+        column = factValueGrid->columns()->value<QmlObjectListModel*>(includeFWValues ? 3 : 2);
+
+        value = column->value<InstrumentValueData*>(rowIndex++);
+        value->setFact(QStringLiteral("Vehicle"), QStringLiteral("FlightTime"));
+        value->setIcon(QStringLiteral("timer.svg"));
+        value->setText(value->fact()->shortDescription());
+        value->setShowUnits(false);
+
+        value = column->value<InstrumentValueData*>(rowIndex++);
+        value->setFact(QStringLiteral("Vehicle"), QStringLiteral("FlightDistance"));
+        value->setIcon(QStringLiteral("travel-walk.svg"));
+        value->setText(value->fact()->shortDescription());
         value->setShowUnits(true);
     }
-
-    rowIndex = 0;
-    column = factValueGrid->columns()->value<QmlObjectListModel*>(includeFWValues ? 3 : 2);
-
-    value = column->value<InstrumentValueData*>(rowIndex++);
-    value->setFact(QStringLiteral("Vehicle"), QStringLiteral("FlightTime"));
-    value->setIcon(QStringLiteral("timer.svg"));
-    value->setText(value->fact()->shortDescription());
-    value->setShowUnits(false);
-
-    value = column->value<InstrumentValueData*>(rowIndex++);
-    value->setFact(QStringLiteral("Vehicle"), QStringLiteral("FlightDistance"));
-    value->setIcon(QStringLiteral("travel-walk.svg"));
-    value->setText(value->fact()->shortDescription());
-    value->setShowUnits(true);
-
-    factValueGrid->deleteLater();
 }
 
 QQmlApplicationEngine *QGCCorePlugin::createQmlApplicationEngine(QObject *parent)
@@ -237,14 +268,14 @@ QQmlApplicationEngine *QGCCorePlugin::createQmlApplicationEngine(QObject *parent
     QQmlApplicationEngine *const qmlEngine = new QQmlApplicationEngine(parent);
     qmlEngine->addImportPath(QStringLiteral("qrc:/qml"));
     qmlEngine->rootContext()->setContextProperty(QStringLiteral("joystickManager"), JoystickManager::instance());
-    qmlEngine->rootContext()->setContextProperty(QStringLiteral("debugMessageModel"), AppMessages::getModel());
+    qmlEngine->rootContext()->setContextProperty(QStringLiteral("debugMessageModel"), QGCLogging::instance());
     qmlEngine->rootContext()->setContextProperty(QStringLiteral("logDownloadController"), LogDownloadController::instance());
     return qmlEngine;
 }
 
 void QGCCorePlugin::createRootWindow(QQmlApplicationEngine *qmlEngine)
 {
-    qmlEngine->load(QUrl(QStringLiteral("qrc:/qml/MainRootWindow.qml")));
+    qmlEngine->load(QUrl(QStringLiteral("qrc:/qml/QGroundControl/MainWindow/MainWindow.qml")));
 }
 
 VideoReceiver *QGCCorePlugin::createVideoReceiver(QObject *parent)
@@ -258,19 +289,17 @@ VideoReceiver *QGCCorePlugin::createVideoReceiver(QObject *parent)
 #endif
 }
 
-void *QGCCorePlugin::createVideoSink(QObject *parent, QQuickItem *widget)
+void *QGCCorePlugin::createVideoSink(QQuickItem *widget, QObject *parent)
 {
 #ifdef QGC_GST_STREAMING
-    return GStreamer::createVideoSink(parent, widget);
+    return GStreamer::createVideoSink(widget, parent);
 #elif defined(QGC_QT_STREAMING)
-    return QtMultimediaReceiver::createVideoSink(parent, widget);
+    return QtMultimediaReceiver::createVideoSink(widget, parent);
 #else
-    Q_UNUSED(parent);
-    Q_UNUSED(widget);
+    Q_UNUSED(widget); Q_UNUSED(parent);
     return nullptr;
 #endif
 }
-
 void QGCCorePlugin::releaseVideoSink(void *sink)
 {
 #ifdef QGC_GST_STREAMING
@@ -286,7 +315,7 @@ const QVariantList &QGCCorePlugin::toolBarIndicators()
 {
     static const QVariantList toolBarIndicatorList = QVariantList(
         {
-            QVariant::fromValue(QUrl::fromUserInput(QStringLiteral("qrc:/toolbar/RTKGPSIndicator.qml"))),
+            QVariant::fromValue(QUrl::fromUserInput(QStringLiteral("qrc:/qml/QGroundControl/Toolbar/RTKGPSIndicator.qml"))),
         }
     );
 

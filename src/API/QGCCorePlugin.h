@@ -27,6 +27,7 @@ class QQuickItem;
 class Vehicle;
 class VideoReceiver;
 class VideoSink;
+class FactValueGrid;
 typedef struct __mavlink_message mavlink_message_t;
 
 Q_DECLARE_LOGGING_CATEGORY(QGCCorePluginLog)
@@ -51,12 +52,13 @@ class QGCCorePlugin : public QObject
 
 public:
     explicit QGCCorePlugin(QObject *parent = nullptr);
-    ~QGCCorePlugin();
+    virtual ~QGCCorePlugin();
 
     static QGCCorePlugin *instance();
     static void registerQmlTypes();
 
-    virtual void init() { };
+    virtual void init() { }
+    virtual void cleanup() { }
 
     /// The list of pages/buttons under the Analyze Menu
     /// @return A list of QmlPageInfo
@@ -96,7 +98,7 @@ public:
     /// Allows a plugin to override the specified color name from the palette
     virtual void paletteOverride(const QString &colorName, QGCPalette::PaletteColorInfo_t &colorInfo) { Q_UNUSED(colorName); Q_UNUSED(colorInfo); };
 
-    virtual void factValueGridCreateDefaultSettings(const QString &defaultSettingsGroup);
+    virtual void factValueGridCreateDefaultSettings(FactValueGrid* factValueGrid);
 
     /// Allows the plugin to override or get access to the QmlApplicationEngine to do things like add import
     /// path or stuff things into the context prior to window creation.
@@ -108,7 +110,7 @@ public:
     /// Allows the plugin to override the creation of VideoReceiver.
     virtual VideoReceiver *createVideoReceiver(QObject *parent);
     /// Allows the plugin to override the creation of VideoSink.
-    virtual void *createVideoSink(QObject *parent, QQuickItem *widget);
+    virtual void *createVideoSink(QQuickItem *widget, QObject *parent);
     /// Allows the plugin to override the release of VideoSink.
     virtual void releaseVideoSink(void *sink);
 

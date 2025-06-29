@@ -206,6 +206,7 @@ public:
     Q_PROPERTY(QVariantList         staticCameraList            READ staticCameraList                                               CONSTANT)
     Q_PROPERTY(QGCCameraManager*    cameraManager               READ cameraManager                                                  NOTIFY cameraManagerChanged)
     Q_PROPERTY(QString              hobbsMeter                  READ hobbsMeter                                                     NOTIFY hobbsMeterChanged)
+    Q_PROPERTY(bool                 inFwdFlight                 READ inFwdFlight                                                    NOTIFY inFwdFlightChanged)
     Q_PROPERTY(bool                 vtolInFwdFlight             READ vtolInFwdFlight            WRITE setVtolInFwdFlight            NOTIFY vtolInFwdFlightChanged)
     Q_PROPERTY(bool                 supportsTerrainFrame        READ supportsTerrainFrame                                           NOTIFY firmwareTypeChanged)
     Q_PROPERTY(quint64              mavlinkSentCount            READ mavlinkSentCount                                               NOTIFY mavlinkStatusChanged)
@@ -236,7 +237,8 @@ public:
     Q_PROPERTY(bool     pauseVehicleSupported   READ pauseVehicleSupported                          CONSTANT)                   ///< Pause vehicle command is supported
     Q_PROPERTY(bool     orbitModeSupported      READ orbitModeSupported                             CONSTANT)                   ///< Orbit mode is supported by this vehicle
     Q_PROPERTY(bool     roiModeSupported        READ roiModeSupported                               CONSTANT)                   ///< Orbit mode is supported by this vehicle
-    Q_PROPERTY(bool     takeoffVehicleSupported READ takeoffVehicleSupported                        CONSTANT)                   ///< Guided takeoff supported
+    Q_PROPERTY(bool     takeoffVehicleSupported READ takeoffVehicleSupported                        CONSTANT)                   ///< Takeoff supported
+    Q_PROPERTY(bool     guidedTakeoffSupported  READ guidedTakeoffSupported                         CONSTANT)                   ///< Guided takeoff supported
     Q_PROPERTY(bool     changeHeadingSupported  READ changeHeadingSupported                         CONSTANT)                   ///< Change Heading supported
     Q_PROPERTY(QString  gotoFlightMode          READ gotoFlightMode                                 CONSTANT)                   ///< Flight mode vehicle is in while performing goto
     Q_PROPERTY(bool     haveMRSpeedLimits       READ haveMRSpeedLimits                              NOTIFY haveMRSpeedLimChanged)
@@ -312,7 +314,7 @@ public:
     Q_INVOKABLE double minimumEquivalentAirspeed();
 
     /// Command vehicle to move to specified location (altitude is ignored)
-    Q_INVOKABLE void guidedModeGotoLocation(const QGeoCoordinate& gotoCoord);
+    Q_INVOKABLE void guidedModeGotoLocation(const QGeoCoordinate& gotoCoord, double forwardFlightLoiterRadius = 0.0f);
 
     /// Command vehicle to change altitude
     ///     @param altitudeChange If > 0, go up by amount specified, if < 0, go down by amount specified
@@ -356,6 +358,8 @@ public:
 
     /// Command vichecle to retract landing gear
     Q_INVOKABLE void landingGearRetract();
+
+    Q_INVOKABLE void startTakeoff();
 
     Q_INVOKABLE void startMission();
 
@@ -403,9 +407,6 @@ public:
     /// Trigger camera using MAV_CMD_DO_DIGICAM_CONTROL command
     Q_INVOKABLE void triggerSimpleCamera(void);
 
-#if !defined(QGC_NO_ARDUPILOT_DIALECT)
-    Q_INVOKABLE void flashBootloader();
-#endif
     /// Set home from flight map coordinate
     Q_INVOKABLE void doSetHome(const QGeoCoordinate& coord);
 
@@ -420,6 +421,7 @@ public:
     bool    orbitModeSupported      () const;
     bool    roiModeSupported        () const;
     bool    takeoffVehicleSupported () const;
+    bool    guidedTakeoffSupported  () const;
     bool    changeHeadingSupported  () const;
     QString gotoFlightMode          () const;
     bool    hasGripper              () const;
@@ -535,6 +537,7 @@ public:
     bool            flying                      () const { return _flying; }
     bool            landing                     () const { return _landing; }
     bool            guidedMode                  () const;
+    bool            inFwdFlight                 () const;
     bool            vtolInFwdFlight             () const { return _vtolInFwdFlight; }
     uint8_t         baseMode                    () const { return _base_mode; }
     uint32_t        customMode                  () const { return _custom_mode; }
@@ -832,6 +835,7 @@ signals:
     void flyingChanged                  (bool flying);
     void landingChanged                 (bool landing);
     void guidedModeChanged              (bool guidedMode);
+    void inFwdFlightChanged             ();
     void vtolInFwdFlightChanged         (bool vtolInFwdFlight);
     void prearmErrorChanged             (const QString& prearmError);
     void soloFirmwareChanged            (bool soloFirmware);
@@ -973,7 +977,7 @@ private:
     void _handleCameraFeedback          (const mavlink_message_t& message);
 #endif
     void _handleCameraImageCaptured     (const mavlink_message_t& message);
-    void _handleADSBVehicle             (const mavlink_message_t& message);
+    void _handleCommandLong             (const mavlink_message_t& message);
     void _missionManagerError           (int errorCode, const QString& errorMsg);
     void _geoFenceManagerError          (int errorCode, const QString& errorMsg);
     void _rallyPointManagerError        (int errorCode, const QString& errorMsg);
@@ -1312,7 +1316,60 @@ private:
     uint16_t _lastSetMsgIntervalMsgId = 0;
 
 /*===========================================================================*/
+/*                         ardupilotmega Dialect                             */
+/*===========================================================================*/
+public:
+    Q_INVOKABLE void flashBootloader();
+
+    /// Command vehicle to Enable/Disable Motor Interlock
+    Q_INVOKABLE void motorInterlock(bool enable);
+/*---------------------------------------------------------------------------*/
+/*===========================================================================*/
 /*                         Status Text Handler                               */
+/*                         CONTROL STATUS HANDLER                            */
+/*===========================================================================*/
+public:
+    Q_INVOKABLE void startTimerRevertAllowTakeover();
+    Q_INVOKABLE void requestOperatorControl(bool allowOverride, int requestTimeoutSecs = 0);
+
+private:
+    void _handleControlStatus(const mavlink_message_t& message);
+    void _handleCommandRequestOperatorControl(const mavlink_command_long_t commandLong);
+    static void _requestOperatorControlAckHandler(void* resultHandlerData, int compId, const mavlink_command_ack_t& ack, MavCmdResultFailureCode_t failureCode);
+
+    Q_PROPERTY(uint8_t sysidInControl                        READ sysidInControl                        NOTIFY gcsControlStatusChanged)
+    Q_PROPERTY(bool    gcsControlStatusFlags_SystemManager   READ gcsControlStatusFlags_SystemManager   NOTIFY gcsControlStatusChanged)
+    Q_PROPERTY(bool    gcsControlStatusFlags_TakeoverAllowed READ gcsControlStatusFlags_TakeoverAllowed NOTIFY gcsControlStatusChanged)
+    Q_PROPERTY(bool    firstControlStatusReceived            READ firstControlStatusReceived            NOTIFY gcsControlStatusChanged)
+    Q_PROPERTY(int     operatorControlTakeoverTimeoutMsecs   READ operatorControlTakeoverTimeoutMsecs   CONSTANT)
+    Q_PROPERTY(int     requestOperatorControlRemainingMsecs  READ requestOperatorControlRemainingMsecs  CONSTANT)
+    Q_PROPERTY(bool    sendControlRequestAllowed             READ sendControlRequestAllowed             NOTIFY sendControlRequestAllowedChanged)
+
+    uint8_t sysidInControl() const { return _sysid_in_control; }
+    bool    gcsControlStatusFlags_SystemManager() const { return _gcsControlStatusFlags_SystemManager; }
+    bool    gcsControlStatusFlags_TakeoverAllowed() const { return _gcsControlStatusFlags_TakeoverAllowed; }
+    bool    firstControlStatusReceived() const { return _firstControlStatusReceived; }
+    int     operatorControlTakeoverTimeoutMsecs() const;
+    int     requestOperatorControlRemainingMsecs() const { return _timerRequestOperatorControl.remainingTime(); }
+    bool    sendControlRequestAllowed() const { return _sendControlRequestAllowed; }
+    void    requestOperatorControlStartTimer(int requestTimeoutMsecs);
+    
+    uint8_t _sysid_in_control = 0;
+    uint8_t _gcsControlStatusFlags = 0;
+    bool    _gcsControlStatusFlags_SystemManager = 0;
+    bool    _gcsControlStatusFlags_TakeoverAllowed = 0;
+    bool    _firstControlStatusReceived = false;
+    QTimer  _timerRevertAllowTakeover;
+    QTimer  _timerRequestOperatorControl;
+    bool    _sendControlRequestAllowed = true;
+
+signals:
+    void gcsControlStatusChanged();
+    void requestOperatorControlReceived(int sysIdRequestingControl, int allowTakeover, int requestTimeoutSecs);
+    void sendControlRequestAllowedChanged(bool sendControlRequestAllowed);
+
+/*===========================================================================*/
+/*                         STATUS TEXT HANDLER                               */
 /*===========================================================================*/
 private:
     Q_PROPERTY(bool    messageTypeNone    READ messageTypeNone    NOTIFY messageTypeChanged)

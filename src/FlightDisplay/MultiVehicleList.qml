@@ -17,16 +17,17 @@ import QGroundControl.Controls
 import QGroundControl.Palette
 import QGroundControl.Vehicle
 import QGroundControl.FlightMap
+import QGroundControl.FlightDisplay
 
 Item {
     property real   _margin:              ScreenTools.defaultFontPixelWidth / 2
-    property real   _widgetHeight:        ScreenTools.defaultFontPixelHeight * 2
+    property real   _widgetHeight:        ScreenTools.defaultFontPixelHeight * 2.5
     property var    _guidedController:    globals.guidedControllerFlyView
     property var    _activeVehicleColor:  "green"
     property var    _activeVehicle:       QGroundControl.multiVehicleManager.activeVehicle
     property var    selectedVehicles:     QGroundControl.multiVehicleManager.selectedVehicles
 
-    property real   innerColumnHeight
+    implicitHeight: vehicleList.contentHeight
 
     function armAvailable() {
         for (var i = 0; i < selectedVehicles.count; i++) {
@@ -126,7 +127,7 @@ Item {
 
         delegate: Rectangle {
             width:          vehicleList.width
-            height:         innerColumn.y + innerColumn.height + _margin
+            height:         innerColumn.height + _margin * 2
             color:          QGroundControl.multiVehicleManager.activeVehicle == _vehicle ? _activeVehicleColor : qgcPal.button
             radius:         _margin
             border.width:   _vehicle && vehicleSelected(_vehicle.id) ? 2 : 0
@@ -134,21 +135,27 @@ Item {
 
             property var    _vehicle:   object
 
-            Rectangle {
-                height:                     parent.height
-                width:                      innerColumn.width
-                anchors.horizontalCenter:   parent.horizontalCenter
-                color:                      "transparent"
+            QGCMouseArea {
+                anchors.fill:       parent
+                onClicked:          toggleSelect(_vehicle.id)
+            }
+
+            Column {
+                id:                         innerColumn
+                anchors.centerIn:           parent
+                spacing:                    _margin
 
                 RowLayout {
-                    id:                 innerColumn
+                    anchors.horizontalCenter:   parent.horizontalCenter
                     anchors.margins:    _margin
                     spacing:            _margin
-                    onHeightChanged: {  innerColumnHeight = height + _margin * 2 + spacing * 2  }
 
-                    QGCCompassWidget {
+                    IntegratedCompassAttitude {
                         id: compassWidget
-                        size:                        _widgetHeight
+                        compassRadius:              _widgetHeight / 2 - attitudeSize / 2
+                        compassBorder:              0
+                        attitudeSize:               ScreenTools.defaultFontPixelWidth / 2
+                        attitudeSpacing:            attitudeSize / 2
                         usedByMultipleVehicleList:   true
                         vehicle:                     _vehicle
                     }
@@ -193,11 +200,20 @@ Item {
                         }
                     }
                 }
-            }
 
-            QGCMouseArea {
-                anchors.fill:       parent
-                onClicked:          toggleSelect(_vehicle.id)
+                QGCFlickable {
+                    anchors.horizontalCenter:   parent.horizontalCenter
+                    width:          Math.min(contentWidth, vehicleList.width)
+                    height:         control.height
+                    contentWidth:   control.width
+                    contentHeight:  control.height
+
+                    TelemetryValuesBar {
+                        id:                     control
+                        settingsGroup:          factValueGrid.vehicleCardSettingsGroup
+                        specificVehicleForCard: _vehicle
+                    }
+                }
             }
         }
     }

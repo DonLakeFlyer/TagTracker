@@ -1,33 +1,12 @@
-find_package(Qt6 REQUIRED COMPONENTS Core Positioning)
-
-target_sources(Utilities
+target_sources(${CMAKE_PROJECT_NAME}
     PRIVATE
         QGCGeo.cc
         QGCGeo.h
 )
 
-target_link_libraries(Utilities
-    PUBLIC
-        Qt6::Core
-        Qt6::Positioning
-)
-
-target_include_directories(Utilities PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 #===========================================================================#
-
-if(LINUX AND EXISTS "/usr/share/cmake/geographiclib")
-    list(APPEND CMAKE_MODULE_PATH "/usr/share/cmake/geographiclib")
-endif()
-
-include(CPM)
-# CPMAddPackage(
-#     NAME geographiclib
-#     VERSION 2.5
-#     URL https://sourceforge.net/projects/geographiclib/files/distrib-C%2B%2B/GeographicLib-2.5.tar.gz/download
-#     DOWNLOAD_ONLY
-#     SOURCE_SUBDIR src
-# )
 
 CPMAddPackage(
     NAME geographiclib
@@ -50,8 +29,9 @@ CPMAddPackage(
         "PKGDIR OFF"
         "DOCDIR OFF"
         "EXAMPLEDIR OFF"
+    PATCHES geographiclib.patch
 )
 
-if(TARGET GeographicLib::GeographicLib)
-    target_link_libraries(Utilities PRIVATE GeographicLib::GeographicLib)
-endif()
+target_compile_options(GeographicLib_STATIC PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/wd9025>)
+
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE GeographicLib::GeographicLib)

@@ -34,7 +34,7 @@
 
 #include <QtCore/private/qthread_p.h>
 
-#include "AppMessages.h"
+#include "QGCLogging.h"
 #include "AudioOutput.h"
 #include "AutoPilotPlugin.h"
 #include "CmdLineOptParser.h"
@@ -92,19 +92,15 @@ QGC_LOGGING_CATEGORY(QGCApplicationLog, "qgc.qgcapplication")
 
 // Qml Singleton factories
 
-static QObject *shapeFileHelperSingletonFactory(QQmlEngine*, QJSEngine*)
-{
-    return new ShapeFileHelper;
-}
-
 static QObject *mavlinkSingletonFactory(QQmlEngine*, QJSEngine*)
 {
     return new QGCMAVLink();
 }
 
-QGCApplication::QGCApplication(int &argc, char *argv[], bool unitTesting)
+QGCApplication::QGCApplication(int &argc, char *argv[], bool unitTesting, bool simpleBootTest)
     : QApplication(argc, argv)
     , _runningUnitTests(unitTesting)
+    , _simpleBootTest(simpleBootTest)
 {
     _msecsElapsedTime.start();
 
@@ -135,7 +131,7 @@ QGCApplication::QGCApplication(int &argc, char *argv[], bool unitTesting)
 
     // Set application information
     QString applicationName;
-    if (_runningUnitTests) {
+    if (_runningUnitTests || simpleBootTest) {
         // We don't want unit tests to use the same QSettings space as the normal app. So we tweak the app
         // name. Also we want to run unit tests with clean settings every time.
         applicationName = QStringLiteral("%1_unittest").arg(QGC_APP_NAME);
@@ -168,7 +164,7 @@ QGCApplication::QGCApplication(int &argc, char *argv[], bool unitTesting)
     // The setting will delete all settings on this boot
     fClearSettingsOptions |= settings.contains(_deleteAllSettingsKey);
 
-    if (_runningUnitTests) {
+    if (_runningUnitTests || simpleBootTest) {
         // Unit tests run with clean settings
         fClearSettingsOptions = true;
     }
@@ -228,15 +224,15 @@ void QGCApplication::setLanguage()
     }
     //-- We have specific fonts for Korean
     if (_locale == QLocale::Korean) {
-        qCDebug(LocalizationLog) << "Loading Korean fonts" << _locale.name();
+        qCDebug(QGCApplicationLog) << "Loading Korean fonts" << _locale.name();
         if(QFontDatabase::addApplicationFont(":/fonts/NanumGothic-Regular") < 0) {
-            qCWarning(LocalizationLog) << "Could not load /fonts/NanumGothic-Regular font";
+            qCWarning(QGCApplicationLog) << "Could not load /fonts/NanumGothic-Regular font";
         }
         if(QFontDatabase::addApplicationFont(":/fonts/NanumGothic-Bold") < 0) {
-            qCWarning(LocalizationLog) << "Could not load /fonts/NanumGothic-Bold font";
+            qCWarning(QGCApplicationLog) << "Could not load /fonts/NanumGothic-Bold font";
         }
     }
-    qCDebug(LocalizationLog) << "Loading localizations for" << _locale.name();
+    qCDebug(QGCApplicationLog) << "Loading localizations for" << _locale.name();
     removeTranslator(JsonHelper::translator());
     removeTranslator(&_qgcTranslatorSourceCode);
     removeTranslator(&_qgcTranslatorQtLibs);
@@ -245,17 +241,17 @@ void QGCApplication::setLanguage()
         if (_qgcTranslatorQtLibs.load("qt_" + _locale.name(), QLibraryInfo::path(QLibraryInfo::TranslationsPath))) {
             installTranslator(&_qgcTranslatorQtLibs);
         } else {
-            qCWarning(LocalizationLog) << "Qt lib localization for" << _locale.name() << "is not present";
+            qCWarning(QGCApplicationLog) << "Qt lib localization for" << _locale.name() << "is not present";
         }
         if (_qgcTranslatorSourceCode.load(_locale, QLatin1String("qgc_source_"), "", ":/i18n")) {
             installTranslator(&_qgcTranslatorSourceCode);
         } else {
-            qCWarning(LocalizationLog) << "Error loading source localization for" << _locale.name();
+            qCWarning(QGCApplicationLog) << "Error loading source localization for" << _locale.name();
         }
         if (JsonHelper::translator()->load(_locale, QLatin1String("qgc_json_"), "", ":/i18n")) {
             installTranslator(JsonHelper::translator());
         } else {
-            qCWarning(LocalizationLog) << "Error loading json localization for" << _locale.name();
+            qCWarning(QGCApplicationLog) << "Error loading json localization for" << _locale.name();
         }
     }
 
@@ -313,11 +309,9 @@ void QGCApplication::init()
 #endif
     qmlRegisterType<JoystickConfigController>("QGroundControl.Controllers", 1, 0, "JoystickConfigController");
 
-
-    qmlRegisterSingletonType<ShapeFileHelper>("QGroundControl.ShapeFileHelper", 1, 0, "ShapeFileHelper", shapeFileHelperSingletonFactory);
+    (void) qmlRegisterSingletonType<ShapeFileHelper>("QGroundControl.ShapeFileHelper", 1, 0, "ShapeFileHelper", [](QQmlEngine *, QJSEngine *) { return new ShapeFileHelper(); });
 
     qmlRegisterSingletonType<QGCMAVLink>("MAVLink", 1, 0, "MAVLink", mavlinkSingletonFactory);
-
 
     // Although this should really be in _initForNormalAppBoot putting it here allowws us to create unit tests which pop up more easily
     if(QFontDatabase::addApplicationFont(":/fonts/opensans") < 0) {
@@ -328,23 +322,35 @@ void QGCApplication::init()
         qCWarning(QGCApplicationLog) << "Could not load /fonts/opensans-demibold font";
     }
 
-    if (!_runningUnitTests) {
+    if (_simpleBootTest) {
+        // Since GStream builds are so problematic we initialize video during the simple boot test
+        // to make sure it works and verfies plugin availability.
+        _initVideo();
+    } else if (!_runningUnitTests) {
         _initForNormalAppBoot();
     }
 }
 
-void QGCApplication::_initForNormalAppBoot()
+void QGCApplication::_initVideo()
 {
 #ifdef QGC_GST_STREAMING
     // Gstreamer video playback requires OpenGL
     QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGL);
 #endif
 
-    QGCCorePlugin::instance(); // CorePlugin must be initialized before VideoManager for Video Cleanup
-    VideoManager::instance(); // GStreamer must be initialized before QmlEngine
+    QGCCorePlugin::instance();  // CorePlugin must be initialized before VideoManager for Video Cleanup
+    VideoManager::instance();
+    _videoManagerInitialized = true;
+}
+
+void QGCApplication::_initForNormalAppBoot()
+{
+    _initVideo(); // GStreamer must be initialized before QmlEngine
 
     QQuickStyle::setStyle("Basic");
     QGCCorePlugin::instance()->init();
+    MAVLinkProtocol::instance()->init();
+    MultiVehicleManager::instance()->init();
     _qmlAppEngine = QGCCorePlugin::instance()->createQmlApplicationEngine(this);
     QObject::connect(_qmlAppEngine, &QQmlApplicationEngine::objectCreationFailed, this, QCoreApplication::quit, Qt::QueuedConnection);
     QGCCorePlugin::instance()->createRootWindow(_qmlAppEngine);
@@ -353,9 +359,7 @@ void QGCApplication::_initForNormalAppBoot()
     FollowMe::instance()->init();
     QGCPositionManager::instance()->init();
     LinkManager::instance()->init();
-    MultiVehicleManager::instance()->init();
-    MAVLinkProtocol::instance()->init();
-    VideoManager::instance()->init();
+    VideoManager::instance()->init(mainRootWindow());
 
     // Image provider for Optical Flow
     _qmlAppEngine->addImageProvider(_qgcImageProviderId, new QGCImageProvider());
@@ -539,8 +543,7 @@ QQuickWindow *QGCApplication::mainRootWindow()
 void QGCApplication::showVehicleConfig()
 {
     if (_rootQmlObject()) {
-      QVariant arg = "";
-      QMetaObject::invokeMethod(_rootQmlObject(), "showVehicleConfig", Q_ARG(QVariant, arg));
+      QMetaObject::invokeMethod(_rootQmlObject(), "showVehicleConfig");
     }
 }
 
@@ -752,7 +755,11 @@ void QGCApplication::shutdown()
 {
     qCDebug(QGCApplicationLog) << "Exit";
 
-    VideoManager::instance()->cleanup();
+    if (_videoManagerInitialized) {
+        VideoManager::instance()->cleanup();
+    }
+
+    QGCCorePlugin::instance()->cleanup();
 
     // This is bad, but currently qobject inheritances are incorrect and cause crashes on exit without
     delete _qmlAppEngine;

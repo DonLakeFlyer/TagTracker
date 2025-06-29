@@ -10,11 +10,6 @@
 #include "SerialLink.h"
 #include "QGCLoggingCategory.h"
 #include "QGCSerialPortInfo.h"
-#ifdef Q_OS_ANDROID
-#include "qserialportinfo.h"
-#else
-#include <QtSerialPort/QSerialPortInfo>
-#endif
 #include <QtCore/QSettings>
 #include <QtCore/QThread>
 #include <QtCore/QTimer>
@@ -32,20 +27,20 @@ namespace {
 SerialConfiguration::SerialConfiguration(const QString &name, QObject *parent)
     : LinkConfiguration(name, parent)
 {
-    // qCDebug(SerialLinkLog) << Q_FUNC_INFO << this;
+    qCDebug(SerialLinkLog) << this;
 }
 
 SerialConfiguration::SerialConfiguration(const SerialConfiguration *source, QObject *parent)
     : LinkConfiguration(source, parent)
 {
-    // qCDebug(SerialLinkLog) << Q_FUNC_INFO << this;
+    qCDebug(SerialLinkLog) << this;
 
     SerialConfiguration::copyFrom(source);
 }
 
 SerialConfiguration::~SerialConfiguration()
 {
-    // qCDebug(SerialLinkLog) << Q_FUNC_INFO << this;
+    qCDebug(SerialLinkLog) << this;
 }
 
 void SerialConfiguration::setPortName(const QString &name)
@@ -114,10 +109,62 @@ void SerialConfiguration::saveSettings(QSettings &settings, const QString &root)
 
 QStringList SerialConfiguration::supportedBaudRates()
 {
-    QStringList supportBaudRateStrings;
+    static const QSet<qint32> kDefaultSupportedBaudRates = {
+#ifdef Q_OS_UNIX
+        50,
+        75,
+#endif
+        110,
+#ifdef Q_OS_UNIX
+        150,
+        200,
+        134,
+#endif
+        300,
+        600,
+        1200,
+#ifdef Q_OS_UNIX
+        1800,
+#endif
+        2400,
+        4800,
+        9600,
+#ifdef Q_OS_WIN
+        14400,
+#endif
+        19200,
+        38400,
+#ifdef Q_OS_WIN
+        56000,
+#endif
+        57600,
+        115200,
+#ifdef Q_OS_WIN
+        128000,
+#endif
+        230400,
+#ifdef Q_OS_WIN
+        256000,
+#endif
+        460800,
+        500000,
+#ifdef Q_OS_LINUX
+        576000,
+#endif
+        921600,
+    };
 
-    const QList<qint32> rates = QSerialPortInfo::standardBaudRates();
-    for (qint32 rate : rates) {
+    const QList<qint32> activeSupportedBaudRates = QSerialPortInfo::standardBaudRates();
+
+    QSet<qint32> mergedBaudRateSet(kDefaultSupportedBaudRates.constBegin(), kDefaultSupportedBaudRates.constEnd());
+    (void) mergedBaudRateSet.unite(QSet<qint32>(activeSupportedBaudRates.constBegin(), activeSupportedBaudRates.constEnd()));
+
+    QList<qint32> mergedBaudRateList = mergedBaudRateSet.values();
+    std::sort(mergedBaudRateList.begin(), mergedBaudRateList.end());
+
+    QStringList supportBaudRateStrings{};
+    supportBaudRateStrings.reserve(mergedBaudRateList.size());
+    for (const qint32 rate : std::as_const(mergedBaudRateList)) {
         supportBaudRateStrings.append(QString::number(rate));
     }
 
@@ -142,7 +189,7 @@ SerialWorker::SerialWorker(const SerialConfiguration *config, QObject *parent)
     : QObject(parent)
     , _serialConfig(config)
 {
-    // qCDebug(SerialLinkLog) << Q_FUNC_INFO << this;
+    // qCDebug(SerialLinkLog) << this;
 
     (void) qRegisterMetaType<QSerialPort::SerialPortError>("QSerialPort::SerialPortError");
 }
@@ -151,7 +198,7 @@ SerialWorker::~SerialWorker()
 {
     disconnectFromPort();
 
-    // qCDebug(SerialLinkLog) << Q_FUNC_INFO << this;
+    // qCDebug(SerialLinkLog) << this;
 }
 
 bool SerialWorker::isConnected() const
@@ -202,15 +249,13 @@ void SerialWorker::connectToPort()
     if (!_port->open(QIODevice::ReadWrite)) {
         qCWarning(SerialLinkLog) << "Opening port" << _port->portName() << "failed:" << _port->errorString();
 
-        if (!_errorEmitted) {
+        // If auto-connect is enabled, we don't want to emit an error for PermissionError from devices already in use
+        if (!_errorEmitted && (!_serialConfig->isAutoConnect() || _port->error() != QSerialPort::PermissionError)) {
             emit errorOccurred(tr("Could not open port: %1").arg(_port->errorString()));
             _errorEmitted = true;
         }
 
-        // Disconnecting here on autoconnect will cause continuous error popups
-        if (!_serialConfig->isAutoConnect()) {
-            _onPortDisconnected();
-        }
+        _onPortDisconnected();
 
         return;
     }
@@ -289,7 +334,7 @@ void SerialWorker::_onPortReadyRead()
 {
     const QByteArray data = _port->readAll();
     if (!data.isEmpty()) {
-        // qCDebug(SerialLinkLog) << "_onPortReadyRead:" << data.size();
+        // qCDebug(SerialLinkLog) << data.size();
         emit dataReceived(data);
     }
 }
@@ -308,14 +353,14 @@ void SerialWorker::_onPortErrorOccurred(QSerialPort::SerialPortError portError)
     case QSerialPort::NoError:
         qCDebug(SerialLinkLog) << "About to open port" << _port->portName();
         return;
+    case QSerialPort::ResourceError:
+        // We get this when a usb cable is unplugged
+        // Fallthrough
     case QSerialPort::PermissionError:
         if (_serialConfig->isAutoConnect()) {
             return;
         }
         break;
-    /*case QSerialPort::ResourceError:
-        serialPort->close();
-        break;*/
     default:
         break;
     }
@@ -354,11 +399,11 @@ SerialLink::SerialLink(SharedLinkConfigurationPtr &config, QObject *parent)
     , _worker(new SerialWorker(_serialConfig))
     , _workerThread(new QThread(this))
 {
-    // qCDebug(SerialLinkLog) << Q_FUNC_INFO << this;
+    // qCDebug(SerialLinkLog) << this;
 
     _workerThread->setObjectName(QStringLiteral("Serial_%1").arg(_serialConfig->name()));
 
-    _worker->moveToThread(_workerThread);
+    (void) _worker->moveToThread(_workerThread);
 
     (void) connect(_workerThread, &QThread::started, _worker, &SerialWorker::setupPort);
     (void) connect(_workerThread, &QThread::finished, _worker, &QObject::deleteLater);
@@ -374,15 +419,14 @@ SerialLink::SerialLink(SharedLinkConfigurationPtr &config, QObject *parent)
 
 SerialLink::~SerialLink()
 {
-    SerialLink::disconnect();
+    (void) QMetaObject::invokeMethod(_worker, "disconnectFromPort", Qt::BlockingQueuedConnection);
 
     _workerThread->quit();
     if (!_workerThread->wait(DISCONNECT_TIMEOUT_MS)) {
         qCWarning(SerialLinkLog) << "Failed to wait for Serial Thread to close";
-        // _workerThread->terminate();
     }
 
-    // qCDebug(SerialLinkLog) << Q_FUNC_INFO << this;
+    // qCDebug(SerialLinkLog) << this;
 }
 
 bool SerialLink::isConnected() const

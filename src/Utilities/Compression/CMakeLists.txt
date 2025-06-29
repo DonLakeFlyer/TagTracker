@@ -1,6 +1,4 @@
-find_package(Qt6 REQUIRED COMPONENTS Core)
-
-target_sources(Utilities
+target_sources(${CMAKE_PROJECT_NAME}
     PRIVATE
         QGCLZMA.cc
         QGCLZMA.h
@@ -10,36 +8,32 @@ target_sources(Utilities
         QGCZlib.h
 )
 
-target_link_libraries(Utilities
-    PRIVATE
-        Qt6::CorePrivate
-    PUBLIC
-        Qt6::Core
-)
-
-target_include_directories(Utilities PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 #===========================================================================#
 
-include(CPM)
+set(ZLIB_EXTRA_OPTIONS)
+if(WIN32)
+    set(ZLIB_EXTRA_OPTIONS
+        "ZLIB_INSTALL_COMPAT_DLL OFF"
+    )
+endif()
+
 CPMAddPackage(
     NAME zlib
-    VERSION 1.3.1
     GITHUB_REPOSITORY madler/zlib
+    GIT_TAG develop
     OPTIONS
-        "ZLIB_BUILD_EXAMPLES OFF"
-        "SKIP_INSTALL_FILES ON"
-        "SKIP_INSTALL_LIBRARIES ON"
-        "SKIP_INSTALL_HEADERS ON"
-        "SKIP_INSTALL_ALL ON"
+        "ZLIB_BUILD_TESTING OFF"
+        "ZLIB_BUILD_SHARED OFF"
+        "ZLIB_BUILD_STATIC ON"
+        "ZLIB_BUILD_MINIZIP OFF"
+        "ZLIB_INSTALL OFF"
+        "ZLIB_PREFIX OFF"
+        "${ZLIB_EXTRA_OPTIONS}"
 )
 
-if(zlib_ADDED)
-    target_link_libraries(Utilities PRIVATE zlibstatic)
-else()
-    find_package(Qt6ZlibPrivate REQUIRED)
-    target_link_libraries(Utilities PRIVATE Qt6::ZlibPrivate)
-endif()
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ZLIB::ZLIBSTATIC)
 
 #===========================================================================#
 
@@ -80,4 +74,4 @@ target_compile_definitions(xz
         XZ_USE_CRC64
 )
 
-target_link_libraries(Utilities PRIVATE xz)
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE xz)

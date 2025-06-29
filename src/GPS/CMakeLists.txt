@@ -1,12 +1,8 @@
-find_package(Qt6 REQUIRED COMPONENTS Core)
-
-qt_add_library(GPS STATIC)
-
 if(QGC_NO_SERIAL_LINK)
     return()
 endif()
 
-target_sources(GPS
+target_sources(${CMAKE_PROJECT_NAME}
     PRIVATE
         GPSManager.cc
         GPSManager.h
@@ -23,26 +19,12 @@ target_sources(GPS
         sensor_gps.h
 )
 
-target_link_libraries(GPS
-    PRIVATE
-        Comms
-        MAVLink
-        Settings
-        Utilities
-        Vehicle
-    PUBLIC
-        Qt6::Core
-        FactSystem
-        GPSDrivers
-)
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt6::Core)
 
-target_include_directories(GPS PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 #===========================================================================#
 
-message(STATUS "Building GPS Drivers")
-
-include(CPM)
 CPMAddPackage(
     NAME px4-gpsdrivers
     GITHUB_REPOSITORY PX4/PX4-GPSDrivers
@@ -51,15 +33,12 @@ CPMAddPackage(
 )
 
 file(GLOB GPS_DRIVERS_SOURCES "${px4-gpsdrivers_SOURCE_DIR}/src/*")
-qt_add_library(GPSDrivers STATIC
-    definitions.h
-    ${GPS_DRIVERS_SOURCES}
+target_sources(${CMAKE_PROJECT_NAME}
+    PRIVATE
+        definitions.h
+        ${GPS_DRIVERS_SOURCES}
 )
 
-target_link_libraries(GPSDrivers PUBLIC Qt6::Core)
+target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE GPS_DEFINITIONS_HEADER=<${CMAKE_CURRENT_SOURCE_DIR}/definitions.h>)
 
-target_compile_definitions(GPSDrivers PUBLIC GPS_DEFINITIONS_HEADER=<${CMAKE_CURRENT_SOURCE_DIR}/definitions.h>)
-
-target_include_directories(GPSDrivers PUBLIC ${px4-gpsdrivers_SOURCE_DIR}/src)
-
-target_link_libraries(GPS PUBLIC GPSDrivers)
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${px4-gpsdrivers_SOURCE_DIR}/src)

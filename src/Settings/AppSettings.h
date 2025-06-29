@@ -32,11 +32,10 @@ public:
     DEFINE_SETTINGFACT(offlineEditingDescentSpeed)
     DEFINE_SETTINGFACT(batteryPercentRemainingAnnounce) // Important: This is only used to calculate battery swaps
     DEFINE_SETTINGFACT(defaultMissionItemAltitude)
-    DEFINE_SETTINGFACT(telemetrySave)
-    DEFINE_SETTINGFACT(telemetrySaveNotArmed)
     DEFINE_SETTINGFACT(audioMuted)
     DEFINE_SETTINGFACT(virtualJoystick)
     DEFINE_SETTINGFACT(virtualJoystickAutoCenterThrottle)
+    DEFINE_SETTINGFACT(virtualJoystickLeftHandedMode)
     DEFINE_SETTINGFACT(appFontPointSize)
     DEFINE_SETTINGFACT(indoorPalette)
     DEFINE_SETTINGFACT(savePath)
@@ -54,17 +53,9 @@ public:
     DEFINE_SETTINGFACT(followTarget)
     DEFINE_SETTINGFACT(qLocaleLanguage)
     DEFINE_SETTINGFACT(disableAllPersistence)
-    DEFINE_SETTINGFACT(saveCsvTelemetry)
     DEFINE_SETTINGFACT(firstRunPromptIdsShown)
-    DEFINE_SETTINGFACT(forwardMavlink)
-    DEFINE_SETTINGFACT(forwardMavlinkHostName)
-    DEFINE_SETTINGFACT(forwardMavlinkAPMSupportHostName)
     DEFINE_SETTINGFACT(loginAirLink)
     DEFINE_SETTINGFACT(passAirLink)
-    DEFINE_SETTINGFACT(mavlink2SigningKey)
-
-    // Although this is a global setting it only affects ArduPilot vehicle since PX4 automatically starts the stream from the vehicle side
-    DEFINE_SETTINGFACT(apmStartMavlinkStreams)
 
     Q_PROPERTY(QString missionSavePath          READ missionSavePath            NOTIFY savePathsChanged)
     Q_PROPERTY(QString parameterSavePath        READ parameterSavePath          NOTIFY savePathsChanged)
@@ -129,7 +120,6 @@ private slots:
     void _indoorPaletteChanged();
     void _checkSavePathDirectories();
     void _qLocaleLanguageChanged();
-    void _mavlink2SigningKeyChanged();
 
 private:
     static QLocale::Language _qLocaleLanguageEarlyAccess(void);

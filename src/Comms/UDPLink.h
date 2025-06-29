@@ -82,6 +82,7 @@ public:
     Q_INVOKABLE void removeHost(const QString &host, quint16 port);
 
     LinkType type() const override { return LinkConfiguration::TypeUdp; }
+    void setAutoConnect(bool autoc = true) override;
     void copyFrom(const LinkConfiguration *source) override;
     void loadSettings(QSettings &settings, const QString &root) override;
     void saveSettings(QSettings &settings, const QString &root) const override;
@@ -173,6 +174,9 @@ public:
     void disconnect() override;
     bool isSecureConnection() const override;
 
+protected:
+    bool _connect() override;
+
 private slots:
     void _writeBytes(const QByteArray &data) override;
     void _onConnected();
@@ -182,8 +186,6 @@ private slots:
     void _onDataSent(const QByteArray &data);
 
 private:
-    bool _connect() override;
-
     const UDPConfiguration *_udpConfig = nullptr;
     UDPWorker *_worker = nullptr;
     QThread *_workerThread = nullptr;

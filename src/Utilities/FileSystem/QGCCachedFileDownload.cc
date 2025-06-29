@@ -9,15 +9,20 @@
 
 #include "QGCCachedFileDownload.h"
 #include "QGCFileDownload.h"
+#include "QGCLoggingCategory.h"
 
 #include <QtCore/QDateTime>
 #include <QtNetwork/QNetworkDiskCache>
+
+QGC_LOGGING_CATEGORY(QGCCachedFileDownloadLog, "qgc.utilities.qgccachedfiledownload");
 
 QGCCachedFileDownload::QGCCachedFileDownload(const QString &cacheDirectory, QObject *parent)
     : QObject(parent)
     , _fileDownload(new QGCFileDownload(this))
     , _diskCache(new QNetworkDiskCache(this))
 {
+    // qCDebug(QGCCachedFileDownloadLog) << Q_FUNC_INFO << this;
+
     _diskCache->setCacheDirectory(cacheDirectory);
     _fileDownload->setCache(_diskCache);
 
@@ -25,11 +30,16 @@ QGCCachedFileDownload::QGCCachedFileDownload(const QString &cacheDirectory, QObj
     (void) connect(_fileDownload, &QGCFileDownload::downloadComplete, this, &QGCCachedFileDownload::_onDownloadCompleted);
 }
 
+QGCCachedFileDownload::~QGCCachedFileDownload()
+{
+    // qCDebug(QGCCachedFileDownloadLog) << Q_FUNC_INFO << this;
+}
+
 bool QGCCachedFileDownload::download(const QString &url, int maxCacheAgeSec)
 {
     _downloadFromNetwork = false;
 
-    const QNetworkCacheMetaData metadata = _diskCache->metaData(url);
+    const QNetworkCacheMetaData metadata = _diskCache->metaData(QUrl::fromUserInput(url));
     if (metadata.isValid() && metadata.attributes().contains(QNetworkRequest::Attribute::User)) {
         // We want the following behavior:
         // - Use the cached file if not older than maxCacheAgeSec
@@ -55,7 +65,7 @@ bool QGCCachedFileDownload::download(const QString &url, int maxCacheAgeSec)
 void QGCCachedFileDownload::_onDownloadCompleted(const QString &remoteFile, const QString &localFile, const QString &errorMsg)
 {
     // Set cache creation time if not set already (the Qt docs mention there's a creation time, but I could not find any API)
-    QNetworkCacheMetaData metadata = _diskCache->metaData(remoteFile);
+    QNetworkCacheMetaData metadata = _diskCache->metaData(QUrl::fromUserInput(remoteFile));
     if (metadata.isValid() && !metadata.attributes().contains(QNetworkRequest::Attribute::User)) {
         QNetworkCacheMetaData::AttributesMap attributes = metadata.attributes();
         (void) attributes.insert(QNetworkRequest::Attribute::User, QDateTime::currentDateTime());

@@ -1,85 +1,48 @@
-find_package(Qt6 REQUIRED COMPONENTS Bluetooth Core Gui Network Positioning Sensors Qml Xml)
-
-qt_add_library(Utilities STATIC
-    DeviceInfo.cc
-    DeviceInfo.h
-    JsonHelper.cc
-    JsonHelper.h
-    KMLDomDocument.cc
-    KMLDomDocument.h
-    KMLHelper.cc
-    KMLHelper.h
-    QGC.cc
-    QGC.h
-    FileSystem/QGCCachedFileDownload.cc
-    FileSystem/QGCCachedFileDownload.h
-    FileSystem/QGCFileDownload.cc
-    FileSystem/QGCFileDownload.h
-    QGCLoggingCategory.cc
-    QGCLoggingCategory.h
-    FileSystem/QGCTemporaryFile.cc
-    FileSystem/QGCTemporaryFile.h
-    ShapeFileHelper.cc
-    ShapeFileHelper.h
-    SHPFileHelper.cc
-    SHPFileHelper.h
-    StateMachine.cc
-    StateMachine.h
-)
-
-if(ANDROID OR IOS)
-    target_sources(Utilities PRIVATE MobileScreenMgr.h)
-    if(ANDROID)
-        target_sources(Utilities PRIVATE MobileScreenMgr.cc)
-    elseif(IOS)
-        target_sources(Utilities PRIVATE MobileScreenMgr.mm)
-    endif()
-endif()
-
-target_include_directories(Utilities PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} FileSystem)
-
-target_link_libraries(Utilities
+target_sources(${CMAKE_PROJECT_NAME}
     PRIVATE
-        Qt6::Qml
-        FactSystem
-        QmlControls
-        Settings
-    PUBLIC
-        Qt6::Core
-        Qt6::Gui
-        Qt6::Network
-        Qt6::Positioning
-        Qt6::Sensors
-        Qt6::Xml
+        DeviceInfo.cc
+        DeviceInfo.h
+        JsonHelper.cc
+        JsonHelper.h
+        FileSystem/QGCCachedFileDownload.cc
+        FileSystem/QGCCachedFileDownload.h
+        FileSystem/QGCFileDownload.cc
+        FileSystem/QGCFileDownload.h
+        QGC.cc
+        QGC.h
+        QGCLogging.cc
+        QGCLogging.h
+        QGCLoggingCategory.cc
+        QGCLoggingCategory.h
+        FileSystem/QGCTemporaryFile.cc
+        FileSystem/QGCTemporaryFile.h
+        StateMachine.cc
+        StateMachine.h
 )
 
-if(QGC_ENABLE_BLUETOOTH)
-    target_link_libraries(Utilities PRIVATE Qt6::Bluetooth)
+if(LINUX)
+    target_sources(${CMAKE_PROJECT_NAME}
+        PRIVATE
+            SignalHandler.cc
+            SignalHandler.h
+    )
+elseif(IOS)
+    target_sources(${CMAKE_PROJECT_NAME}
+        PRIVATE
+            MobileScreenMgr.mm
+            MobileScreenMgr.h
+    )
 endif()
 
-#===========================================================================#
-
-include(CPM)
-CPMAddPackage(
-    NAME Shapelib
-    VERSION 1.6.1
-    GITHUB_REPOSITORY OSGeo/shapelib
-    OPTIONS
-        "BUILD_SHAPELIB_CONTRIB OFF"
-        "BUILD_APPS OFF"
-        "BUILD_TESTING OFF"
+target_include_directories(${CMAKE_PROJECT_NAME}
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        FileSystem
 )
-
-if(Shapelib_ADDED)
-    if(TARGET shp)
-        target_link_libraries(Utilities PRIVATE shp)
-    elseif(TARGET shapelib::shp)
-        target_link_libraries(Utilities PRIVATE shapelib::shp)
-    endif()
-endif()
 
 #===========================================================================#
 
 add_subdirectory(Audio)
 add_subdirectory(Compression)
 add_subdirectory(Geo)
+add_subdirectory(Shape)
