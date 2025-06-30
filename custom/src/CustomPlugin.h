@@ -17,9 +17,12 @@
 #include <QGeoCoordinate>
 #include <QTimer>
 #include <QFile>
+#include <QQmlAbstractUrlInterceptor>
 
 class CustomState;
+
 class QState;
+class QQmlApplicationEngine;
 
 using namespace TunnelProtocol;
 
@@ -87,12 +90,13 @@ public:
     Q_INVOKABLE void clearMap           (void);
 
     // Overrides from QGCCorePlugin
-    void                init                    (void) final;
-    bool                mavlinkMessage          (Vehicle *vehicle, LinkInterface *link, const mavlink_message_t &message) final;
-    QGCOptions*         options                 (void) final { return qobject_cast<QGCOptions*>(_customOptions); }
-    bool                adjustSettingMetaData   (const QString& settingsGroup, FactMetaData& metaData) final;
-    QmlObjectListModel* customMapItems          (void) final;
-    const QVariantList& toolBarIndicators       (void) final;
+    void                    init                        (void) final;
+    bool                    mavlinkMessage              (Vehicle *vehicle, LinkInterface *link, const mavlink_message_t &message) final;
+    QGCOptions*             options                     (void) final { return qobject_cast<QGCOptions*>(_customOptions); }
+    bool                    adjustSettingMetaData       (const QString& settingsGroup, FactMetaData& metaData) final;
+    QmlObjectListModel*     customMapItems              (void) final;
+    const QVariantList&     toolBarIndicators           (void) final;
+    QQmlApplicationEngine*  createQmlApplicationEngine  (QObject* parent) final;
 
     static double normalizeHeading(double heading);
 
@@ -153,6 +157,9 @@ private:
     void    _captureScreen              (void);
     void    _setActiveRotation          (bool active);
 
+    QQmlApplicationEngine *_qmlEngine = nullptr;
+    class CustomOverrideInterceptor *_selector = nullptr;
+
     QVariantList            _settingsPages;
     QVariantList            _instrumentPages;
     int                     _vehicleStateIndex;
@@ -188,4 +195,12 @@ private:
 
     double                  _maxSNR = qQNaN();
     double                  _minSNR = qQNaN();
+};
+
+class CustomOverrideInterceptor : public QQmlAbstractUrlInterceptor
+{
+public:
+    CustomOverrideInterceptor();
+
+    QUrl intercept(const QUrl &url, QQmlAbstractUrlInterceptor::DataType type) final;
 };

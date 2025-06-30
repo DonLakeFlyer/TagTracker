@@ -5,8 +5,9 @@ import QtQuick.Controls
 import QGroundControl
 import QGroundControl.Controls
 import QGroundControl.FactControls
-import QGroundControl.CustomControls
 import QGroundControl.ScreenTools
+
+import TagTracker
 
 QGCPopupDialog {
     id:         tagInfoDialog

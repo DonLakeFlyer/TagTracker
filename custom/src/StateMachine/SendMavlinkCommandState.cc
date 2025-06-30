@@ -54,7 +54,7 @@ void SendMavlinkCommandState::_sendMavlinkCommand()
                                 static_cast<float>(_param7));
 }
 
-void SendMavlinkCommandState::_mavCommandResult(int vehicleId, int component, int command, int result, bool noResponseFromVehicle)
+void SendMavlinkCommandState::_mavCommandResult(int vehicleId, int component, int command, int result, int failureCode)
 {
     Q_UNUSED(vehicleId);
     Q_UNUSED(component);
@@ -77,7 +77,7 @@ void SendMavlinkCommandState::_mavCommandResult(int vehicleId, int component, in
 
     QString commandName = MissionCommandTree::instance()->friendlyName(_command);
 
-    if (noResponseFromVehicle) {
+    if (failureCode == Vehicle::MavCmdResultFailureNoResponseToCommand) {
         qCDebug(CustomPluginLog) << QStringLiteral("%1 Command - No response from vehicle").arg(commandName) << " - " << Q_FUNC_INFO;
         QString message = QStringLiteral("%1 command failed").arg(commandName);
         setError(message);

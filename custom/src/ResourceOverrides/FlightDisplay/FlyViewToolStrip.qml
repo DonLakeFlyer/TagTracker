@@ -13,7 +13,7 @@ import QGroundControl
 import QGroundControl.Controls
 import QGroundControl.FlightDisplay
 
-import QGroundControl.CustomControls
+import TagTracker
 
 ToolStrip {
     id:     _root

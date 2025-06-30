@@ -35,6 +35,11 @@
 #include "coder_array.h"
 #include "bearing.h"
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
+#include <QApplicationStatic>
+#endif
+#include <QQmlApplicationEngine>
+#include <QQmlFile>
 #include <QDebug>
 #include <QPointF>
 #include <QLineF>
@@ -105,7 +110,7 @@ const QVariantList& CustomPlugin::toolBarIndicators(void)
 {
     _toolbarIndicators = QGCCorePlugin::toolBarIndicators();
 
-    _toolbarIndicators.append(QVariant::fromValue(QUrl::fromUserInput("qrc:/qml/ControllerIndicator.qml")));
+    _toolbarIndicators.append(QVariant::fromValue(QUrl::fromUserInput("qrc:/qml/TagTracker/ControllerIndicator.qml")));
     return _toolbarIndicators;
 }
 
@@ -240,7 +245,7 @@ void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& 
                     qDebug() << "antennaHeading" << antennaHeading;
                 }
 
-                QUrl url = QUrl::fromUserInput("qrc:/qml/PulseMapItem.qml");
+                QUrl url = QUrl::fromUserInput("qrc:/qml/TagTracker/PulseMapItem.qml");
                 PulseMapItem* mapItem = new PulseMapItem(url, QGeoCoordinate(pulseInfo.position_x, pulseInfo.position_y), pulseInfo.tag_id, _useSNRForPulseStrength() ? pulseInfo.snr : pulseInfo.stft_score, antennaHeading, this);
                 _customMapItems.append(mapItem);
             }
@@ -582,4 +587,50 @@ double CustomPlugin::normalizeHeading(double heading)
         heading += 360.0;
     }
     return heading;
+}
+
+// We override this so we can get access to QQmlApplicationEngine and use it to register our qml module
+QQmlApplicationEngine* CustomPlugin::createQmlApplicationEngine(QObject* parent)
+{
+    _qmlEngine = QGCCorePlugin::createQmlApplicationEngine(parent);
+    _qmlEngine->addImportPath("qrc:/Custom/Widgets");
+    // TODO: Investigate _qmlEngine->setExtraSelectors({"custom"})
+
+    _selector = new CustomOverrideInterceptor();
+    _qmlEngine->addUrlInterceptor(_selector);
+
+    return _qmlEngine;
+}
+
+/*===========================================================================*/
+
+CustomOverrideInterceptor::CustomOverrideInterceptor()
+    : QQmlAbstractUrlInterceptor()
+{
+
+}
+
+QUrl CustomOverrideInterceptor::intercept(const QUrl &url, QQmlAbstractUrlInterceptor::DataType type)
+{
+    switch (type) {
+    using DataType = QQmlAbstractUrlInterceptor::DataType;
+    case DataType::QmlFile:
+    case DataType::UrlString:
+        if (url.scheme() == QStringLiteral("qrc")) {
+            const QString origPath = url.path();
+            const QString overrideRes = QStringLiteral(":/Custom%1").arg(origPath);
+            if (QFile::exists(overrideRes)) {
+                const QString relPath = overrideRes.mid(2);
+                QUrl result;
+                result.setScheme(QStringLiteral("qrc"));
+                result.setPath('/' + relPath);
+                return result;
+            }
+        }
+        break;
+    default:
+        break;
+    }
+
+    return url;
 }

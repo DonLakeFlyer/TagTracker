@@ -11,7 +11,7 @@ import QtQuick
 
 import QGroundControl
 
-import QGroundControl.CustomControls
+import TagTracker
 
 // Custom builds can override this resource to add additional custom actions
 Item {

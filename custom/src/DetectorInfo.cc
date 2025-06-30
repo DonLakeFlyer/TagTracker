@@ -31,14 +31,14 @@ DetectorInfo::DetectorInfo(uint32_t tagId, const QString& tagLabel, uint32_t int
 
     _heartbeatTimeoutTimer.setSingleShot(true);
     _heartbeatTimeoutTimer.setInterval(_heartbeatTimerInterval);
-    _heartbeatTimeoutTimer.callOnTimeout([this]() {
+    _heartbeatTimeoutTimer.callOnTimeout(this, [&]() {
         _heartbeatLost = true;
         emit heartbeatLostChanged();
     });
 
     _stalePulseStrengthTimer.setSingleShot(true);
     _stalePulseStrengthTimer.setInterval(_heartbeatTimerInterval);
-    _stalePulseStrengthTimer.callOnTimeout([this]() {
+    _stalePulseStrengthTimer.callOnTimeout(this, [&]() {
         _lastPulseStale = true;
         emit lastPulseStaleChanged();
     });

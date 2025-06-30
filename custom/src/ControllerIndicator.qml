@@ -20,7 +20,7 @@ import QGroundControl.ScreenTools
 import QGroundControl.Palette
 import MAVLink
 
-import QGroundControl.CustomControls
+import TagTracker
 
 Item {
     id:                 control

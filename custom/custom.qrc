@@ -1,16 +1,5 @@
 <RCC>
-    <qresource prefix="/qml">
-        <file alias="ControllerIndicator.qml">src/ControllerIndicator.qml</file>
-        <file alias="CustomPulseRoseMapItem.qml">src/CustomPulseRoseMapItem.qml</file>
-        <file alias="PulseMapItem.qml">src/PulseMapItem.qml</file>
-        <file alias="QGroundControl/CustomControls/CustomGuidedActionStartStopDetection.qml">src/CustomGuidedActionStartStopDetection.qml</file>
-        <file alias="QGroundControl/CustomControls/CustomGuidedActionStartRotation.qml">src/CustomGuidedActionStartRotation.qml</file>
-        <file alias="QGroundControl/CustomControls/CustomGuidedActionDownloadLogs.qml">src/CustomGuidedActionDownloadLogs.qml</file>
-        <file alias="QGroundControl/CustomControls/CustomGuidedActionAutoTakeoffRotateRTL.qml">src/CustomGuidedActionAutoTakeoffRotateRTL.qml</file>
-        <file alias="QGroundControl/CustomControls/TagInfoDialog.qml">src/TagInfoDialog.qml</file>
-        <file alias="QGroundControl/CustomControls/TagManufacturersDialog.qml">src/TagManufacturersDialog.qml</file>
-        <file alias="QGroundControl/CustomControls/qmldir">src/qmldir</file>
-
+    <qresource prefix="/Custom/qml">
         <!-- The following are overrides from regular QGC resources -->
         <file alias="QGroundControl/FlightDisplay/FlyViewAdditionalCustomActionsList.qml">src/ResourceOverrides/FlightDisplay/FlyViewAdditionalCustomActionsList.qml</file>
         <file alias="QGroundControl/FlightDisplay/FlyViewCustomLayer.qml">src/ResourceOverrides/FlightDisplay/FlyViewCustomLayer.qml</file>

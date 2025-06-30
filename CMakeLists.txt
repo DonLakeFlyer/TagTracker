@@ -493,14 +493,6 @@ set_target_properties(${CMAKE_PROJECT_NAME}
         OUTPUT_NAME ${CMAKE_PROJECT_NAME}
 )
 
-target_precompile_headers(${CMAKE_PROJECT_NAME}
-    PRIVATE
-        <QtCore/QLoggingCategory>
-        <QtCore/QObject>
-        <QtCore/QString>
-        <QtCore/QTimer>
-)
-
 qt_add_qml_module(${CMAKE_PROJECT_NAME}
     URI QGroundControl
     VERSION 1.0
@@ -514,9 +506,11 @@ if(QGC_BUILD_TESTING)
 endif()
 
 if(QGC_CUSTOM_BUILD)
+    find_package(Qt6 REQUIRED COMPONENTS ${CUSTOM_QT_COMPONENTS})
     target_sources(${CMAKE_PROJECT_NAME} PRIVATE ${CUSTOM_SOURCES})
     target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${CUSTOM_LIBRARIES})
-    target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CUSTOM_DIRECTORIES})
+    target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CUSTOM_INCLUDE_DIRECTORIES})
+    message(STATUS "QGC: Custom build enabled. Custom sources and libraries added. ${CUSTOM_INCLUDE_DIRECTORIES}")
 endif()
 
 file(GLOB TS_SOURCES ${CMAKE_SOURCE_DIR}/translations/qgc_*.ts)

@@ -48,7 +48,7 @@ android {
      *******************************************************/
 
     // namespace = androidPackageName
-    namespace = "org.cubepilot.herelink_qgc"
+    namespace = "org.thegagnes.tagtracker"
     compileSdkVersion androidCompileSdkVersion
     buildToolsVersion androidBuildToolsVersion
     ndkVersion = androidNdkVersion
