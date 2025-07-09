@@ -5,26 +5,32 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.6.1'
+        classpath 'com.android.tools.build:gradle:8.8.0'
     }
 }
 
 repositories {
     google()
     mavenCentral()
-    maven { url 'https://jitpack.io' }
+    maven { url = 'https://jitpack.io' }
 }
 
-apply plugin: 'com.android.application'
+if (project.plugins.findPlugin("qtGradlePluginType") != null) {
+    apply plugin: qtGradlePluginType
+} else {
+    // Fall back to the default Android application plugin if qtGradlePluginType
+    // is not available
+    apply plugin: 'com.android.application'
+}
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
+    //noinspection GradleDependency
     implementation 'androidx.core:core:1.13.1'
-    implementation 'com.github.mik3y:usb-serial-for-android:3.8.0'
+    implementation 'com.github.mik3y:usb-serial-for-android:3.8.1'
 }
 
 def getTimestampStr() { return new Date().format('yyyyMMddHHmmss') }
-def timestampInt = (int)(new Date().getTime() / 1000 / 1)
 
 android {
     /*******************************************************
@@ -34,6 +40,7 @@ android {
      * - qtAndroidDir - holds the path to qt android files
      *                   needed to build any Qt application
      *                   on Android.
+     * - qtGradlePluginType - whether to build an app or a library
      *
      * are defined in gradle.properties file. This file is
      * updated by QtCreator and androiddeployqt tools.
@@ -41,13 +48,13 @@ android {
      *******************************************************/
 
     // namespace = androidPackageName
-    namespace = "org.thegagnes.tagtracker"
+    namespace = "com.thegagnes.tagtracker" // Update this to your package name
     compileSdkVersion androidCompileSdkVersion
     buildToolsVersion androidBuildToolsVersion
-    ndkVersion androidNdkVersion
+    ndkVersion = androidNdkVersion
 
     // Extract native libraries from the APK
-    packagingOptions.jniLibs.useLegacyPackaging true
+    packagingOptions.jniLibs.useLegacyPackaging = true
 
     sourceSets {
         main {
@@ -64,6 +71,7 @@ android {
 
     tasks.withType(JavaCompile) {
         options.incremental = true
+        // options.compilerArgs += ['-Xlint:deprecation']
     }
 
     buildFeatures {
@@ -76,7 +84,7 @@ android {
     }
 
     lintOptions {
-        abortOnError false
+        abortOnError = false
     }
 
     // Do not compress Qt binary resources file
@@ -90,10 +98,6 @@ android {
         targetSdkVersion qtTargetSdkVersion
         ndk.abiFilters = qtTargetAbiList.split(",")
 
-        namespace "org.thegagnes.tagtracker"
-        // versionName "5.0"
-        // versionCode timestampInt
-
         // println "applicationId: ${applicationId}"
         println "minSdkVersion: ${minSdkVersion}"
         println "targetSdkVersion: ${targetSdkVersion}"
@@ -103,9 +107,11 @@ android {
     }
 
     println "timestamp: " + getTimestampStr()
+    println "androidPackageName: ${namespace}"
     println "androidCompileSdkVersion: ${compileSdkVersion}"
     println "androidBuildToolsVersion: ${buildToolsVersion}"
     println "androidNdkVersion: ${ndkVersion}"
     println "project.name: ${project.name}"
     println "qtAndroidDir: ${qtAndroidDir}"
+    println "Java Version: " + JavaVersion.current()
 }
