@@ -311,7 +311,7 @@ bool TagDatabase::_saveTagInfo()
             .arg(tagInfo->_idFact->rawValue().toInt())
             .arg(tagInfo->_nameFact->rawValue().toString())
             .arg(tagInfo->_manufacturerIdFact->rawValue().toInt())
-            .arg(tagInfo->_frequencyMHzFact->rawValue().toInt())
+            .arg(tagInfo->_frequencyMHzFact->rawValue().toDouble())
             .toUtf8());
     }
 
@@ -428,7 +428,7 @@ bool TagDatabase::_loadTagInfo(void)
         uint32_t            id;
         QString             name;
         uint32_t            manufacturerId;
-        uint32_t            frequencyHz;
+        double              frequencyMHz;
 
         valueString = values[valuePosition++];
         selected    = valueString.toUInt(&ok);
@@ -473,13 +473,13 @@ bool TagDatabase::_loadTagInfo(void)
         }
 
         valueString = values[valuePosition++];
-        frequencyHz = valueString.toUInt(&ok);
+        frequencyMHz = valueString.toDouble(&ok);
         if (!ok) {
-            qgcApp()->showAppMessage(QStringLiteral("Load Tag Info: Line #%1 Value:'%2'. Unable to convert frequency to uint.").arg(lineCount).arg(valueString));
+            qgcApp()->showAppMessage(QStringLiteral("Load Tag Info: Line #%1 Value:'%2'. Unable to convert frequency to double.").arg(lineCount).arg(valueString));
             return false;
         }
 
-        _tagInfoListModel->append(new TagInfo(selected, id, name, manufacturerId, frequencyHz, this));
+        _tagInfoListModel->append(new TagInfo(selected, id, name, manufacturerId, frequencyMHz, this));
     }
 
     _updateNextIds();
