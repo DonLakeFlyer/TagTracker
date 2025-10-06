@@ -43,6 +43,7 @@
 #include "ToolStripActionList.h"
 #include "VideoManager.h"
 #include "MultiVehicleManager.h"
+#include "QGCLoggingCategory.h"
 #ifndef QGC_NO_SERIAL_LINK
 #include "GPSManager.h"
 #include "GPSRtk.h"
@@ -59,6 +60,8 @@
 
 #include <QtCore/QSettings>
 #include <QtCore/QLineF>
+
+QGC_LOGGING_CATEGORY(GuidedActionsControllerLog, "GuidedActionsControllerLog")
 
 QGeoCoordinate QGroundControlQmlGlobal::_coord = QGeoCoordinate(0.0,0.0);
 double QGroundControlQmlGlobal::_zoom = 2;
@@ -137,7 +140,7 @@ QGroundControlQmlGlobal::QGroundControlQmlGlobal(QObject *parent)
     _zoom = settings.value(_flightMapZoomSettingsKey, _zoom).toDouble();
     _flightMapPositionSettledTimer.setSingleShot(true);
     _flightMapPositionSettledTimer.setInterval(1000);
-    connect(&_flightMapPositionSettledTimer, &QTimer::timeout, [](){
+    (void) connect(&_flightMapPositionSettledTimer, &QTimer::timeout, this, []() {
         // When they settle, save flightMapPosition and Zoom to the config file
         QSettings settings;
         settings.beginGroup(_flightMapPositionSettingsGroup);
@@ -259,18 +262,6 @@ void QGroundControlQmlGlobal::stopOneMockLink(void)
 #endif
 }
 
-void QGroundControlQmlGlobal::setIsVersionCheckEnabled(bool enable)
-{
-    MAVLinkProtocol::instance()->enableVersionCheck(enable);
-    emit isVersionCheckEnabledChanged(enable);
-}
-
-void QGroundControlQmlGlobal::setMavlinkSystemID(int id)
-{
-    MAVLinkProtocol::instance()->setSystemId(id);
-    emit mavlinkSystemIDChanged(id);
-}
-
 bool QGroundControlQmlGlobal::singleFirmwareSupport(void)
 {
     return FirmwarePluginManager::instance()->supportedFirmwareClasses().count() == 1;
@@ -322,9 +313,9 @@ void QGroundControlQmlGlobal::setFlightMapZoom(double zoom)
     }
 }
 
-QString QGroundControlQmlGlobal::qgcVersion(void) const
+QString QGroundControlQmlGlobal::qgcVersion(void)
 {
-    QString versionStr = qgcApp()->applicationVersion();
+    QString versionStr = QCoreApplication::applicationVersion();
     if(QSysInfo::buildAbi().contains("32"))
     {
         versionStr += QStringLiteral(" %1").arg(tr("32 bit"));
@@ -380,16 +371,6 @@ QString QGroundControlQmlGlobal::altitudeModeShortDescription(AltMode altMode)
     return QString();
 }
 
-bool QGroundControlQmlGlobal::isVersionCheckEnabled()
-{
-    return MAVLinkProtocol::instance()->versionCheckEnabled();
-}
-
-int QGroundControlQmlGlobal::mavlinkSystemID()
-{
-    return MAVLinkProtocol::instance()->getSystemId();
-}
-
 QString QGroundControlQmlGlobal::elevationProviderName()
 {
     return _settingsManager->flightMapSettings()->elevationMapProvider()->rawValue().toString();
@@ -417,15 +398,35 @@ QString QGroundControlQmlGlobal::telemetryFileExtension() const
 
 QString QGroundControlQmlGlobal::appName()
 {
-    return qgcApp()->applicationName();
+    return QCoreApplication::applicationName();
 }
 
 void QGroundControlQmlGlobal::deleteAllSettingsNextBoot()
 {
-    qgcApp()->deleteAllSettingsNextBoot();
+    QGCApplication::deleteAllSettingsNextBoot();
 }
 
 void QGroundControlQmlGlobal::clearDeleteAllSettingsNextBoot()
 {
-    qgcApp()->clearDeleteAllSettingsNextBoot();
+    QGCApplication::clearDeleteAllSettingsNextBoot();
+}
+
+QStringList QGroundControlQmlGlobal::loggingCategories()
+{
+    return QGCLoggingCategoryRegister::instance()->registeredCategories();
+}
+
+void QGroundControlQmlGlobal::setCategoryLoggingOn(const QString &category, bool enable)
+{
+    QGCLoggingCategoryRegister::setCategoryLoggingOn(category, enable);
+}
+
+bool QGroundControlQmlGlobal::categoryLoggingOn(const QString &category)
+{
+    return QGCLoggingCategoryRegister::categoryLoggingOn(category);
+}
+
+void QGroundControlQmlGlobal::updateLoggingFilterRules()
+{
+    QGCLoggingCategoryRegister::instance()->setFilterRulesFromSettings(QString());
 }

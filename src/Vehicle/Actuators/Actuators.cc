@@ -33,11 +33,12 @@ Actuators::Actuators(QObject* parent, Vehicle* vehicle)
     connect(&_motorAssignment, &MotorAssignment::onAbort, this, [this]() { highlightActuators(false); });
 }
 
-void Actuators::imageClicked(float x, float y)
+void Actuators::imageClicked(QSizeF displaySize, float x, float y)
 {
     GeometryImage::VehicleGeometryImageProvider* provider = GeometryImage::VehicleGeometryImageProvider::instance();
-    int motorIndex = provider->getHighlightedMotorIndexAtPos(QPointF{ x, y });
-    qCDebug(ActuatorsConfigLog) << "Image clicked:" << x << "," << y << "motor index:" << motorIndex;
+    QPointF clickPosition{ x, y };
+    int motorIndex = provider->getHighlightedMotorIndexAtPos(displaySize, clickPosition);
+    qCDebug(ActuatorsConfigLog) << "Image clicked: position:" << clickPosition << "displaySize:" << displaySize << "motor index:" << motorIndex;
 
     if (_motorAssignment.active()) {
         QList<ActuatorGeometry>& actuators = provider->actuators();
@@ -117,10 +118,13 @@ bool Actuators::isMultirotor() const
 
 void Actuators::load(const QString &json_file)
 {
-    QFile file;
-    file.setFileName(json_file);
-    file.open(QIODevice::ReadOnly | QIODevice::Text);
-    QString json_data = file.readAll();
+    QFile file(json_file);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qCWarning(ActuatorsConfigLog) << "Error opening json file" << file.fileName();
+        return;
+    }
+
+    const QString json_data = file.readAll();
     file.close();
 
     // store the metadata to be loaded later after all params are available

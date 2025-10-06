@@ -1,9 +1,0 @@
-Module QGroundControl.CustomControls
-
-CustomGuidedActionStartStopDetection    1.0 CustomGuidedActionStartStopDetection.qml
-CustomGuidedActionStartRotation         1.0 CustomGuidedActionStartRotation.qml
-CustomGuidedActionDownloadLogs          1.0 CustomGuidedActionDownloadLogs.qml
-CustomGuidedActionRawCapture            1.0 CustomGuidedActionRawCapture.qml
-CustomGuidedActionAutoTakeoffRotateRTL  1.0 CustomGuidedActionAutoTakeoffRotateRTL.qml
-TagInfoDialog                           1.0 TagInfoDialog.qml
-TagManufacturersDialog                  1.0 TagManufacturersDialog.qml

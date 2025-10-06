@@ -9,12 +9,14 @@
 
 #pragma once
 
-#include "QmlUnitsConversion.h"
-#include "QGCLoggingCategory.h"
-
-#include <QtCore/QTimer>
+#include <QtCore/QLoggingCategory>
 #include <QtCore/QPointF>
+#include <QtCore/QTimer>
 #include <QtPositioning/QGeoCoordinate>
+
+#include "QmlUnitsConversion.h"
+
+Q_DECLARE_LOGGING_CATEGORY(GuidedActionsControllerLog)
 
 class ADSBVehicleManager;
 class FactGroup;
@@ -108,10 +110,6 @@ public:
     Q_PROPERTY(qreal zOrderWaypointIndicators   READ zOrderWaypointIndicators   CONSTANT)
     Q_PROPERTY(qreal zOrderTrajectoryLines      READ zOrderTrajectoryLines      CONSTANT)
     Q_PROPERTY(qreal zOrderWaypointLines        READ zOrderWaypointLines        CONSTANT)
-    //-------------------------------------------------------------------------
-    // MavLink Protocol
-    Q_PROPERTY(bool     isVersionCheckEnabled   READ isVersionCheckEnabled      WRITE setIsVersionCheckEnabled      NOTIFY isVersionCheckEnabledChanged)
-    Q_PROPERTY(int      mavlinkSystemID         READ mavlinkSystemID            WRITE setMavlinkSystemID            NOTIFY mavlinkSystemIDChanged)
     Q_PROPERTY(bool     hasAPMSupport           READ hasAPMSupport              CONSTANT)
     Q_PROPERTY(bool     hasMAVLinkInspector     READ hasMAVLinkInspector        CONSTANT)
 
@@ -132,8 +130,8 @@ public:
     Q_INVOKABLE void    saveBoolGlobalSetting   (const QString& key, bool value);
     Q_INVOKABLE bool    loadBoolGlobalSetting   (const QString& key, bool defaultValue);
 
-    Q_INVOKABLE void    deleteAllSettingsNextBoot       ();
-    Q_INVOKABLE void    clearDeleteAllSettingsNextBoot  ();
+    Q_INVOKABLE static void deleteAllSettingsNextBoot();
+    Q_INVOKABLE static void clearDeleteAllSettingsNextBoot();
 
     Q_INVOKABLE void    startPX4MockLink            (bool sendStatusText);
     Q_INVOKABLE void    startGenericMockLink        (bool sendStatusText);
@@ -144,16 +142,16 @@ public:
     Q_INVOKABLE void    stopOneMockLink             (void);
 
     /// Returns the list of available logging category names.
-    Q_INVOKABLE QStringList loggingCategories(void) const { return QGCLoggingCategoryRegister::instance()->registeredCategories(); }
+    Q_INVOKABLE static QStringList loggingCategories();
 
     /// Turns on/off logging for the specified category. State is saved in app settings.
-    Q_INVOKABLE void setCategoryLoggingOn(const QString& category, bool enable) { QGCLoggingCategoryRegister::instance()->setCategoryLoggingOn(category, enable); }
+    Q_INVOKABLE static void setCategoryLoggingOn(const QString &category, bool enable);
 
     /// Returns true if logging is turned on for the specified category.
-    Q_INVOKABLE bool categoryLoggingOn(const QString& category) { return QGCLoggingCategoryRegister::instance()->categoryLoggingOn(category); }
+    Q_INVOKABLE static bool categoryLoggingOn(const QString &category);
 
     /// Updates the logging filter rules after settings have changed
-    Q_INVOKABLE void updateLoggingFilterRules(void) { QGCLoggingCategoryRegister::instance()->setFilterRulesFromSettings(QString()); }
+    Q_INVOKABLE static void updateLoggingFilterRules();
 
     Q_INVOKABLE bool linesIntersect(QPointF xLine1, QPointF yLine1, QPointF xLine2, QPointF yLine2);
 
@@ -162,7 +160,7 @@ public:
 
     // Property accessors
 
-    QString                 appName             ();
+    static QString appName();
     LinkManager*            linkManager         ()  { return _linkManager; }
     MultiVehicleManager*    multiVehicleManager ()  { return _multiVehicleManager; }
     QGCMapEngineManager*    mapEngineManager    ()  { return _mapEngineManager; }
@@ -194,8 +192,6 @@ public:
     qreal zOrderTrajectoryLines     () { return 48; }
     qreal zOrderWaypointLines       () { return 47; }
 
-    bool    isVersionCheckEnabled   ();
-    int     mavlinkSystemID         ();
 #if defined(QGC_NO_ARDUPILOT_DIALECT)
     bool    hasAPMSupport           () { return false; }
 #else
@@ -216,8 +212,6 @@ public:
     bool    px4ProFirmwareSupported ();
     bool    apmFirmwareSupported    ();
 
-    void    setIsVersionCheckEnabled    (bool enable);
-    void    setMavlinkSystemID          (int  id);
     void    setFlightMapPosition        (QGeoCoordinate& coordinate);
     void    setFlightMapZoom            (double zoom);
 
@@ -225,7 +219,7 @@ public:
     QString missionFileExtension    (void) const;
     QString telemetryFileExtension  (void) const;
 
-    QString qgcVersion              (void) const;
+    static QString qgcVersion();
 
 #ifdef QGC_UTM_ADAPTER
     UTMSPManager* utmspManager() {return _utmspManager;}
@@ -236,7 +230,6 @@ public:
 
 signals:
     void isMultiplexingEnabledChanged   (bool enabled);
-    void isVersionCheckEnabledChanged   (bool enabled);
     void mavlinkSystemIDChanged         (int id);
     void flightMapPositionChanged       (QGeoCoordinate flightMapPosition);
     void flightMapZoomChanged           (double flightMapZoom);

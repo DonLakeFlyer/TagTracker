@@ -14,6 +14,7 @@
 #include "QGCLoggingCategory.h"
 #include "QGCTemporaryFile.h"
 #include "SettingsManager.h"
+#include "MavlinkSettings.h"
 #include "AppSettings.h"
 #include "QmlObjectListModel.h"
 
@@ -37,7 +38,6 @@ MAVLinkProtocol::MAVLinkProtocol(QObject *parent)
 
 MAVLinkProtocol::~MAVLinkProtocol()
 {
-    _storeSettings();
     _closeLogFile();
 
     // qCDebug(MAVLinkProtocolLog) << Q_FUNC_INFO << this;
@@ -54,11 +54,7 @@ void MAVLinkProtocol::init()
         return;
     }
 
-    (void) memset(_firstMessage, 1, sizeof(_firstMessage));
-
     (void) connect(MultiVehicleManager::instance(), &MultiVehicleManager::vehicleRemoved, this, &MAVLinkProtocol::_vehicleCountChanged);
-
-    _loadSettings();
 
     _initialized = true;
 }
@@ -73,42 +69,12 @@ void MAVLinkProtocol::setVersion(unsigned version)
     _currentVersion = version;
 }
 
-void MAVLinkProtocol::_loadSettings()
-{
-    QSettings settings;
-    settings.beginGroup("QGC_MAVLINK_PROTOCOL");
-
-    enableVersionCheck(settings.value("VERSION_CHECK_ENABLED", versionCheckEnabled()).toBool());
-
-    bool ok = false;
-    const uint temp = settings.value("GCS_SYSTEM_ID", getSystemId()).toUInt(&ok);
-    if (ok && (temp > 0) && (temp < 256)) {
-        setSystemId(temp);
-    }
-
-    settings.endGroup();
-}
-
-void MAVLinkProtocol::_storeSettings() const
-{
-    QSettings settings;
-    settings.beginGroup("QGC_MAVLINK_PROTOCOL");
-
-    settings.setValue("VERSION_CHECK_ENABLED", versionCheckEnabled());
-    settings.setValue("GCS_SYSTEM_ID", getSystemId());
-
-    settings.endGroup();
-}
-
 void MAVLinkProtocol::resetMetadataForLink(LinkInterface *link)
 {
     const uint8_t channel = link->mavlinkChannel();
     _totalReceiveCounter[channel] = 0;
     _totalLossCounter[channel] = 0;
     _runningLossPercent[channel] = 0.f;
-    for (int i = 0; i < 256; i++) {
-        _firstMessage[channel][i] = 1;
-    }
 
     link->setDecodedFirstMavlinkPacket(false);
 }
@@ -155,8 +121,10 @@ void MAVLinkProtocol::receiveBytes(LinkInterface *link, const QByteArray &data)
 
         _updateVersion(link, mavlinkChannel);
         _updateCounters(mavlinkChannel, message);
-        _forward(message);
-        _forwardSupport(message);
+        if (!linkPtr->linkConfiguration()->isForwarding()) {
+            _forward(message);
+            _forwardSupport(message);
+        }
         _logData(link, message);
 
         if (!_updateStatus(link, linkPtr, mavlinkChannel, message)) {
@@ -186,32 +154,32 @@ void MAVLinkProtocol::_updateVersion(LinkInterface *link, uint8_t mavlinkChannel
 
 void MAVLinkProtocol::_updateCounters(uint8_t mavlinkChannel, const mavlink_message_t &message)
 {
-    uint8_t lastSeq = _lastIndex[message.sysid][message.compid];
-    uint8_t expectedSeq = lastSeq + 1;
     _totalReceiveCounter[mavlinkChannel]++;
-    if (_firstMessage[message.sysid][message.compid] != 0) {
-        _firstMessage[message.sysid][message.compid] = 0;
-        lastSeq = message.seq;
+
+    uint8_t &lastSeq = _lastIndex[message.sysid][message.compid];
+
+    const QPair<uint8_t,uint8_t> key(message.sysid, message.compid);
+    uint8_t expectedSeq;
+    if (!_firstMessageSeen.contains(key)) {
+        _firstMessageSeen.insert(key);
         expectedSeq = message.seq;
+    } else {
+        expectedSeq = lastSeq + 1;
     }
 
-    if (message.seq != expectedSeq) {
-        uint64_t lostMessages = message.seq;
-        if (message.seq < expectedSeq) {
-            lostMessages += 255;
-        }
-        lostMessages -= expectedSeq;
-        _totalLossCounter[mavlinkChannel] += lostMessages;
+    uint64_t lostMessages;
+    if (message.seq >= expectedSeq) {
+        lostMessages = message.seq - expectedSeq;
+    } else {
+        lostMessages = static_cast<uint64_t>(message.seq) + 256ULL - expectedSeq;
     }
+    _totalLossCounter[mavlinkChannel] += lostMessages;
 
-    _lastIndex[message.sysid][message.compid] = message.seq;
+    lastSeq = message.seq;
 
     const uint64_t totalSent = _totalReceiveCounter[mavlinkChannel] + _totalLossCounter[mavlinkChannel];
-    float receiveLossPercent = static_cast<float>(static_cast<double>(_totalLossCounter[mavlinkChannel]) / static_cast<double>(totalSent));
-    receiveLossPercent *= 100.0f;
-    receiveLossPercent *= 0.5f;
-    receiveLossPercent += (_runningLossPercent[mavlinkChannel] * 0.5f);
-    _runningLossPercent[mavlinkChannel] = receiveLossPercent;
+    const float currentLossPercent = (static_cast<double>(_totalLossCounter[mavlinkChannel]) / totalSent) * 100.0f;
+    _runningLossPercent[mavlinkChannel] = (currentLossPercent + _runningLossPercent[mavlinkChannel]) * 0.5f;
 }
 
 void MAVLinkProtocol::_forward(const mavlink_message_t &message)
@@ -220,7 +188,7 @@ void MAVLinkProtocol::_forward(const mavlink_message_t &message)
         return;
     }
 
-    if (!SettingsManager::instance()->appSettings()->forwardMavlink()->rawValue().toBool()) {
+    if (!SettingsManager::instance()->mavlinkSettings()->forwardMavlink()->rawValue().toBool()) {
         return;
     }
 
@@ -349,7 +317,7 @@ void MAVLinkProtocol::_startLogging()
     }
 
 #if defined(Q_OS_ANDROID) || defined(Q_OS_IOS)
-    if (!appSettings->telemetrySave()->rawValue().toBool()) {
+    if (!SettingsManager::instance()->mavlinkSettings()->telemetrySave()->rawValue().toBool()) {
         return;
     }
 #endif
@@ -379,8 +347,11 @@ void MAVLinkProtocol::_startLogging()
 void MAVLinkProtocol::_stopLogging()
 {
     if (_tempLogFile->isOpen() && _closeLogFile()) {
-        AppSettings *const appSettings = SettingsManager::instance()->appSettings();
-        if ((_vehicleWasArmed || appSettings->telemetrySaveNotArmed()->rawValue().toBool()) && appSettings->telemetrySave()->rawValue().toBool() && !appSettings->disableAllPersistence()->rawValue().toBool()) {
+        auto appSettings = SettingsManager::instance()->appSettings();
+        auto mavlinkSettings = SettingsManager::instance()->mavlinkSettings();
+        if ((_vehicleWasArmed || mavlinkSettings->telemetrySaveNotArmed()->rawValue().toBool()) && 
+                mavlinkSettings->telemetrySave()->rawValue().toBool() && 
+                !appSettings->disableAllPersistence()->rawValue().toBool()) {
             _saveTelemetryLog(_tempLogFile->fileName());
         } else {
             (void) QFile::remove(_tempLogFile->fileName());
@@ -468,25 +439,14 @@ bool MAVLinkProtocol::_checkTelemetrySavePath()
     return true;
 }
 
-void MAVLinkProtocol::setSystemId(int id)
-{
-    if (id != _systemId) {
-        _systemId = id;
-        emit systemIdChanged(_systemId);
-    }
-}
-
-void MAVLinkProtocol::enableVersionCheck(bool enabled)
-{
-    if (enabled != _enableVersionCheck) {
-        _enableVersionCheck = enabled;
-        emit versionCheckChanged(enabled);
-    }
-}
-
 void MAVLinkProtocol::_vehicleCountChanged()
 {
     if (MultiVehicleManager::instance()->vehicles()->count() == 0) {
         _stopLogging();
     }
+}
+
+int MAVLinkProtocol::getSystemId() const 
+{ 
+    return SettingsManager::instance()->mavlinkSettings()->gcsMavlinkSystemID()->rawValue().toInt(); 
 }

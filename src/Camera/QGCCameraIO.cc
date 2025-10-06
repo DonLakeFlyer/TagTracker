@@ -44,7 +44,7 @@ QGCCameraParamIO::QGCCameraParamIO(MavlinkCameraControl *control, Fact* fact, Ve
     }
     connect(&_paramWriteTimer,   &QTimer::timeout, this, &QGCCameraParamIO::_paramWriteTimeout);
     connect(_fact, &Fact::rawValueChanged, this, &QGCCameraParamIO::_factChanged);
-    connect(_fact, &Fact::_containerRawValueChanged, this, &QGCCameraParamIO::_containerRawValueChanged);
+    connect(_fact, &Fact::containerRawValueChanged, this, &QGCCameraParamIO::_containerRawValueChanged);
     //-- TODO: Even though we don't use anything larger than 32-bit, this should
     //   probably be updated.
     switch (_fact->type()) {
@@ -226,7 +226,7 @@ QGCCameraParamIO::handleParamAck(const mavlink_param_ext_ack_t& ack)
     if(ack.param_result == PARAM_ACK_ACCEPTED) {
         QVariant val = _valueFromMessage(ack.param_value, ack.param_type);
         if(_fact->rawValue() != val) {
-            _fact->_containerSetRawValue(val);
+            _fact->containerSetRawValue(val);
             if(_updateOnSet) {
                 _updateOnSet = false;
                 _control->factChanged(_fact);
@@ -251,7 +251,7 @@ QGCCameraParamIO::handleParamAck(const mavlink_param_ext_ack_t& ack)
         QVariant val = _valueFromMessage(ack.param_value, ack.param_type);
         if(_fact->rawValue() != val) {
             if(_control->validateParameter(_fact, val)) {
-                _fact->_containerSetRawValue(val);
+                _fact->containerSetRawValue(val);
             }
         }
     }
@@ -264,7 +264,8 @@ QGCCameraParamIO::handleParamValue(const mavlink_param_ext_value_t& value)
     _paramRequestTimer.stop();
     QVariant newValue = _valueFromMessage(value.param_value, value.param_type);
     if(_control->incomingParameter(_fact, newValue)) {
-        _fact->_containerSetRawValue(newValue);
+        _fact->containerSetRawValue(newValue);
+        _control->factChanged(_fact);
     }
     _paramRequestReceived = true;
     if(_forceUIUpdate) {
@@ -315,7 +316,13 @@ QGCCameraParamIO::_valueFromMessage(const char* value, uint8_t param_type)
             var = QVariant(static_cast<qulonglong>(u.param_int64));
             break;
         case MAV_PARAM_EXT_TYPE_CUSTOM:
-            var = QVariant(QByteArray(value, MAVLINK_MSG_PARAM_EXT_SET_FIELD_PARAM_VALUE_LEN));
+        {
+            // This will null terminate the name string
+            char strValueWithNull[MAVLINK_MSG_PARAM_EXT_SET_FIELD_PARAM_VALUE_LEN + 1] = {};
+            (void) strncpy(strValueWithNull, value, MAVLINK_MSG_PARAM_EXT_SET_FIELD_PARAM_VALUE_LEN);
+            const QString strValue(strValueWithNull);
+            var = QVariant(strValue);
+        }
             break;
         default:
             var = QVariant(0);

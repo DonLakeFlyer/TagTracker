@@ -23,6 +23,10 @@ Item {
 
     property real extraWidth: 0 ///< Extra width to add to the background rectangle
 
+    property alias factValueGrid:           factValueGrid
+    property alias settingsGroup:           factValueGrid.settingsGroup
+    property alias specificVehicleForCard:  factValueGrid.specificVehicleForCard
+
     Rectangle {
         id:         backgroundRect
         width:      control.width + extraWidth
@@ -39,7 +43,7 @@ Item {
         anchors.left:       parent.left
 
         RowLayout {
-            visible: valueArea.settingsUnlocked
+            visible: factValueGrid.settingsUnlocked
 
             QGCColoredImage {
                 source:             "qrc:/InstrumentValueIcons/lock-open.svg"
@@ -52,15 +56,13 @@ Item {
 
                 QGCMouseArea {
                     anchors.fill: parent
-                    onClicked:    valueArea.settingsUnlocked = false
+                    onClicked:    factValueGrid.settingsUnlocked = false
                 }
             }
         }
 
         HorizontalFactValueGrid {
-            id:                     valueArea
-            userSettingsGroup:      telemetryBarUserSettingsGroup
-            defaultSettingsGroup:   telemetryBarDefaultSettingsGroup
+            id: factValueGrid
         }
     }
 
@@ -72,17 +74,17 @@ Item {
         height:                     mainLayout.height
         acceptedButtons:            Qt.LeftButton | Qt.RightButton
         propagateComposedEvents:    true
-        visible:                    !valueArea.settingsUnlocked
+        visible:                    !factValueGrid.settingsUnlocked
 
         onClicked: (mouse) => {
             if (!ScreenTools.isMobile && mouse.button === Qt.RightButton) {
-                valueArea.settingsUnlocked = true
+                factValueGrid.settingsUnlocked = true
                 mouse.accepted = true
             }
         }
 
         onPressAndHold: {
-            valueArea.settingsUnlocked = true
+            factValueGrid.settingsUnlocked = true
             mouse.accepted = true
         }
     }

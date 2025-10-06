@@ -84,7 +84,6 @@ DEBIAN_FRONTEND=noninteractive apt-get -y --quiet install \
     gstreamer1.0-gl \
     gstreamer1.0-libav \
     gstreamer1.0-rtsp \
-    gstreamer1.0-vaapi \
     gstreamer1.0-x
 
 if apt-cache show gstreamer1.0-qt6 >/dev/null 2>&1 && apt-cache show gstreamer1.0-qt6 2>/dev/null | grep -q "^Package: gstreamer1.0-qt6"; then
@@ -92,17 +91,17 @@ if apt-cache show gstreamer1.0-qt6 >/dev/null 2>&1 && apt-cache show gstreamer1.
 fi
 
 # Exiv2
-DEBIAN_FRONTEND=noninteractive apt-get -y --quiet install \
-    libbrotli-dev \
-    libcurl4-openssl-dev \
-    libexiv2-dev \
-    libexpat1-dev \
-    libfmt-dev \
-    libinih-dev \
-    libssh-dev \
-    libxml2-utils \
-    libz-dev \
-    zlib1g-dev
+# DEBIAN_FRONTEND=noninteractive apt-get -y --quiet install \
+#     libbrotli-dev \
+#     libcurl4-openssl-dev \
+#     libexiv2-dev \
+#     libexpat1-dev \
+#     libfmt-dev \
+#     libinih-dev \
+#     libssh-dev \
+#     libxml2-utils \
+#     libz-dev \
+#     zlib1g-dev
 
 # Speech
 DEBIAN_FRONTEND=noninteractive apt-get -y --quiet install \
@@ -133,7 +132,6 @@ DEBIAN_FRONTEND=noninteractive apt-get -y --quiet install \
     flex \
     gobject-introspection \
     gvfs \
-    intel-media-va-driver \
     libasound2-dev \
     libass-dev \
     libdrm-dev \
@@ -163,6 +161,7 @@ DEBIAN_FRONTEND=noninteractive apt-get -y --quiet install \
     libopenjp2-7-dev \
     libopus-dev \
     liborc-0.4-dev \
+    libpipewire-0.3-dev \
     libpng-dev \
     libpulse-dev \
     libsoup2.4-dev \
@@ -205,6 +204,10 @@ elif apt-cache show libgeographiclib-dev >/dev/null 2>&1 && apt-cache show libge
     DEBIAN_FRONTEND=noninteractive apt-get install -y --quiet libgeographiclib-dev
 fi
 
+if apt-cache show intel-media-va-driver >/dev/null 2>&1 && apt-cache show intel-media-va-driver 2>/dev/null | grep -q "^Package: intel-media-va-driver"; then
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --quiet intel-media-va-driver
+fi
+
 # Vulkan
 # Ubuntu 20.04
 # wget -qO - http://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
@@ -213,3 +216,9 @@ fi
 # Ubuntu 22.04
 # wget -qO- https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo tee /etc/apt/trusted.gpg.d/lunarg.asc
 # wget -qO /etc/apt/sources.list.d/lunarg-vulkan-jammy.list http://packages.lunarg.com/vulkan/lunarg-vulkan-jammy.list
+
+# GCC 11
+# add-apt-repository ppa:ubuntu-toolchain-r/test
+# apt-get install gcc-11 g++-11
+# update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 100 --slave /usr/bin/g++ g++ /usr/bin/g++-11 --slave /usr/bin/gcov gcov /usr/bin/gcov-11
+# update-alternatives --set gcc /usr/bin/gcc-11

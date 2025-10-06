@@ -21,7 +21,7 @@ signals:
     void success();
 
 private slots:
-    void _mavCommandResult(int vehicleId, int component, int command, int result, bool noResponseFromVehicle);
+    void _mavCommandResult(int vehicleId, int component, int command, int result, int failureCode);
     void _disconnectAll();
 
 private:
