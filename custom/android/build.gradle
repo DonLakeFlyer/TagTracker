@@ -49,7 +49,7 @@ android {
      *******************************************************/
 
     // namespace = androidPackageName
-    namespace = "org.mavlink.qgroundcontrol"
+    namespace = "com.thegagnes.tagtracker"
     compileSdkVersion androidCompileSdkVersion
     buildToolsVersion androidBuildToolsVersion
     ndkVersion = androidNdkVersion
