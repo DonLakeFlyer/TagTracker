@@ -177,7 +177,7 @@ private:
     TunnelProtocol::PulseInfo_t _lastPulseInfo;
     QVariantList            _toolbarIndicators;
 
-    bool                    _controllerLostHeartbeat { false };
+    bool                    _controllerLostHeartbeat = true;
     QTimer                  _controllerHeartbeatTimer;
 
     int                     _curLogFileDownloadIndex;

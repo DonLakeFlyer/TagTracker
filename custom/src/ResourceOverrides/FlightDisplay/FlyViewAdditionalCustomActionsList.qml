@@ -25,6 +25,8 @@ Item {
     property var    _controllerStatus:      QGroundControl.corePlugin.controllerStatus
     property bool   _startDetectionEnabled: false
     property bool   _stopDetectionEnabled:  false
+    property var    _activeVehicle:         QGroundControl.multiVehicleManager.activeVehicle
+    property bool   _controllerAvailable:   _activeVehicle && !QGroundControl.corePlugin.controllerLostHeartbeat
 
     on_ControllerStatusChanged: _updateStartStop(_controllerStatus)
 
@@ -58,33 +60,33 @@ Item {
         {
             title:      _customController.startDetectionTitle,
             visible:    true,
-            enabled:    _startDetectionEnabled,
+            enabled:    _controllerAvailable && _startDetectionEnabled,
             action:     _customController.actionStartDetection,
         },
         {
             title:      _customController.stopDetectionTitle,
             visible:    true,
-            enabled:    _stopDetectionEnabled,
+            enabled:    _controllerAvailable && _stopDetectionEnabled,
             action:     _customController.actionStopDetection,
         },
         {
             title:      _customController.rawCaptureTitle,
             visible:    true,
-            enabled:    QGroundControl.multiVehicleManager.activeVehicle && (QGroundControl.corePlugin.controllerStatus == CustomPlugin.ControllerStatusHasTags || QGroundControl.corePlugin.controllerStatus == CustomPlugin.ControllerStatusIdle),
+            enabled:    _controllerAvailable && (QGroundControl.corePlugin.controllerStatus == CustomPlugin.ControllerStatusHasTags || QGroundControl.corePlugin.controllerStatus == CustomPlugin.ControllerStatusIdle),
             action:     _customController.actionRawCapture,
         },
 
         {
             title:      _customController.saveLogsTitle,
             visible:    true,
-            enabled:    true,
+            enabled:    _controllerAvailable,
             action:     _customController.actionSaveLogs,
         },
 
         {
             title:      _customController.clearLogsTitle,
             visible:    true,
-            enabled:    true,
+            enabled:    _controllerAvailable,
             action:     _customController.actionClearLogs,
         }
     ]

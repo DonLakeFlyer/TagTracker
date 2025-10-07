@@ -37,9 +37,13 @@ void CustomStateMachine::setError(const QString& errorString)
     bool rtlOnError = _eventMode & RTLOnError;
     qWarning(CustomPluginLog) << "errorString" << errorString << " - " << Q_FUNC_INFO;
     _errorString = errorString;
-    AudioOutput::instance()->say(QStringLiteral("%1 cancelled. %2").arg(objectName()).arg(rtlOnError ? "Returning" : "User is in control of vehicle"));
-    if (rtlOnError) {
-        _vehicle->setFlightMode(_vehicle->rtlFlightMode());
+    if (_vehicle->flying()) {
+        AudioOutput::instance()->say(QStringLiteral("%1 failed. %2").arg(objectName()).arg(rtlOnError ? "Returning" : "User is in control of vehicle"));
+        if (rtlOnError) {
+            _vehicle->setFlightMode(_vehicle->rtlFlightMode());
+        }
+    } else {
+        AudioOutput::instance()->say(QStringLiteral("%1 failed").arg(objectName()));
     }
     displayError();
     stop();
