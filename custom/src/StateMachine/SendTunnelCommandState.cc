@@ -1,6 +1,7 @@
 #include "SendTunnelCommandState.h"
 #include "CustomLoggingCategory.h"
 #include "TunnelProtocol.h"
+#include "DetectorList.h"
 
 #include "MultiVehicleManager.h"
 #include "Vehicle.h"
@@ -121,17 +122,29 @@ void SendTunnelCommandState::_handleTunnelCommandAck(const mavlink_tunnel_t& tun
     memcpy(&ack, tunnel.payload, sizeof(ack));
 
     if (ack.command == _sentTunnelCommand) {
+        auto sentTunnelCommand = _sentTunnelCommand;
+
         _disconnectAll();
 
         qCDebug(CustomPluginLog) << "Tunnel command ack received - command:result" << commandIdToText(ack.command) << ack.result;
         if (ack.result == COMMAND_RESULT_SUCCESS) {
             emit commandSucceeded();
         } else {
-            QString message = QStringLiteral("%1 failed. Bad command result: %2").arg(commandIdToText(_sentTunnelCommand)).arg(_commandResultToString(ack.result));
-            setError(message);
+            // Command failed
+            if (sentTunnelCommand == COMMAND_ID_START_DETECTION) {
+                // Special case for start detection failure, we want to clear the detector list
+                DetectorList::instance()->clear();
+            }
+            if (ack.message[0] != 0) {
+                // Failed with detailed message
+                QString message = QStringLiteral("%1 failed. %2").arg(commandIdToText(sentTunnelCommand)).arg(ack.message);
+                setError(message);
+            } else {
+                // Generic failure with no detailed message
+                QString message = QStringLiteral("%1 failed. Bad command result: %2").arg(commandIdToText(sentTunnelCommand)).arg(_commandResultToString(ack.result));
+                setError(message);
+            }
         }
-
-        _sentTunnelCommand = 0;
     } else {
         qWarning() << "SendTunnelCommandState::_handleTunnelCommandAck: Received unexpected command id ack expected:actual" <<
                       commandIdToText(_sentTunnelCommand) <<
