@@ -662,7 +662,7 @@ uint32_t TagDatabase::channelizerTuner()
         TagInfo* tagInfo = _tagInfoListModel->value<TagInfo*>(i);
 
         if (tagInfo->selected()->rawValue().toUInt()) {
-            freqListHz.push_back(tagInfo->_frequencyMHzFact->rawValue().toUInt() * 1000000);
+            freqListHz.push_back(tagInfo->_frequencyMHzFact->rawValue().toDouble() * 1000000);
         }
     }
 
