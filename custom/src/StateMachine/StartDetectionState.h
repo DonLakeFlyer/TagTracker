@@ -17,5 +17,7 @@ private:
     void _checkTuner();
     void _checkForSelectedTags();
 
+    void _startPulseLogging();
+    
     bool _channelizerTunerFailed = false;
 };
