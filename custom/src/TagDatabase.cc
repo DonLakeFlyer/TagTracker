@@ -235,6 +235,10 @@ TagDatabase::~TagDatabase()
 QObject* TagDatabase::newTagInfo()
 {
     TagInfo* tagInfo = new TagInfo(this);
+    if (_tagInfoListModel->count() == 0) {
+        // Ensure at least one tag is selected
+        tagInfo->_selectedFact->setRawValue(true);
+    }
     _tagInfoListModel->append(tagInfo);
     return tagInfo;
 }
@@ -262,7 +266,7 @@ bool TagDatabase::deleteTagManufacturerListItem(QObject* tagManufacturerListItem
     }
 
     delete _tagManufacturerListModel->removeOne(tagManufacturerListItem);
-    
+
     return true;
 }
 
@@ -286,7 +290,7 @@ QString TagDatabase::_tagInfoFilePath()
                         "%s/TagInfo.db",
                         SettingsManager::instance()->appSettings()->parameterSavePath().toStdString().c_str());
 }
-   
+
 QString TagDatabase::_tagManufacturerFilePath()
 {
     return QString::asprintf(
@@ -404,7 +408,7 @@ bool TagDatabase::_loadTagInfo(void)
     QString     strLine;
     QTextStream stream(&file);
     int         lineCount           = 0;
-    int         cExpectedValueCount = 5;   
+    int         cExpectedValueCount = 5;
 
     while (stream.readLineInto(&strLine)) {
         lineCount++;
@@ -500,7 +504,7 @@ bool TagDatabase::_loadTagManufacturer(void)
     QString     strLine;
     QTextStream stream(&file);
     int         lineCount           = 0;
-    int         cExpectedValueCount = 9;   
+    int         cExpectedValueCount = 9;
 
     while (stream.readLineInto(&strLine)) {
         lineCount++;
@@ -654,6 +658,11 @@ void TagDatabase::_setupTunerVars()
 // channels follow and wrap around back to the beginning of the bandwidth.
 uint32_t TagDatabase::channelizerTuner()
 {
+    if (_tagInfoListModel->count() == 0) {
+        qCritical() << "No tags in database for channelizerTuner";
+        return 0;
+    }
+
     _setupTunerVars();
 
     // Build the list of requested frequencies
@@ -667,8 +676,8 @@ uint32_t TagDatabase::channelizerTuner()
     }
 
     if (freqListHz.count() == 0) {
-        qCritical() << "No frequencies selected for channelizerTuner";
-        return 146000000;
+        qCritical() << "No tags selected for channelizerTuner";
+        return 0;
     }
 
     uint32_t freqMaxHz = *std::max_element(freqListHz.begin(), freqListHz.end());
