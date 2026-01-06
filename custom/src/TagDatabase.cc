@@ -659,7 +659,7 @@ void TagDatabase::_setupTunerVars()
 uint32_t TagDatabase::channelizerTuner()
 {
     if (_tagInfoListModel->count() == 0) {
-        qCritical() << "No TagInfo entries in database for channelizerTuner";
+        qCritical() << "No tags in database for channelizerTuner";
         return 0;
     }
 
