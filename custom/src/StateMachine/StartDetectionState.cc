@@ -31,17 +31,19 @@ StartDetectionState::StartDetectionState(QState* parentState)
         _channelizerTunerFailed = true;
     }
 
-    auto finalState                 = new QFinalState(this);
+    auto checkForSelectedTagsState  = new FunctionState("CheckForSelectedTags", this, std::bind(&StartDetectionState::_checkForSelectedTags, this));
     auto checkTunerState            = new FunctionState("CheckTuner", this, std::bind(&StartDetectionState::_checkTuner, this));
     auto sendTagsState              = new SendTagsState(this);
     auto sendStartDetectionState    = new SendTunnelCommandState("StartDetectionCommand", this, (uint8_t*)&startDetectionInfo, sizeof(startDetectionInfo));
+    auto finalState                 = new QFinalState(this);
 
     // Transitions
+    checkForSelectedTagsState->addTransition(this, &StartDetectionState::checkForSelectedTagsSucceeded, checkTunerState);
     checkTunerState->addTransition(this, &StartDetectionState::tunerSucceeded, sendTagsState);
     sendTagsState->addTransition(sendTagsState, &QState::finished, sendStartDetectionState);
     sendStartDetectionState->addTransition(sendStartDetectionState, &SendTunnelCommandState::commandSucceeded, finalState);
 
-    setInitialState(checkTunerState);
+    setInitialState(checkForSelectedTagsState);
 }
 
 void StartDetectionState::_checkTuner()
@@ -53,3 +55,18 @@ void StartDetectionState::_checkTuner()
     }
 }
 
+void StartDetectionState::_checkForSelectedTags()
+{
+    TagDatabase* tagDatabase = TagDatabase::instance();
+
+    for (int i=0; i<tagDatabase->tagInfoListModel()->count(); i++) {
+        TagInfo* tagInfo = tagDatabase->tagInfoListModel()->value<TagInfo*>(i);
+
+        if (tagInfo->selected()->rawValue().toUInt()) {
+            emit checkForSelectedTagsSucceeded();
+            return;
+        }
+    }
+
+    setError("No tags selected for detection");
+}

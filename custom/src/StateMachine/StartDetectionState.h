@@ -11,9 +11,11 @@ public:
 
 signals:
     void tunerSucceeded();
+    void checkForSelectedTagsSucceeded();
 
 private:
     void _checkTuner();
-    
+    void _checkForSelectedTags();
+
     bool _channelizerTunerFailed = false;
 };
