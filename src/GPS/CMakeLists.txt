@@ -46,7 +46,7 @@ include(CPM)
 CPMAddPackage(
     NAME px4-gpsdrivers
     GITHUB_REPOSITORY PX4/PX4-GPSDrivers
-    GIT_TAG main
+    GIT_TAG bbdd5767a961cc17bdcc577c79b1c708d2a7999a
     SOURCE_SUBDIR src
 )
 
