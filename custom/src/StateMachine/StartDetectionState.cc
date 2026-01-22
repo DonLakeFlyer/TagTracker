@@ -43,7 +43,7 @@ StartDetectionState::StartDetectionState(QState* parentState)
     checkTunerState->addTransition(this, &StartDetectionState::tunerSucceeded, sendTagsState);
     sendTagsState->addTransition(sendTagsState, &QState::finished, sendStartDetectionState);
     sendStartDetectionState->addTransition(sendStartDetectionState, &SendTunnelCommandState::commandSucceeded, startPulseLoggingState);
-    startPulseLoggingState->addTransition(startPulseLoggingState, &QState::finished, finalState);
+    startPulseLoggingState->addTransition(startPulseLoggingState, &FunctionState::functionCompleted, finalState);
 
     setInitialState(checkForSelectedTagsState);
 }
