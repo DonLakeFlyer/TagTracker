@@ -437,7 +437,7 @@ bool Bootloader::_ihxProgram(const FirmwareImage* image)
         }
 
         if (failed) {
-            _errorString = tr("Unable to set flash start address: 0x%2").arg(flashAddress, 8, 16, QLatin1Char('0'));
+            _errorString = tr("Unable to set flash start address: 0x%1").arg(flashAddress, 8, 16, QLatin1Char('0'));
             return false;
         }
 
