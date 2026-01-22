@@ -35,8 +35,8 @@ StartDetectionState::StartDetectionState(QState* parentState)
     auto checkTunerState            = new FunctionState("CheckTuner", this, std::bind(&StartDetectionState::_checkTuner, this));
     auto sendTagsState              = new SendTagsState(this);
     auto sendStartDetectionState    = new SendTunnelCommandState("StartDetectionCommand", this, (uint8_t*)&startDetectionInfo, sizeof(startDetectionInfo));
-    auto finalState                 = new QFinalState(this);
     auto startPulseLoggingState     = new FunctionState("StartPulseLogging", this, std::bind(&StartDetectionState::_startPulseLogging, this));
+    auto finalState                 = new QFinalState(this);
 
     // Transitions
     checkForSelectedTagsState->addTransition(this, &StartDetectionState::checkForSelectedTagsSucceeded, checkTunerState);
