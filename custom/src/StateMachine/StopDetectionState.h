@@ -11,4 +11,5 @@ public:
 
 private:
     void _clearDetectorList();
+    void _stopPulseLogging();
 };

@@ -35,13 +35,15 @@ StartDetectionState::StartDetectionState(QState* parentState)
     auto checkTunerState            = new FunctionState("CheckTuner", this, std::bind(&StartDetectionState::_checkTuner, this));
     auto sendTagsState              = new SendTagsState(this);
     auto sendStartDetectionState    = new SendTunnelCommandState("StartDetectionCommand", this, (uint8_t*)&startDetectionInfo, sizeof(startDetectionInfo));
+    auto startPulseLoggingState     = new FunctionState("StartPulseLogging", this, std::bind(&StartDetectionState::_startPulseLogging, this));
     auto finalState                 = new QFinalState(this);
 
     // Transitions
     checkForSelectedTagsState->addTransition(this, &StartDetectionState::checkForSelectedTagsSucceeded, checkTunerState);
     checkTunerState->addTransition(this, &StartDetectionState::tunerSucceeded, sendTagsState);
     sendTagsState->addTransition(sendTagsState, &QState::finished, sendStartDetectionState);
-    sendStartDetectionState->addTransition(sendStartDetectionState, &SendTunnelCommandState::commandSucceeded, finalState);
+    sendStartDetectionState->addTransition(sendStartDetectionState, &SendTunnelCommandState::commandSucceeded, startPulseLoggingState);
+    startPulseLoggingState->addTransition(startPulseLoggingState, &FunctionState::functionCompleted, finalState);
 
     setInitialState(checkForSelectedTagsState);
 }
@@ -69,4 +71,9 @@ void StartDetectionState::_checkForSelectedTags()
     }
 
     setError("No tags selected for detection");
+}
+
+void StartDetectionState::_startPulseLogging()
+{
+    qobject_cast<CustomPlugin*>(CustomPlugin::instance())->csvLogManager().csvStartFullPulseLog();
 }
