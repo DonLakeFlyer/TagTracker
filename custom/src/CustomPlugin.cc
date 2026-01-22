@@ -246,7 +246,7 @@ void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& 
             }
         }
     } else {
-#if 0        
+#if 0
         qCDebug(CustomPluginLog) << Qt::fixed << qSetRealNumberPrecision(2) <<
                                     "Unconfirmed tag_id" <<
                                     pulseInfo.tag_id <<
@@ -254,7 +254,7 @@ void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& 
                                     pulseInfo.snr <<
                                     "stft_score" <<
                                     pulseInfo.stft_score;
-#endif                                    
+#endif
     }
 
 }
@@ -273,9 +273,9 @@ void CustomPlugin::autoDetection()
     auto stateMachine = new CustomStateMachine("Auto Detection", this);
 
     auto announceAutoStartState = new SayState("AnnounceAuto", stateMachine, "Starting auto detection");
+    auto startDetectionState    = new StartDetectionState(stateMachine);
     auto takeoffState           = new TakeoffState(stateMachine, _customSettings->takeoffAltitude()->rawValue().toDouble());
     auto eventModeRTLState      = new FunctionState("eventModeRTLState", stateMachine, [stateMachine] () { stateMachine->setEventMode(CustomStateMachine::CancelOnFlightModeChange | CustomStateMachine::RTLOnError); });
-    auto startDetectionState    = new StartDetectionState(stateMachine);
     auto rotateAndCaptureState  = new FullRotateAndCaptureState(stateMachine);
     auto stopDetectionState     = new StopDetectionState(stateMachine);
     auto announceAutoEndState   = new SayState("AnnounceAutoEnd", stateMachine, "Auto detection complete. Returning");
@@ -284,10 +284,10 @@ void CustomPlugin::autoDetection()
     auto finalState             = new QFinalState(stateMachine);
 
     // Transitions
-    announceAutoStartState->addTransition   (announceAutoStartState,    &SayState::functionCompleted,       takeoffState);
+    announceAutoStartState->addTransition   (announceAutoStartState,    &SayState::functionCompleted,       startDetectionState);
+    startDetectionState->addTransition      (startDetectionState,       &CustomState::finished,             takeoffState);
     takeoffState->addTransition             (takeoffState,              &TakeoffState::takeoffComplete,     eventModeRTLState);
-    eventModeRTLState->addTransition        (eventModeRTLState,         &FunctionState::functionCompleted,  startDetectionState);
-    startDetectionState->addTransition      (startDetectionState,       &CustomState::finished,             rotateAndCaptureState);
+    eventModeRTLState->addTransition        (eventModeRTLState,         &FunctionState::functionCompleted,  rotateAndCaptureState);
     rotateAndCaptureState->addTransition    (rotateAndCaptureState,     &QState::finished,                  eventModeNoneState);
     eventModeNoneState->addTransition       (eventModeNoneState,        &FunctionState::functionCompleted,  stopDetectionState);
     stopDetectionState->addTransition       (stopDetectionState,        &CustomState::finished,             announceAutoEndState);
