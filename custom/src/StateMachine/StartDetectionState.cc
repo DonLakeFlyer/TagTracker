@@ -26,6 +26,7 @@ StartDetectionState::StartDetectionState(QState* parentState)
     startDetectionInfo.header.command               = COMMAND_ID_START_DETECTION;
     startDetectionInfo.radio_center_frequency_hz    = TagDatabase::instance()->channelizerTuner();
     startDetectionInfo.gain                         = qobject_cast<CustomPlugin*>(CustomPlugin::instance())->customSettings()->gain()->rawValue().toUInt();
+    startDetectionInfo.detection_mode               = qobject_cast<CustomPlugin*>(CustomPlugin::instance())->customSettings()->detectionMode()->rawValue().toUInt();
 
     if (startDetectionInfo.radio_center_frequency_hz == 0) {
         _channelizerTunerFailed = true;
