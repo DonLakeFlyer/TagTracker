@@ -110,6 +110,14 @@
     "enumStrings":      "Omni,Directional",
     "enumValues":       "0,1",
     "default":          1
+},
+{
+    "name":             "detectionMode",
+    "shortDesc":        "Detection Mode",
+    "type":             "uint32",
+    "enumStrings":      "uavrt_detection,Python K=5",
+    "enumValues":       "0,1",
+    "default":          0
 }
 ]
 }

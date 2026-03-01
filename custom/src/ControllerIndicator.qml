@@ -75,9 +75,9 @@ Item {
                         id:                     pulseRect
                         Layout.fillHeight:      true
                         Layout.preferredWidth:  ScreenTools.defaultFontPixelWidth * 20
-                        color:                  object.heartbeatLost ? 
+                        color:                  object.heartbeatLost ?
                                                     "red" :
-                                                    object.lastPulseStale ? "yellow" : "transparent" 
+                                                    object.lastPulseStale ? "yellow" : "transparent"
 
                         Rectangle {
                             anchors.rightMargin:    ((maxStrength - filteredSNR) / maxStrength) *  parent.width
@@ -153,8 +153,8 @@ Item {
                 Repeater {
                     model: tagDatabase.tagInfoList
 
-                    FactCheckBox { 
-                        fact:       object.selected 
+                    FactCheckBox {
+                        fact:       object.selected
                         onClicked:  tagDatabase.save()
 
                         onCheckedChanged: {
@@ -220,7 +220,7 @@ Item {
 
                     QGCButton {
                         text:       qsTr("Add Tag")
-                        onClicked: { 
+                        onClicked: {
                             if (tagDatabase.tagManufacturerList.count == 0) {
                                 mainWindow.showMessageDialog(qsTr("Add Tag"), qsTr("You must add a Manufacturer first."))
                             } else {
@@ -259,6 +259,12 @@ Item {
                     Layout.fillWidth:   true
                     label:              fact.shortDescription
                     fact:               _customSettings.gain
+                }
+
+                LabelledFactComboBox {
+                    Layout.fillWidth:   true
+                    label:              fact.shortDescription
+                    fact:               _customSettings.detectionMode
                 }
             }
 

@@ -14,7 +14,7 @@
 class CustomSettings : public SettingsGroup
 {
     Q_OBJECT
-    
+
 public:
     CustomSettings(QObject* parent = nullptr);
 
@@ -34,6 +34,7 @@ public:
     DEFINE_SETTINGFACT(autoTakeoffRotateRTL)
     DEFINE_SETTINGFACT(allowMultiTagDetection)
     DEFINE_SETTINGFACT(rotationType)
+    DEFINE_SETTINGFACT(detectionMode)
 
     enum AntennaType {
         OmniAntenna = 0,
