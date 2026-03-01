@@ -76,4 +76,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ARTIFACT }}
-          path: ${{ runner.temp }}/shadow_build_dir/${{ env.ARTIFACT }}
+          path: ${{ runner.temp }}/shadow_build_dir/${{ matrix.BuildType }}/${{ env.ARTIFACT }}
