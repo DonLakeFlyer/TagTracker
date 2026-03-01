@@ -143,5 +143,5 @@ target_include_directories(CustomPlugin
         src/StateMachine
         matlab-coder-utils/coder-headers
         uavrt_bearing/codegen/exe/bearing
-        uavrt_interfaces/include/uavrt_interfaces
+        tunnel-protocol
 )
