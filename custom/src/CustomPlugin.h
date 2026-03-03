@@ -23,7 +23,7 @@ class QState;
 
 using namespace TunnelProtocol;
 
-class CustomPlugin : 
+class CustomPlugin :
 #ifdef TAG_TRACKER_HERELINK_BUILD
     public HerelinkCorePlugin
 #else
@@ -111,6 +111,7 @@ signals:
     void _stopDetectionFailed           (void);
     void activeRotationChanged          (bool activeRotation);
     void detectorHeartbeatReceived      (int oneBasedRateIndex);
+    void pythonDetectorResultReceived   (uint32_t tagId);  // confirmed pulse or no-pulse in Python mode
 
 private slots:
     void _controllerHeartbeatFailed(void);

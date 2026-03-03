@@ -7,7 +7,8 @@ class StartDetectionState : public CustomState
     Q_OBJECT
 
 public:
-    StartDetectionState(QState* parentState);
+    // sendCommand=false skips sending START_DETECTION (Python mode manages it per-slice)
+    StartDetectionState(QState* parentState, bool sendCommand = true);
 
 signals:
     void tunerSucceeded();

@@ -7,6 +7,7 @@
 #include "SendTunnelCommandState.h"
 #include "FullRotateAndCaptureState.h"
 #include "SmartRotateAndCaptureState.h"
+#include "PythonRotateAndCaptureState.h"
 #include "TakeoffState.h"
 #include "SetFlightModeState.h"
 #include "StartDetectionState.h"
@@ -218,6 +219,11 @@ void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& 
         if (isDetectorHeartbeat) {
             emit detectorHeartbeatReceived(pulseInfo.tag_id % 2 ? 1 : 2 /* oneBaseRateIndex */);
         } else {
+            // Notify Python rotation state machine that this detector has a result
+            if (_customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON) {
+                emit pythonDetectorResultReceived(pulseInfo.tag_id);
+            }
+
             _csvLogManager.csvLogPulse(pulseInfo);
 
             if (qIsNaN(_minSNR) || pulseInfo.snr < _minSNR) {
@@ -246,15 +252,11 @@ void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& 
             }
         }
     } else {
-#if 0
-        qCDebug(CustomPluginLog) << Qt::fixed << qSetRealNumberPrecision(2) <<
-                                    "Unconfirmed tag_id" <<
-                                    pulseInfo.tag_id <<
-                                    "snr" <<
-                                    pulseInfo.snr <<
-                                    "stft_score" <<
-                                    pulseInfo.stft_score;
-#endif
+        // detection_status==3 means the Python detector completed a scan cycle and found no pulse
+        if (pulseInfo.detection_status == 3 && _customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON) {
+            qCDebug(CustomPluginLog) << "No-pulse (detection_status=3) for tag_id" << pulseInfo.tag_id << " - " << Q_FUNC_INFO;
+            emit pythonDetectorResultReceived(pulseInfo.tag_id);
+        }
     }
 
 }
@@ -273,11 +275,14 @@ void CustomPlugin::autoDetection()
     auto stateMachine = new CustomStateMachine("Auto Detection", this);
 
     auto announceAutoStartState = new SayState("AnnounceAuto", stateMachine, "Starting auto detection");
-    auto startDetectionState    = new StartDetectionState(stateMachine);
     auto takeoffState           = new TakeoffState(stateMachine, _customSettings->takeoffAltitude()->rawValue().toDouble());
     auto eventModeRTLState      = new FunctionState("eventModeRTLState", stateMachine, [stateMachine] () { stateMachine->setEventMode(CustomStateMachine::CancelOnFlightModeChange | CustomStateMachine::RTLOnError); });
-    auto rotateAndCaptureState  = new FullRotateAndCaptureState(stateMachine);
-    auto stopDetectionState     = new StopDetectionState(stateMachine);
+    const bool isPythonMode     = _customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON;
+    auto startDetectionState    = new StartDetectionState(stateMachine, !isPythonMode);
+    auto stopDetectionState     = new StopDetectionState(stateMachine, !isPythonMode);
+    CustomState* rotateAndCaptureState = isPythonMode
+                                        ? static_cast<CustomState*>(new PythonRotateAndCaptureState(stateMachine))
+                                        : static_cast<CustomState*>(new FullRotateAndCaptureState(stateMachine));
     auto announceAutoEndState   = new SayState("AnnounceAutoEnd", stateMachine, "Auto detection complete. Returning");
     auto eventModeNoneState     = new FunctionState("eventModeNoneState", stateMachine, [stateMachine] () { stateMachine->setEventMode(0); });
     auto rtlState               = new SetFlightModeState(stateMachine, MultiVehicleManager::instance()->activeVehicle()->rtlFlightMode());
@@ -308,17 +313,20 @@ void CustomPlugin::startRotation(void)
     // States
 
     bool needStartDetection = _controllerStatus != ControllerStatusDetecting;
+    const bool isPythonMode   = _customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON;
 
     StartDetectionState* startDetectionState = nullptr;
     StopDetectionState* stopDetectionState = nullptr;
     if (needStartDetection) {
-        startDetectionState = new StartDetectionState(stateMachine);
-        stopDetectionState = new StopDetectionState(stateMachine);
+        startDetectionState = new StartDetectionState(stateMachine, !isPythonMode);
+        stopDetectionState = new StopDetectionState(stateMachine, !isPythonMode);
     }
     auto finalState = new QFinalState(stateMachine);
 
     CustomState* rotateState = nullptr;
-    if (_customSettings->rotationType()->rawValue().toInt() == 1) {
+    if (_customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON) {
+        rotateState = new PythonRotateAndCaptureState(stateMachine);
+    } else if (_customSettings->rotationType()->rawValue().toInt() == 1) {
         rotateState = new FullRotateAndCaptureState(stateMachine);
     } else {
         rotateState = new SmartRotateAndCaptureState(stateMachine);
