@@ -22,6 +22,7 @@ public:
     CustomStateMachine(const QString& machineName, QObject* parent = nullptr);
 
     void setError(const QString& errorString);
+    void registerStopHandler(std::function<void()> handler) { _stopHandler = handler; }
 
     enum {
         CancelOnFlightModeChange = 0x01,
@@ -41,9 +42,10 @@ private slots:
 private:
     void _init();
 
-    Vehicle*    _vehicle = nullptr;
-    QString     _errorString;
-    uint        _eventMode = 0;
+    Vehicle*                _vehicle = nullptr;
+    QString                 _errorString;
+    uint                    _eventMode = 0;
+    std::function<void()>   _stopHandler;
 
     friend class CustomState;
 };

@@ -300,7 +300,7 @@ void CustomPlugin::autoDetection()
     rtlState->addTransition                 (rtlState,                  &QState::finished,                  finalState);
 
     if (isPythonMode) {
-        connect(stateMachine, &CustomStateMachine::stopped, this, &CustomPlugin::_sendStopDetectionDirect);
+        stateMachine->registerStopHandler([this]() { _sendStopDetectionDirect(); });
     }
 
     stateMachine->setInitialState(announceAutoStartState);
@@ -346,7 +346,7 @@ void CustomPlugin::startRotation(void)
     }
 
     if (isPythonMode) {
-        connect(stateMachine, &CustomStateMachine::stopped, this, &CustomPlugin::_sendStopDetectionDirect);
+        stateMachine->registerStopHandler([this]() { _sendStopDetectionDirect(); });
     }
 
     stateMachine->setInitialState(startDetectionState ? startDetectionState : rotateState);
