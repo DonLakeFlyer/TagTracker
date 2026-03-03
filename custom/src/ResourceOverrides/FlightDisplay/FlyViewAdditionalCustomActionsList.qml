@@ -56,7 +56,7 @@ Item {
         }
     }
 
-    property var model: [ 
+    property var model: [
         {
             title:      _customController.startDetectionTitle,
             visible:    true,
@@ -88,6 +88,13 @@ Item {
             visible:    true,
             enabled:    _controllerAvailable,
             action:     _customController.actionClearLogs,
+        },
+
+        {
+            title:      _customController.clearMapTitle,
+            visible:    true,
+            enabled:    QGroundControl.corePlugin.customMapItems.count > 0 && !QGroundControl.corePlugin.activeRotation,
+            action:     _customController.actionClearMap,
         }
     ]
 }

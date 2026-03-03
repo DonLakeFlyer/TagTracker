@@ -75,14 +75,6 @@ Item {
         height:             parent.height - (anchors.margins * 2) - parentToolInsets.bottomEdgeRightInset
         spacing:            ScreenTools.defaultFontPixelHeight / 4
 
-        QGCButton {
-            Layout.alignment:   Qt.AlignHCenter
-            text:               qsTr("Clear Map")
-            onClicked:          _customPlugin.clearMap()
-            enabled:            !_customPlugin.activeRotation
-            visible:           _customPlugin.customMapItems.count
-        }
-
         Rectangle {
             id:                 snrGradient
             Layout.alignment:   Qt.AlignRight
