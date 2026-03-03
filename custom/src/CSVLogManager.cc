@@ -26,7 +26,7 @@ QString CSVLogManager::logSavePath(void)
 void CSVLogManager::csvStartFullPulseLog(void)
 {
     if (_csvFullPulseLogFile.isOpen()) {
-        qgcApp()->showAppMessage("Unabled to open full pulse csv log file - csvFile already open");
+        qgcApp()->showAppMessage("Unable to open full pulse csv log file - csvFile already open");
         return;
     }
 
@@ -56,7 +56,7 @@ void CSVLogManager::csvClearPrevRotationLogs(void)
 void CSVLogManager::csvStartRotationPulseLog()
 {
     if (_csvRotationPulseLogFile.isOpen()) {
-        qgcApp()->showAppMessage("Unabled to open rotation pulse csv log file - csvFile already open");
+        qgcApp()->showAppMessage("Unable to open rotation pulse csv log file - csvFile already open");
         return;
     }
 
@@ -74,7 +74,7 @@ void CSVLogManager::csvStopRotationPulseLog(bool calcBearing)
         csvLogRotationStop();
         _csvRotationPulseLogFile.close();
 
-#if 0        
+#if 0
         if (calcBearing) {
             coder::array<char, 2U> rotationFileNameAsArray;
             std::string rotationFileName = _csvRotationPulseLogFile.fileName().toStdString();
@@ -92,7 +92,7 @@ void CSVLogManager::csvStopRotationPulseLog(bool calcBearing)
             qCDebug(CustomPluginLog) << "Calculated bearing:" << _rgCalcedBearings.last();
             FIX ME emit calcedBearingsChanged();
         }
-#endif        
+#endif
     }
 }
 

@@ -61,8 +61,6 @@ qt_add_library(CustomPlugin STATIC
     src/HerelinkCorePlugin.h
     src/HerelinkOptions.cc
     src/HerelinkOptions.h
-    src/PulseInfoList.cc
-    src/PulseInfoList.h
     src/PulseRoseMapItem.h
     src/PulseMapItem.h
     src/RotationInfo.cc

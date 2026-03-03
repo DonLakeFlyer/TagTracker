@@ -154,7 +154,7 @@ void SendTunnelCommandState::_handleTunnelCommandAck(const mavlink_tunnel_t& tun
 
 void SendTunnelCommandState::_ackResponseTimedOut(void)
 {
-    QString message = QStringLiteral("%1 failed. No response from vehicle after %1 retries.").arg(commandIdToText(_sentTunnelCommand)).arg(_retryCount);
+    QString message = QStringLiteral("%1 failed. No response from vehicle after %2 retries.").arg(commandIdToText(_sentTunnelCommand)).arg(_retryCount);
 
     _disconnectAll();
 

@@ -8,7 +8,6 @@
 
 class FactMetaData;
 class TagDatabase;
-class TagDatabase;
 
 class TagInfo : public QObject
 {
@@ -41,7 +40,7 @@ private:
     void _initCommon(TagDatabase* parent);
     void _init(bool selected, uint32_t id, const QString& name, uint32_t manufacturedId, double frequencyMHz);
     QString _nextTagName();
-    
+
     TagDatabase*                    _parent             = nullptr;
     QMap<QString, FactMetaData*>    _tagInfoMetaData;
     Fact*                           _selectedFact       = nullptr;
@@ -62,11 +61,11 @@ public:
     TagManufacturer(TagDatabase* parent);
     TagManufacturer(uint32_t        id,
                     const QString&  name,
-                    uint32_t        ip_msecs_1, 
-                    uint32_t        ip_msecs_2, 
+                    uint32_t        ip_msecs_1,
+                    uint32_t        ip_msecs_2,
                     const QString&  ip_msecs_1_id,
                     const QString&  ip_msecs_2_id,
-                    uint32_t        pulse_width_msecs, 
+                    uint32_t        pulse_width_msecs,
                     uint32_t        ip_uncertainty_msecs,
                     uint32_t        ip_jitter_msecs,
                     TagDatabase*    parent);
@@ -96,11 +95,11 @@ private:
     void _init(
             uint32_t        id,
             const QString&  name,
-            uint32_t        ip_msecs_1, 
-            uint32_t        ip_msecs_2, 
+            uint32_t        ip_msecs_1,
+            uint32_t        ip_msecs_2,
             const QString&  ip_msecs_1_id,
             const QString&  ip_msecs_2_id,
-            uint32_t        pulse_width_msecs, 
+            uint32_t        pulse_width_msecs,
             uint32_t        ip_uncertainty_msecs,
             uint32_t        ip_jitter_msecs);
     QString _nextManufacturerName();
@@ -165,7 +164,7 @@ private:
     void    _printChannelMap    (const uint32_t centerFreqHz, const QVector<uint32_t>& wrappedRequestedFreqsHz);
     int     _firstChannelFreqHz (const int centerFreq);
     void    _updateNextIds      ();
-    
+
 private:
     QmlObjectListModel* _tagInfoListModel           = nullptr;
     QmlObjectListModel* _tagManufacturerListModel   = nullptr;

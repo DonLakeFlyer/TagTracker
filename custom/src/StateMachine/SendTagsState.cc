@@ -35,7 +35,6 @@ SendTagsState::SendTagsState(QState* parent)
     auto sendStartTags      = _sendStartTagsState(this);
     auto sendEndTags        = _sendEndTagsState(this);
     auto setupDetectorList  = new FunctionState("SetupDetectorList", this, std::bind(&SendTagsState::_setupDetectorList, this));
-    auto errorState         = new QState(this);
     auto finalState         = new QFinalState(this);
 
     // States for each Send tag
@@ -74,12 +73,6 @@ SendTagsState::SendTagsState(QState* parent)
 
     // Setup detector list -> Final State
     setupDetectorList->addTransition(setupDetectorList, &QState::entered, finalState);
-
-    // Error handling
-    connect(errorState, &QState::exited, this, [this]() {
-        this->setError("SendTagsState error: command failed");
-    });
-    errorState->addTransition(errorState, &QState::entered, finalState);
 
     this->setInitialState(sendStartTags);
 }

@@ -56,8 +56,6 @@ CustomPlugin::CustomPlugin(QObject* parent)
 #else
     : QGCCorePlugin         (parent)
 #endif
-    , _vehicleStateIndex    (0)
-    , _flightStateMachineActive  (false)
     , _vehicleFrequency     (0)
     , _lastPulseSendIndex   (-1)
     , _missedPulseCount     (0)
@@ -172,6 +170,7 @@ void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& 
 {
     if (tunnel.payload_length != sizeof(PulseInfo_t)) {
         qWarning() << "_handleTunnelPulse Received incorrectly sized PulseInfo payload expected:actual" <<  sizeof(PulseInfo_t) << tunnel.payload_length;
+        return;
     }
 
     detectorList()->handleTunnelPulse(tunnel);
@@ -393,7 +392,6 @@ void CustomPlugin::rawCapture(void)
 
     auto stateMachine = new CustomStateMachine("RawCapture", this);
 
-    auto errorState = stateMachine->errorState();
     auto finalState = new QFinalState(stateMachine);
 
     auto sendTagsState          = new SendTagsState(stateMachine);
