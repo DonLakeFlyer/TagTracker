@@ -2,6 +2,8 @@
 
 TagTracker is a custom [QGroundControl](https://github.com/mavlink/qgroundcontrol) build for **wildlife radio-tag tracking from drones**. It extends QGC with specialized UI, state machines, and a tunnel protocol to communicate with an onboard companion computer running SDR (Software Defined Radio) hardware for detecting VHF radio-tag pulses from wildlife tags.
 
+![TagTracker rotation capture](README-assets/rotation-screenshot.jpg)
+
 ## How It Works
 
 1. Tag definitions (frequency, pulse timing) are uploaded to an onboard companion computer via MAVLink tunnel messages.
