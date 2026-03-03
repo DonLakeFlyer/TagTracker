@@ -16,17 +16,18 @@
 
 using namespace TunnelProtocol;
 
-StartDetectionState::StartDetectionState(QState* parentState)
+StartDetectionState::StartDetectionState(QState* parentState, bool sendCommand)
     : CustomState("StartDetectionState", parentState)
 {
     StartDetectionInfo_t startDetectionInfo;
 
     memset(&startDetectionInfo, 0, sizeof(startDetectionInfo));
 
+    auto customPlugin = qobject_cast<CustomPlugin*>(CustomPlugin::instance());
     startDetectionInfo.header.command               = COMMAND_ID_START_DETECTION;
     startDetectionInfo.radio_center_frequency_hz    = TagDatabase::instance()->channelizerTuner();
-    startDetectionInfo.gain                         = qobject_cast<CustomPlugin*>(CustomPlugin::instance())->customSettings()->gain()->rawValue().toUInt();
-    startDetectionInfo.detection_mode               = qobject_cast<CustomPlugin*>(CustomPlugin::instance())->customSettings()->detectionMode()->rawValue().toUInt();
+    startDetectionInfo.gain                         = customPlugin->customSettings()->gain()->rawValue().toUInt();
+    startDetectionInfo.detection_mode               = customPlugin->customSettings()->detectionMode()->rawValue().toUInt();
 
     if (startDetectionInfo.radio_center_frequency_hz == 0) {
         _channelizerTunerFailed = true;
@@ -35,15 +36,22 @@ StartDetectionState::StartDetectionState(QState* parentState)
     auto checkForSelectedTagsState  = new FunctionState("CheckForSelectedTags", this, std::bind(&StartDetectionState::_checkForSelectedTags, this));
     auto checkTunerState            = new FunctionState("CheckTuner", this, std::bind(&StartDetectionState::_checkTuner, this));
     auto sendTagsState              = new SendTagsState(this);
-    auto sendStartDetectionState    = new SendTunnelCommandState("StartDetectionCommand", this, (uint8_t*)&startDetectionInfo, sizeof(startDetectionInfo));
     auto startPulseLoggingState     = new FunctionState("StartPulseLogging", this, std::bind(&StartDetectionState::_startPulseLogging, this));
     auto finalState                 = new QFinalState(this);
 
     // Transitions
     checkForSelectedTagsState->addTransition(this, &StartDetectionState::checkForSelectedTagsSucceeded, checkTunerState);
     checkTunerState->addTransition(this, &StartDetectionState::tunerSucceeded, sendTagsState);
-    sendTagsState->addTransition(sendTagsState, &QState::finished, sendStartDetectionState);
-    sendStartDetectionState->addTransition(sendStartDetectionState, &SendTunnelCommandState::commandSucceeded, startPulseLoggingState);
+
+    if (sendCommand) {
+        auto sendStartDetectionState = new SendTunnelCommandState("StartDetectionCommand", this, (uint8_t*)&startDetectionInfo, sizeof(startDetectionInfo));
+        sendTagsState->addTransition(sendTagsState, &QState::finished, sendStartDetectionState);
+        sendStartDetectionState->addTransition(sendStartDetectionState, &SendTunnelCommandState::commandSucceeded, startPulseLoggingState);
+    } else {
+        // Python mode: tags are sent but START_DETECTION is issued per-slice
+        sendTagsState->addTransition(sendTagsState, &QState::finished, startPulseLoggingState);
+    }
+
     startPulseLoggingState->addTransition(startPulseLoggingState, &FunctionState::functionCompleted, finalState);
 
     setInitialState(checkForSelectedTagsState);

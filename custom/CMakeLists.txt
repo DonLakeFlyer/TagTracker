@@ -106,6 +106,12 @@ qt_add_library(CustomPlugin STATIC
     src/StateMachine/SendTunnelCommandState.h
     src/StateMachine/SmartRotateAndCaptureState.cc
     src/StateMachine/SmartRotateAndCaptureState.h
+    src/StateMachine/PythonCaptureAtSliceState.cc
+    src/StateMachine/PythonCaptureAtSliceState.h
+    src/StateMachine/PythonRotateAndCaptureState.cc
+    src/StateMachine/PythonRotateAndCaptureState.h
+    src/StateMachine/PythonWaitForDetectionResultState.cc
+    src/StateMachine/PythonWaitForDetectionResultState.h
     src/StateMachine/StartDetectionState.cc
     src/StateMachine/StartDetectionState.h
     src/StateMachine/StopDetectionState.cc

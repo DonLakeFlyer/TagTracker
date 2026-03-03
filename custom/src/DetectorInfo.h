@@ -24,6 +24,7 @@ public:
     Q_PROPERTY(bool     lastPulseStale      MEMBER _lastPulseStale      NOTIFY lastPulseStaleChanged)
 
     void        handleTunnelPulse   (const mavlink_tunnel_t& tunnel);
+    uint32_t    tagId               () const                        { return _tagId; }
     void        resetMaxStrength    ()                              { _maxStrength = 0.0; }
     void        resetHeartbeatCount ()                              { _heartbeatCount = 0; }
     void        resetPulseGroupCount()                              { _pulseGroupGrount = 0; }
