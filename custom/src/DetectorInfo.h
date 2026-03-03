@@ -27,10 +27,10 @@ public:
     uint32_t    tagId               () const                        { return _tagId; }
     void        resetMaxStrength    ()                              { _maxStrength = 0.0; }
     void        resetHeartbeatCount ()                              { _heartbeatCount = 0; }
-    void        resetPulseGroupCount()                              { _pulseGroupGrount = 0; }
+    void        resetPulseGroupCount()                              { _pulseGroupCount = 0; }
     double      maxStrength              () const                   { return _maxStrength; }
     uint32_t    heartbeatCount      () const                        { return _heartbeatCount; }
-    uint32_t    pulseGroupGrount    () const                        { return _pulseGroupGrount; }
+    uint32_t    pulseGroupCount     () const                        { return _pulseGroupCount; }
 
 signals:
     void heartbeatLostChanged       ();
@@ -51,5 +51,5 @@ private:
     QTimer          _stalePulseStrengthTimer;
     double          _maxStrength            = 0.0;
     uint32_t        _heartbeatCount         = 0;
-    uint32_t        _pulseGroupGrount       = 0;
+    uint32_t        _pulseGroupCount        = 0;
 };

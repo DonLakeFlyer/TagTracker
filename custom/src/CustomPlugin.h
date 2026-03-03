@@ -50,7 +50,6 @@ public:
 
     Q_PROPERTY(CustomSettings*      customSettings          READ    customSettings              CONSTANT)
     Q_PROPERTY(QList<double>        calcedBearings          MEMBER  _rgCalcedBearings           NOTIFY calcedBearingsChanged)
-    Q_PROPERTY(bool                 flightMachineActive     MEMBER  _flightStateMachineActive   NOTIFY flightMachineActiveChanged)
     Q_PROPERTY(bool                 controllerLostHeartbeat MEMBER  _controllerLostHeartbeat    NOTIFY controllerLostHeartbeatChanged)
     Q_PROPERTY(int                  controllerStatus        MEMBER  _controllerStatus           NOTIFY controllerStatusChanged)
     Q_PROPERTY(float                controllerCPUTemp       MEMBER  _controllerCPUTemp          NOTIFY controllerCPUTempChanged)
@@ -98,17 +97,11 @@ public:
 
 signals:
     void calcedBearingsChanged          (void);
-    void flightMachineActiveChanged     (bool flightMachineActive);
-    void pulseInfoListsChanged          (void);
     void controllerLostHeartbeatChanged ();
     void controllerStatusChanged        ();
     void controllerCPUTempChanged       ();
     void maxSNRChanged                  (double maxSNR);
     void minSNRChanged                  (double minSNR);
-    void _detectionStarted              (void);
-    void _startDetectionFailed          (void);
-    void _detectionStopped              (void);
-    void _stopDetectionFailed           (void);
     void activeRotationChanged          (bool activeRotation);
     void detectorHeartbeatReceived      (int oneBasedRateIndex);
     void pythonDetectorResultReceived   (uint32_t tagId);  // confirmed pulse or no-pulse in Python mode
@@ -119,52 +112,17 @@ private slots:
     bool _validateAtLeastOneTagSelected();
 
 private:
-    typedef enum {
-        CommandStartDetectors,
-        CommandStopDetectors,
-        CommandTakeoff,
-        CommandRTL,
-        CommandSetHeadingForRotationCapture,
-        CommandDelayForSteadyCapture,
-    } VehicleStateCommand_t;
-
-    typedef struct VehicleState_t {
-        VehicleStateCommand_t   command;
-        Fact*                   fact = nullptr;
-        int                     targetValueWaitMsecs = 0;
-        double                  targetValue = 0;
-        double                  targetVariance = 0;
-    } VehicleState_t;
-
-    typedef struct HeartbeatInfo_t {
-        bool    heartbeatLost               { true };
-        uint    heartbeatTimerInterval      { 0 };
-        QTimer  timer;
-        uint    rotationDelayHeartbeatCount { 0 };
-    } HeartbeatInfo_t;
-
     void    _handleTunnelPulse          (Vehicle* vehicle, const mavlink_tunnel_t& tunnel);
     void    _handleTunnelHeartbeat      (const mavlink_tunnel_t& tunnel);
     void    _say                        (QString text);
     int     _rawPulseToPct              (double rawPulse);
-    double  _pulseTimeSeconds           (void) { return _lastPulseInfo.start_time_seconds; }
-    double  _pulseSNR                   (void) { return _lastPulseInfo.snr; }
-    bool    _pulseConfirmed             (void) { return _lastPulseInfo.confirmed_status; }
     bool    _useSNRForPulseStrength     (void) { return _customSettings->useSNRForPulseStrength()->rawValue().toBool(); }
     void    _captureScreen              (void);
     void    _setActiveRotation          (bool active);
     void    _sendStopDetectionDirect    (void);
 
-    QVariantList            _settingsPages;
-    QVariantList            _instrumentPages;
-    int                     _vehicleStateIndex;
-    QList<VehicleState_t>   _vehicleStates;
     bool                    _activeRotation     = false;
     QList<double>           _rgCalcedBearings;
-    bool                    _flightStateMachineActive;
-    int                     _currentSlice;
-    int                     _cSlice;
-    bool                    _retryRotation      = false;
     int                     _controllerStatus   = ControllerStatusIdle;
     float                   _controllerCPUTemp  = 0.0;
 
@@ -176,15 +134,10 @@ private:
     int                     _lastPulseSendIndex;
     int                     _missedPulseCount;
     QmlObjectListModel      _customMapItems;
-    TunnelProtocol::PulseInfo_t _lastPulseInfo;
     QVariantList            _toolbarIndicators;
 
     bool                    _controllerLostHeartbeat = true;
     QTimer                  _controllerHeartbeatTimer;
-
-    int                     _curLogFileDownloadIndex;
-    QString                 _logDirPathOnVehicle;
-    QStringList             _logFileDownloadList;
 
     CSVLogManager           _csvLogManager;
 

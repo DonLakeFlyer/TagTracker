@@ -46,7 +46,7 @@ GuidedToolStripAction {
             break
         default:
             actionEnabled = false
-            breal
+            break
         }
     }
 }

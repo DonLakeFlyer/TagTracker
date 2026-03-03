@@ -30,7 +30,7 @@ private:
     int                 _cSlices = 0;
     QmlObjectListModel  _slices;
     QList<int>          _pulseRateCounts;
-    double              _maxSNR = 0.0;
+    double              _maxSNR = qQNaN();
 
     static const int cRates = 2;
 };

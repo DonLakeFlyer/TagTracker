@@ -7,8 +7,6 @@
 #include "FlyViewSettings.h"
 #include "QmlComponentInfo.h"
 #include "TunnelProtocol.h"
-#include "PulseInfoList.h"
-
 #include <QDebug>
 #include <QPointF>
 #include <QLineF>
@@ -79,7 +77,7 @@ void DetectorInfo::handleTunnelPulse(const mavlink_tunnel_t& tunnel)
             // We track the max pulse in each K group
             if (_lastPulseGroupSeqCtr != pulseInfo.group_seq_counter) {
                 _lastPulseGroupSeqCtr = pulseInfo.group_seq_counter;
-                _pulseGroupGrount++;
+                _pulseGroupCount++;
                 _lastPulseStrength = pulseInfo.snr;
             } else {
                 _lastPulseStrength = std::max(pulseInfo.snr, _lastPulseStrength);
@@ -92,5 +90,5 @@ void DetectorInfo::handleTunnelPulse(const mavlink_tunnel_t& tunnel)
 
             _maxStrength = qMax(_maxStrength, pulseInfo.snr);
         }
-    } 
+    }
 }

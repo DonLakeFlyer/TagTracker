@@ -115,7 +115,7 @@ bool DetectorList::allPulseGroupCountsReached(uint32_t targetPulseGroupCount) co
 {
     for (int i=0; i<count(); i++) {
         const DetectorInfo* detectorInfo = qobject_cast<const DetectorInfo*>((*this)[i]);
-        if (detectorInfo->pulseGroupGrount() < targetPulseGroupCount) {
+        if (detectorInfo->pulseGroupCount() < targetPulseGroupCount) {
             return false;
         }
     }

@@ -401,7 +401,7 @@ bool TagDatabase::_loadTagInfo(void)
     QFile   file(filename);
 
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        qgcApp()->showAppMessage(QStringLiteral("Unable to open `%1` for saving: %2").arg(filename).arg(file.errorString()));
+        qgcApp()->showAppMessage(QStringLiteral("Unable to open `%1` for reading: %2").arg(filename).arg(file.errorString()));
         return false;
     }
 
@@ -686,7 +686,7 @@ uint32_t TagDatabase::channelizerTuner()
     // First make sure all the requested frequencies can fit within the available bandwidth
     if (freqMaxHz - freqMinHz > _sampleRateHz) {
         qCritical() << "Requested frequencies are too far apart to fit within the available bandwidth";
-        return false;
+        return 0;
     }
 
     QList<uint32_t> testCentersHz;
@@ -806,7 +806,7 @@ uint32_t TagDatabase::channelizerTuner()
         auto testCenterHz = testCentersHz[i];
 
         // We can't use a center frequency if it has more than one frequency in the same channel
-        if (std::any_of(channelBucketUsageCountsForTestCenter.begin(), channelBucketUsageCountsForTestCenter.end(), [](uint32_t n) { return n > 1; })) {
+        if (std::any_of(channelBucketUsageCountsArray[i].begin(), channelBucketUsageCountsArray[i].end(), [](uint32_t n) { return n > 1; })) {
             continue;
         }
 
