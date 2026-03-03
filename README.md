@@ -129,10 +129,4 @@ State machines support `CancelOnFlightModeChange` (cancel if the pilot manually 
 
 ## License
 
-This project is licensed under the same terms as [QGroundControl](https://github.com/mavlink/qgroundcontrol/blob/master/COPYING.md).
-- 🤝 [Contributing](https://dev.qgroundcontrol.com/en/contribute/)
-- 📜 [License Information](https://github.com/mavlink/qgroundcontrol/blob/master/.github/COPYING.md)
-
----
-
-With QGroundControl, you're in full command of your UAV, ready to take your missions to the next level.
+This project is licensed under the same terms as QGroundControl. See [COPYING.md](.github/COPYING.md) for details.
