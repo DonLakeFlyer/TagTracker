@@ -153,6 +153,7 @@ private:
     bool    _useSNRForPulseStrength     (void) { return _customSettings->useSNRForPulseStrength()->rawValue().toBool(); }
     void    _captureScreen              (void);
     void    _setActiveRotation          (bool active);
+    void    _sendStopDetectionDirect    (void);
 
     QVariantList            _settingsPages;
     QVariantList            _instrumentPages;

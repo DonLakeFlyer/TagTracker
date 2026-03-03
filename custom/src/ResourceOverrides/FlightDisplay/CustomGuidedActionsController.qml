@@ -10,6 +10,7 @@ QtObject {
     readonly property int actionRawCapture:                 customActionStart + 5
     readonly property int actionSaveLogs:                   customActionStart + 6
     readonly property int actionClearLogs:                  customActionStart + 7
+    readonly property int actionClearMap:                    customActionStart + 8
 
     readonly property string autoDetectionTitle:            qsTr("Auto")
     readonly property string startDetectionTitle:           qsTr("Start Detection")
@@ -19,6 +20,7 @@ QtObject {
     readonly property string downloadLogsTitle:             qsTr("Download")
     readonly property string saveLogsTitle:                 qsTr("Save Logs")
     readonly property string clearLogsTitle:                qsTr("Clear Logs")
+    readonly property string clearMapTitle:                 qsTr("Clear Map")
 
     readonly property string autoDetectionMessage:          qsTr("Takeoff, rotate, return.")
     readonly property string startDetectionMessage:         qsTr("Start pulse detection for the specified tag(s).")
@@ -28,6 +30,7 @@ QtObject {
     readonly property string downloadLogsMessage:           qsTr("Download companion logs.")
     readonly property string saveLogsMessage:               qsTr("Save companion logs.")
     readonly property string clearLogsMessage:              qsTr("Clear companion logs.")
+    readonly property string clearMapMessage:               qsTr("Clear pulse map items.")
 
     function customConfirmAction(actionCode, actionData, mapIndicator, confirmDialog) {
         switch (actionCode) {
@@ -66,6 +69,11 @@ QtObject {
             confirmDialog.title = clearLogsTitle
             confirmDialog.message = clearLogsMessage
             break
+        case actionClearMap:
+            confirmDialog.hideTrigger = true
+            confirmDialog.title = clearMapTitle
+            confirmDialog.message = clearMapMessage
+            break
         default:
             return false;
         }
@@ -95,6 +103,9 @@ QtObject {
             break
         case actionClearLogs:
             QGroundControl.corePlugin.cleanLogs()
+            break
+        case actionClearMap:
+            QGroundControl.corePlugin.clearMap()
             break
         default:
             return false;

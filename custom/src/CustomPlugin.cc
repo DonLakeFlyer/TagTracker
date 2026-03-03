@@ -299,6 +299,10 @@ void CustomPlugin::autoDetection()
     announceAutoEndState->addTransition     (announceAutoEndState,      &SayState::functionCompleted,       rtlState);
     rtlState->addTransition                 (rtlState,                  &QState::finished,                  finalState);
 
+    if (isPythonMode) {
+        stateMachine->registerStopHandler([this]() { _sendStopDetectionDirect(); });
+    }
+
     stateMachine->setInitialState(announceAutoStartState);
     stateMachine->start();
 }
@@ -339,6 +343,10 @@ void CustomPlugin::startRotation(void)
         stopDetectionState->addTransition(stopDetectionState, &CustomState::finished, finalState);
     } else {
         rotateState->addTransition(rotateState, &CustomState::finished, finalState);
+    }
+
+    if (isPythonMode) {
+        stateMachine->registerStopHandler([this]() { _sendStopDetectionDirect(); });
     }
 
     stateMachine->setInitialState(startDetectionState ? startDetectionState : rotateState);
@@ -510,6 +518,50 @@ void CustomPlugin::clearMap()
     _maxSNR = qQNaN();
     emit minSNRChanged(_minSNR);
     emit maxSNRChanged(_maxSNR);
+}
+
+void CustomPlugin::_sendStopDetectionDirect()
+{
+    Vehicle* vehicle = MultiVehicleManager::instance()->activeVehicle();
+    if (!vehicle) {
+        return;
+    }
+
+    WeakLinkInterfacePtr weakLink = vehicle->vehicleLinkManager()->primaryLink();
+    if (weakLink.expired()) {
+        return;
+    }
+
+    qCDebug(CustomPluginLog) << "Sending direct STOP_DETECTION (Python mode cleanup)" << " - " << Q_FUNC_INFO;
+
+    StopDetectionInfo_t stopDetectionInfo;
+    stopDetectionInfo.header.command = COMMAND_ID_STOP_DETECTION;
+
+    SharedLinkInterfacePtr  sharedLink  = weakLink.lock();
+    MAVLinkProtocol*        mavlink     = MAVLinkProtocol::instance();
+    mavlink_message_t       msg;
+    mavlink_tunnel_t        tunnel;
+
+    memset(&tunnel, 0, sizeof(tunnel));
+    memcpy(tunnel.payload, &stopDetectionInfo, sizeof(stopDetectionInfo));
+
+    tunnel.target_system    = vehicle->id();
+    tunnel.target_component = MAV_COMP_ID_ONBOARD_COMPUTER;
+    tunnel.payload_type     = MAV_TUNNEL_PAYLOAD_TYPE_UNKNOWN;
+    tunnel.payload_length   = sizeof(stopDetectionInfo);
+
+    mavlink_msg_tunnel_encode_chan(
+                static_cast<uint8_t>(mavlink->getSystemId()),
+                static_cast<uint8_t>(mavlink->getComponentId()),
+                sharedLink->mavlinkChannel(),
+                &msg,
+                &tunnel);
+
+    vehicle->sendMessageOnLinkThreadSafe(sharedLink.get(), msg);
+
+    // Match StopDetectionState cleanup: stop logging and clear detector list
+    _csvLogManager.csvStopFullPulseLog();
+    DetectorList::instance()->clear();
 }
 
 void CustomPlugin::_stopDetectionOnDisarmed(bool armed)

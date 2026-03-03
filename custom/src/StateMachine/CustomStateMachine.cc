@@ -46,6 +46,10 @@ void CustomStateMachine::setError(const QString& errorString)
         AudioOutput::instance()->say(QStringLiteral("%1 failed").arg(objectName()));
     }
     displayError();
+    if (_stopHandler) {
+        auto handler = std::exchange(_stopHandler, nullptr);
+        handler();
+    }
     stop();
 }
 
@@ -63,12 +67,16 @@ void CustomStateMachine::_flightModeChanged(const QString& flightMode)
     if (_eventMode & CancelOnFlightModeChange && flightMode != holdFlightMode) {
         disconnect(_vehicle, &Vehicle::flightModeChanged, this, &CustomStateMachine::_flightModeChanged);
         AudioOutput::instance()->say(QStringLiteral("%1 cancelled. User is in control of vehicle.").arg(objectName()));
+        if (_stopHandler) {
+            auto handler = std::exchange(_stopHandler, nullptr);
+            handler();
+        }
         stop();
     }
 }
 
-void CustomStateMachine::setEventMode(uint eventMode) 
-{ 
+void CustomStateMachine::setEventMode(uint eventMode)
+{
     if (eventMode == 0) {
         qCDebug(CustomPluginLog) << "Clearing all event modes"<< " - " << Q_FUNC_INFO;
     } else {
@@ -79,5 +87,5 @@ void CustomStateMachine::setEventMode(uint eventMode)
             qCDebug(CustomPluginLog) << "Setting event mode: RTLOnError" << " - " << Q_FUNC_INFO;
         }
     }
-    _eventMode = eventMode; 
+    _eventMode = eventMode;
 }
