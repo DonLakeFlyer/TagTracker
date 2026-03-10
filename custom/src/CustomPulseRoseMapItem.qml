@@ -60,7 +60,7 @@ MapQuickItem {
                 property real centerY:          height / 2
                 property real arcRadians:       (Math.PI * 2) / _sliceCount
                 property var  sliceInfo:        _rotationInfo.slices.get(index)
-                property real rawStrengthRatio: sliceInfo.maxSNR / _rotationInfo.maxSNR
+                property real rawStrengthRatio: _rotationInfo.maxSNR > 0 ? sliceInfo.maxSNR / _rotationInfo.maxSNR : 0
                 property bool noDetection:      rawStrengthRatio == 0
                 property real strengthRatio:    noDetection ? 1 : rawStrengthRatio
 
@@ -98,8 +98,30 @@ MapQuickItem {
                 }
             }
         }
+
+        Repeater {
+            model: _sliceCount
+
+            Text {
+                property var  sliceInfo:        _rotationInfo.slices.get(index)
+                property real rawStrengthRatio: _rotationInfo.maxSNR > 0 ? sliceInfo.maxSNR / _rotationInfo.maxSNR : 0
+                property bool noDetection:      rawStrengthRatio == 0
+                property real strengthRatio:    noDetection ? 1 : rawStrengthRatio
+                property real sliceAngleDeg:    -90 + (360 / _sliceCount) * index
+                property real sliceAngleRad:    sliceAngleDeg * Math.PI / 180
+                property real outerRadius:      (mapRect.width / 2) * strengthRatio
+
+                x:              mapRect.width / 2 + outerRadius * Math.cos(sliceAngleRad) - width / 2
+                y:              mapRect.height / 2 + outerRadius * Math.sin(sliceAngleRad) - height / 2
+                visible:        !noDetection && sliceInfo.maxSNR > 0
+                text:           sliceInfo.maxSNR.toFixed(1)
+                color:          "white"
+                style:          Text.Outline
+                styleColor:     "black"
+            }
+        }
     }
 
-    
+
     QGCMapPalette { id: mapPal; lightColors: _flightMap.isSatelliteMap }
 }
