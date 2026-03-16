@@ -273,7 +273,12 @@ void CustomPlugin::autoDetection()
 
     auto stateMachine = new CustomStateMachine("Auto Detection", this);
 
+    AirspyStatusInfo_t airspyStatusInfo;
+    memset(&airspyStatusInfo, 0, sizeof(airspyStatusInfo));
+    airspyStatusInfo.header.command = COMMAND_ID_AIRSPY_STATUS;
+
     auto announceAutoStartState = new SayState("AnnounceAuto", stateMachine, "Starting auto detection");
+    auto airspyStatusState      = new SendTunnelCommandState("AirspyStatusCheck", stateMachine, reinterpret_cast<uint8_t*>(&airspyStatusInfo), sizeof(airspyStatusInfo));
     auto takeoffState           = new TakeoffState(stateMachine, _customSettings->takeoffAltitude()->rawValue().toDouble());
     auto eventModeRTLState      = new FunctionState("eventModeRTLState", stateMachine, [stateMachine] () { stateMachine->setEventMode(CustomStateMachine::CancelOnFlightModeChange | CustomStateMachine::RTLOnError); });
     const bool isPythonMode     = _customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON;
@@ -288,7 +293,8 @@ void CustomPlugin::autoDetection()
     auto finalState             = new QFinalState(stateMachine);
 
     // Transitions
-    announceAutoStartState->addTransition   (announceAutoStartState,    &SayState::functionCompleted,       startDetectionState);
+    announceAutoStartState->addTransition   (announceAutoStartState,    &SayState::functionCompleted,       airspyStatusState);
+    airspyStatusState->addTransition        (airspyStatusState,         &SendTunnelCommandState::commandSucceeded, startDetectionState);
     startDetectionState->addTransition      (startDetectionState,       &CustomState::finished,             takeoffState);
     takeoffState->addTransition             (takeoffState,              &TakeoffState::takeoffComplete,     eventModeRTLState);
     eventModeRTLState->addTransition        (eventModeRTLState,         &FunctionState::functionCompleted,  rotateAndCaptureState);
