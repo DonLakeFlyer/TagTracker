@@ -14,7 +14,7 @@ GuidedToolStripAction {
     text:       customController.autoDetectionTitle
     iconSource: "/res/takeoff.svg"
     visible:    true
-    enabled:    activeVehicle && !activeVehicle.flying
+    enabled:    activeVehicle && !activeVehicle.flying && !QGroundControl.corePlugin.controllerLostHeartbeat
     actionID:   customController.actionAutoDetection
 
     property var customController: _guidedController._customController

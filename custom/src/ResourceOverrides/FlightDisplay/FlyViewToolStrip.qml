@@ -60,7 +60,7 @@ ToolStrip {
         property bool controllerIdle:   QGroundControl.corePlugin.controllerStatus == CustomPlugin.ControllerStatusIdle || QGroundControl.corePlugin.controllerStatus == CustomPlugin.ControllerStatusHasLogs
 
         model: [
-            CustomGuidedActionAutoTakeoffRotateRTL { },
+            CustomGuidedActionAutoDetection { },
             GuidedActionRTL { },
             GuidedActionPause { },
             FlyViewAdditionalActionsButton { }

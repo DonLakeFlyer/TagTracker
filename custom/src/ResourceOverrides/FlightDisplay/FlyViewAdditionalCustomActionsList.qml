@@ -27,6 +27,7 @@ Item {
     property bool   _stopDetectionEnabled:  false
     property var    _activeVehicle:         QGroundControl.multiVehicleManager.activeVehicle
     property bool   _controllerAvailable:   _activeVehicle && !QGroundControl.corePlugin.controllerLostHeartbeat
+    property var    _customSettings:        QGroundControl.corePlugin.customSettings
 
     on_ControllerStatusChanged: _updateStartStop(_controllerStatus)
 
@@ -59,19 +60,19 @@ Item {
     property var model: [
         {
             title:      _customController.startDetectionTitle,
-            visible:    true,
+            visible:    !_customSettings.autoTakeoffRotateRTL.rawValue,
             enabled:    _controllerAvailable && _startDetectionEnabled,
             action:     _customController.actionStartDetection,
         },
         {
             title:      _customController.stopDetectionTitle,
-            visible:    true,
+            visible:    !_customSettings.autoTakeoffRotateRTL.rawValue,
             enabled:    _controllerAvailable && _stopDetectionEnabled,
             action:     _customController.actionStopDetection,
         },
         {
             title:      _customController.rawCaptureTitle,
-            visible:    true,
+            visible:    !_customSettings.autoTakeoffRotateRTL.rawValue,
             enabled:    _controllerAvailable && (QGroundControl.corePlugin.controllerStatus == CustomPlugin.ControllerStatusHasTags || QGroundControl.corePlugin.controllerStatus == CustomPlugin.ControllerStatusIdle),
             action:     _customController.actionRawCapture,
         },

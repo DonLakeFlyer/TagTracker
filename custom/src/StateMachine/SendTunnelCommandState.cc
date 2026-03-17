@@ -69,6 +69,8 @@ QString SendTunnelCommandState::commandIdToText(uint32_t vhfCommandId)
         return QStringLiteral("Save Logs");
     case COMMAND_ID_CLEAN_LOGS:
         return QStringLiteral("Clean Logs");
+    case COMMAND_ID_AIRSPY_STATUS:
+        return QStringLiteral("Airspy Status");
     default:
         return QStringLiteral("Unknown command: %1").arg(vhfCommandId);
     }
