@@ -1,6 +1,8 @@
 <RCC>
     <qresource prefix="/qml">
         <file alias="ControllerIndicator.qml">src/ControllerIndicator.qml</file>
+        <file alias="TagTrackerSettings.qml">src/TagTrackerSettings.qml</file>
+        <file alias="SettingsPagesModel.qml">src/SettingsPagesModel.qml</file>
         <file alias="CustomPulseRoseMapItem.qml">src/CustomPulseRoseMapItem.qml</file>
         <file alias="PulseMapItem.qml">src/PulseMapItem.qml</file>
         <file alias="QGroundControl/CustomControls/CustomGuidedActionStartStopDetection.qml">src/CustomGuidedActionStartStopDetection.qml</file>

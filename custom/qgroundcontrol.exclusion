@@ -2,3 +2,4 @@
         <file alias="QGroundControl/FlightDisplay/FlyViewCustomLayer.qml">src/FlightDisplay/FlyViewCustomLayer.qml</file>
         <file alias="QGroundControl/FlightDisplay/FlyViewToolStrip.qml">src/FlightDisplay/FlyViewToolStrip.qml</file>
         <file alias="QGroundControl/FlightDisplay/CustomGuidedActionsController.qml">src/FlightDisplay/CustomGuidedActionsController.qml</file>
+        <file alias="SettingsPagesModel.qml">src/UI/SettingsPagesModel.qml</file>

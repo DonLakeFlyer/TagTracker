@@ -235,7 +235,7 @@ void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& 
             }
 
             // Add pulse to map
-            if (_customSettings->showPulseOnMap()->rawValue().toBool() && pulseInfo.snr != 0) {
+            if (_customSettings->detectionFlightMode()->rawValue().toUInt() == CustomSettings::SurveyDetection && pulseInfo.snr != 0) {
                 double antennaHeading = -1;
                 if (_customSettings->antennaType()->rawValue().toInt() == CustomSettings::DirectionalAntenna) {
                     double antennaOffset = _customSettings->antennaOffset()->rawValue().toDouble();

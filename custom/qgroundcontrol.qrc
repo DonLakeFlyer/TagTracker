@@ -293,7 +293,6 @@
 		<file alias="SetupParameterEditor.qml">../src/Vehicle/VehicleSetup/SetupParameterEditor.qml</file>
 		<file alias="SetupView.qml">../src/Vehicle/VehicleSetup/SetupView.qml</file>
 		<file alias="SettingsPage.qml">../src/UI/preferences/SettingsPage.qml</file>
-		<file alias="SettingsPagesModel.qml">../src/UI/SettingsPagesModel.qml</file>
 		<file alias="SimpleItemEditor.qml">../src/PlanView/SimpleItemEditor.qml</file>
 		<file alias="StructureScanEditor.qml">../src/PlanView/StructureScanEditor.qml</file>
 		<file alias="SurveyItemEditor.qml">../src/PlanView/SurveyItemEditor.qml</file>

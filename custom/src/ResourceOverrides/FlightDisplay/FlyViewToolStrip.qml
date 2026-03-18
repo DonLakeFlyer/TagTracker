@@ -12,6 +12,7 @@ import QtQml.Models
 import QGroundControl
 import QGroundControl.Controls
 import QGroundControl.FlightDisplay
+import QGroundControl.SettingsManager
 
 import QGroundControl.CustomControls
 
@@ -67,5 +68,5 @@ ToolStrip {
         ]
     }
 
-    model: QGroundControl.corePlugin.customSettings.autoTakeoffRotateRTL.rawValue ? autoActionList.model : fullActionList.model
+    model: QGroundControl.corePlugin.customSettings.detectionFlightMode.rawValue === CustomSettings.Auto ? autoActionList.model : fullActionList.model
 }

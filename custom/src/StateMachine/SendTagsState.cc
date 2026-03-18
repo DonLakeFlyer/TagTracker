@@ -106,7 +106,24 @@ SendTunnelCommandState* SendTagsState::_sendTagState(int tagIndex, QState* paren
     tunnelTagInfo.intra_pulse_uncertainty_msecs             = tagManufacturer->ip_uncertainty_msecs()->rawValue().toUInt();
     tunnelTagInfo.intra_pulse_jitter_msecs                  = tagManufacturer->ip_jitter_msecs()->rawValue().toUInt();
     tunnelTagInfo.k                                         = customSettings->k()->rawValue().toUInt();
-    tunnelTagInfo.false_alarm_probability                   = customSettings->falseAlarmProbability()->rawValue().toDouble() / 100.0;
+
+    double falseAlarmProbability;
+    switch (customSettings->falseAlarmPreset()->rawValue().toUInt()) {
+    case CustomSettings::Aggressive:
+        falseAlarmProbability = CustomSettings::AggressivePf;
+        break;
+    case CustomSettings::Moderate:
+        falseAlarmProbability = CustomSettings::ModeratePf;
+        break;
+    case CustomSettings::Conservative:
+        falseAlarmProbability = CustomSettings::ConservativePf;
+        break;
+    case CustomSettings::Custom:
+    default:
+        falseAlarmProbability = customSettings->falseAlarmProbability()->rawValue().toDouble() / 100.0;
+        break;
+    }
+    tunnelTagInfo.false_alarm_probability                   = falseAlarmProbability;
     tunnelTagInfo.channelizer_channel_number                = tagInfo->channelizer_channel_number;
     tunnelTagInfo.channelizer_channel_center_frequency_hz   = tagInfo->channelizer_channel_center_frequency_hz;
     tunnelTagInfo.ip1_mu                                    = qQNaN();
