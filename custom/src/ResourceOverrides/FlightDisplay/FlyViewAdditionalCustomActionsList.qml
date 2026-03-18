@@ -10,7 +10,7 @@
 import QtQuick
 
 import QGroundControl
-
+import QGroundControl.SettingsManager
 import QGroundControl.CustomControls
 
 // Custom builds can override this resource to add additional custom actions
@@ -60,19 +60,19 @@ Item {
     property var model: [
         {
             title:      _customController.startDetectionTitle,
-            visible:    !_customSettings.autoTakeoffRotateRTL.rawValue,
+            visible:    _customSettings.detectionFlightMode.rawValue !== CustomSettings.Auto,
             enabled:    _controllerAvailable && _startDetectionEnabled,
             action:     _customController.actionStartDetection,
         },
         {
             title:      _customController.stopDetectionTitle,
-            visible:    !_customSettings.autoTakeoffRotateRTL.rawValue,
+            visible:    _customSettings.detectionFlightMode.rawValue !== CustomSettings.Auto,
             enabled:    _controllerAvailable && _stopDetectionEnabled,
             action:     _customController.actionStopDetection,
         },
         {
             title:      _customController.rawCaptureTitle,
-            visible:    !_customSettings.autoTakeoffRotateRTL.rawValue,
+            visible:    _customSettings.detectionFlightMode.rawValue !== CustomSettings.Auto,
             enabled:    _controllerAvailable && (QGroundControl.corePlugin.controllerStatus == CustomPlugin.ControllerStatusHasTags || QGroundControl.corePlugin.controllerStatus == CustomPlugin.ControllerStatusIdle),
             action:     _customController.actionRawCapture,
         },

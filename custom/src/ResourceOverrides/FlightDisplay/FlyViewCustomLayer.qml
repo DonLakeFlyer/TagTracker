@@ -25,6 +25,7 @@ import QGroundControl.FlightDisplay
 import QGroundControl.FlightMap
 import QGroundControl.Palette
 import QGroundControl.ScreenTools
+import QGroundControl.SettingsManager
 import QGroundControl.Vehicle
 
 // To implement a custom overlay copy this code to your own control in your custom code source. Then override the
@@ -80,7 +81,7 @@ Item {
             Layout.alignment:   Qt.AlignRight
             width:              ScreenTools.defaultFontPixelWidth * 5
             Layout.fillHeight:  true
-            visible:            _customSettings.showPulseOnMap.rawValue
+            visible:            _customSettings.detectionFlightMode.rawValue === CustomSettings.SurveyDetection
 
             gradient: Gradient {
                 GradientStop { position: 0; color: "red" }

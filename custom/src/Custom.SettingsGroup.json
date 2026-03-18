@@ -24,12 +24,22 @@
     "default":      2
 },
 {
+    "name":         "falseAlarmPreset",
+    "shortDesc":    "False Alarm Probability",
+    "type":         "uint32",
+    "enumStrings":  "Aggressive (5%),Moderate (1%),Conservative (0.1%),Custom",
+    "enumValues":   "0,1,2,3",
+    "default":      0
+},
+{
     "name":             "falseAlarmProbability",
-    "shortDesc":        "Detector False Alarm Probability",
+    "shortDesc":        "Custom False Alarm Probability",
     "type":             "double",
     "units":            "%",
     "decimalPlaces":    2,
-    "default":          1.0
+    "min":              0,
+    "max":              50,
+    "default":          5.0
 },
 {
     "name":         "divisions",
@@ -41,7 +51,7 @@
 },
 {
     "name":         "gain",
-    "shortDesc":    "Sensitivity Gain",
+    "shortDesc":    "Sensitivity Gain (Mini only)",
     "type":         "uint32",
     "default":      21,
     "enumStrings":  "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21",
@@ -50,10 +60,12 @@
     "max":          21
 },
 {
-    "name":         "showPulseOnMap",
-    "shortDesc":    "Show Pulse On Map",
-    "type":         "bool",
-    "default":      false
+    "name":         "detectionFlightMode",
+    "shortDesc":    "Detection Flight Mode",
+    "type":         "uint32",
+    "enumStrings":  "Auto Rotation,Manual Rotation,Survey Detection",
+    "enumValues":   "0,1,2",
+    "default":      0
 },
 {
     "name":         "useSNRForPulseStrength",
@@ -80,12 +92,6 @@
     "decimalPlaces":    0,
     "units":            "deg",
     "default":          0
-},
-{
-    "name":         "autoTakeoffRotateRTL",
-    "shortDesc":    "Takeoff, Rotate and RTL automatically",
-    "type":         "bool",
-    "default":      true
 },
 {
     "name":         "allowMultiTagDetection",

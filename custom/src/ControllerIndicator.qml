@@ -18,6 +18,7 @@ import QGroundControl.FactSystem
 import QGroundControl.MultiVehicleManager
 import QGroundControl.ScreenTools
 import QGroundControl.Palette
+import QGroundControl.SettingsManager
 import MAVLink
 
 import QGroundControl.CustomControls
@@ -210,9 +211,6 @@ Item {
 
         ColumnLayout {
             property var _customSettings:               QGroundControl.corePlugin.customSettings
-            property Fact _antennaTypeFact:             _customSettings.antennaType
-            property Fact _autoTakeoffRotateRTLFact:    _customSettings.autoTakeoffRotateRTL
-            property int _antennaTypeDirectional:       1
 
             SettingsGroupLayout {
                 RowLayout {
@@ -237,89 +235,10 @@ Item {
             }
 
             SettingsGroupLayout {
-                LabelledFactTextField {
-                    Layout.fillWidth:   true
-                    label:              fact.shortDescription
-                    fact:               _customSettings.takeoffAltitude
-                }
-
                 LabelledFactComboBox {
                     Layout.fillWidth:   true
                     label:              fact.shortDescription
-                    fact:               _customSettings.rotationType
-                }
-
-                LabelledFactComboBox {
-                    Layout.fillWidth:   true
-                    label:              fact.shortDescription
-                    fact:               _customSettings.divisions
-                }
-
-                LabelledFactComboBox {
-                    Layout.fillWidth:   true
-                    label:              fact.shortDescription
-                    fact:               _customSettings.gain
-                }
-
-                LabelledFactComboBox {
-                    Layout.fillWidth:   true
-                    label:              fact.shortDescription
-                    fact:               _customSettings.detectionMode
-                }
-            }
-
-            SettingsGroupLayout {
-                LabelledFactComboBox {
-                    Layout.fillWidth:   true
-                    label:              fact.shortDescription
-                    fact:               _customSettings.useSNRForPulseStrength
-                }
-
-                FactCheckBoxSlider {
-                    Layout.fillWidth:   true
-                    text:               fact.shortDescription
-                    fact:               _customSettings.showPulseOnMap
-                }
-
-                LabelledFactTextField {
-                    Layout.fillWidth:   true
-                    label:              fact.shortDescription
-                    fact:               _customSettings.k
-                }
-
-                LabelledFactTextField {
-                    label:              fact.shortDescription
-                    fact:               _customSettings.falseAlarmProbability
-                }
-
-                LabelledFactTextField {
-                    Layout.fillWidth:   true
-                    label:              fact.shortDescription
-                    fact:               _customSettings.maxPulseStrength
-                }
-
-                LabelledFactTextField {
-                    Layout.fillWidth:   true
-                    label:              fact.shortDescription
-                    fact:               _customSettings.antennaOffset
-                }
-
-                LabelledFactComboBox {
-                    Layout.fillWidth:   true
-                    label:              fact.shortDescription
-                    fact:               _antennaTypeFact
-                }
-
-                FactCheckBoxSlider {
-                    Layout.fillWidth:   true
-                    text:               fact.shortDescription
-                    fact:               _autoTakeoffRotateRTLFact
-                    enabled:            _antennaTypeFact.rawValue === _antennaTypeDirectional
-
-                    Connections {
-                        target: _antennaTypeFact
-                        onRawValueChanged: _autoTakeoffRotateRTLFact.value = _antennaTypeFact.rawValue === _antennaTypeDirectional
-                    }
+                    fact:               _customSettings.detectionFlightMode
                 }
 
                 FactCheckBoxSlider {
