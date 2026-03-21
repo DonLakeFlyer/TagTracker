@@ -60,23 +60,30 @@ MapQuickItem {
                 property real centerY:          height / 2
                 property real arcRadians:       (Math.PI * 2) / _sliceCount
                 property var  sliceInfo:        _rotationInfo.slices.get(index)
-                property real rawStrengthRatio: _rotationInfo.maxSNR > 0 ? sliceInfo.maxSNR / _rotationInfo.maxSNR : 0
+                property real rawStrengthRatio: _rotationInfo.maxSNR > 0 ? sliceInfo.displaySNR / _rotationInfo.maxSNR : 0
                 property bool noDetection:      rawStrengthRatio == 0
+                property bool lowConfidenceOnly: sliceInfo.lowConfidenceOnly
                 property real strengthRatio:    noDetection ? 1 : rawStrengthRatio
 
                 onPaint: {
                     var ctx = getContext("2d");
                     ctx.reset();
 
+                    var hasDetection = !noDetection;
+                    var sliceColor = noDetection ? "white" : (lowConfidenceOnly ? "orange" : "red");
+
                     ctx.beginPath();
                     ctx.globalAlpha = 0.5;
-                    ctx.fillStyle = noDetection ? "white" : "red";
-                    ctx.strokeStyle = noDetection ? "white" : "red";
+                    ctx.fillStyle = sliceColor;
+                    ctx.strokeStyle = sliceColor;
                     ctx.lineWidth = noDetection ? 1 : 3;
                     ctx.moveTo(centerX, centerY);
                     ctx.arc(centerX, centerY, (width / 2) * arcCanvas.strengthRatio, 0, arcRadians, false);
                     ctx.lineTo(centerX, centerY);
-                    ctx.fill();
+
+                    if (hasDetection) {
+                        ctx.fill();
+                    }
                     ctx.stroke();
                 }
 
@@ -90,6 +97,8 @@ MapQuickItem {
                     target: arcCanvas.sliceInfo
 
                     function onMaxSNRChanged(maxSNR) { arcCanvas.requestPaint() }
+                    function onDisplaySNRChanged(displaySNR) { arcCanvas.requestPaint() }
+                    function onLowConfidenceOnlyChanged(lowConfidenceOnly) { arcCanvas.requestPaint() }
                 }
                 Connections {
                     target: _rotationInfo
@@ -104,7 +113,7 @@ MapQuickItem {
 
             Text {
                 property var  sliceInfo:        _rotationInfo.slices.get(index)
-                property real rawStrengthRatio: _rotationInfo.maxSNR > 0 ? sliceInfo.maxSNR / _rotationInfo.maxSNR : 0
+                property real rawStrengthRatio: _rotationInfo.maxSNR > 0 ? sliceInfo.displaySNR / _rotationInfo.maxSNR : 0
                 property bool noDetection:      rawStrengthRatio == 0
                 property real strengthRatio:    noDetection ? 1 : rawStrengthRatio
                 property real sliceAngleDeg:    -90 + (360 / _sliceCount) * index
@@ -113,8 +122,8 @@ MapQuickItem {
 
                 x:              mapRect.width / 2 + outerRadius * Math.cos(sliceAngleRad) - width / 2
                 y:              mapRect.height / 2 + outerRadius * Math.sin(sliceAngleRad) - height / 2
-                visible:        !noDetection && sliceInfo.maxSNR > 0
-                text:           sliceInfo.maxSNR.toFixed(1)
+                visible:        !noDetection && sliceInfo.displaySNR > 0
+                text:           sliceInfo.displaySNR.toFixed(1)
                 color:          "white"
                 style:          Text.Outline
                 styleColor:     "black"
