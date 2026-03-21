@@ -1,4 +1,5 @@
 #include "DetectorInfo.h"
+#include "CustomPlugin.h"
 #include "Vehicle.h"
 #include "CustomSettings.h"
 #include "QGCApplication.h"
@@ -39,6 +40,10 @@ DetectorInfo::DetectorInfo(uint32_t tagId, const QString& tagLabel, uint32_t int
     _stalePulseStrengthTimer.callOnTimeout([this]() {
         _lastPulseStale = true;
         emit lastPulseStaleChanged();
+        if (_lastPulseLowConfidence) {
+            _lastPulseLowConfidence = false;
+            emit lastPulseLowConfidenceChanged();
+        }
     });
 }
 
@@ -57,6 +62,9 @@ void DetectorInfo::handleTunnelPulse(const mavlink_tunnel_t& tunnel)
     memcpy(&pulseInfo, tunnel.payload, sizeof(pulseInfo));
 
     bool isDetectorHeartbeat = pulseInfo.frequency_hz == 0;
+    CustomSettings* customSettings = qobject_cast<CustomPlugin*>(CustomPlugin::instance())->customSettings();
+    const bool isPythonMode = customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON;
+    const bool isLowConfidencePythonPulse = isPythonMode && !pulseInfo.confirmed_status && !isDetectorHeartbeat && pulseInfo.detection_status != 3;
 
     if (pulseInfo.tag_id == _tagId) {
         if (isDetectorHeartbeat) {
@@ -65,8 +73,11 @@ void DetectorInfo::handleTunnelPulse(const mavlink_tunnel_t& tunnel)
             _heartbeatTimeoutTimer.start();
             emit heartbeatLostChanged();
             qCDebug(DetectorInfoLog) << "HEARTBEAT from Detector id" << _tagId;
-        } else if (pulseInfo.confirmed_status) {
-            qCDebug(DetectorInfoLog) << "CONFIRMED tag_id:frequency_hz:seq_ctr:snr:stft_score:noise_psd" <<
+        } else if (pulseInfo.confirmed_status || isLowConfidencePythonPulse) {
+            const bool newLowConfidence = !pulseInfo.confirmed_status;
+            qCDebug(DetectorInfoLog)
+                << (pulseInfo.confirmed_status ? "CONFIRMED" : "LOW_CONFIDENCE")
+                << "tag_id:frequency_hz:seq_ctr:snr:stft_score:noise_psd" <<
                                         pulseInfo.tag_id <<
                                         pulseInfo.frequency_hz <<
                                         pulseInfo.group_seq_counter <<
@@ -74,15 +85,20 @@ void DetectorInfo::handleTunnelPulse(const mavlink_tunnel_t& tunnel)
                                         pulseInfo.stft_score <<
                                         pulseInfo.noise_psd;
 
-            // We track the max pulse in each K group
+            // We track the max pulse in each K group, clamping SNR to 0 and ignoring NaN
+            const double clampedSNR = qIsNaN(pulseInfo.snr) ? 0.0 : std::max(0.0, pulseInfo.snr);
             if (_lastPulseGroupSeqCtr != pulseInfo.group_seq_counter) {
                 _lastPulseGroupSeqCtr = pulseInfo.group_seq_counter;
                 _pulseGroupCount++;
-                _lastPulseStrength = pulseInfo.snr;
+                _lastPulseStrength = clampedSNR;
             } else {
-                _lastPulseStrength = std::max(pulseInfo.snr, _lastPulseStrength);
+                _lastPulseStrength = std::max(clampedSNR, _lastPulseStrength);
             }
             _lastPulseStale = false;
+            if (_lastPulseLowConfidence != newLowConfidence) {
+                _lastPulseLowConfidence = newLowConfidence;
+                emit lastPulseLowConfidenceChanged();
+            }
 
             emit lastPulseStrengthChanged();
             emit lastPulseStaleChanged();

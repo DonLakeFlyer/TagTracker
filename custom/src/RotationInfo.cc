@@ -27,6 +27,7 @@ void RotationInfo::pulseInfoReceived(const TunnelProtocol::PulseInfo_t& pulseInf
 
     qCDebug(CustomPluginLog) << "PulseInfo received - tag_id:snr:heading:cSlices" << pulseInfo.tag_id << pulseInfo.snr << pulseInfo.orientation_z << _cSlices << " _ " << Q_FUNC_INFO;
 
+    double sliceStrength = pulseInfo.snr;
     double normalizedHeading = CustomPlugin::normalizeHeading(pulseInfo.orientation_z);
 
     // Find the slice that this pulse belongs to
@@ -43,23 +44,27 @@ void RotationInfo::pulseInfoReceived(const TunnelProtocol::PulseInfo_t& pulseInf
             sliceFound = fromHeading <= normalizedHeading && normalizedHeading < toHeading;
         }
         if (sliceFound) {
-                slice->updateMaxSNR(pulseInfo.snr);
+            if (!qIsNaN(sliceStrength) && sliceStrength > 0.0) {
+                slice->updateMaxSNR(sliceStrength, pulseInfo.confirmed_status);
+            }
             break;
         }
     }
 
     // Update the pulse rate counts
     int rateIndex = pulseInfo.tag_id % cRates;
-    if (!qIsNaN(pulseInfo.snr)) {
+    if (pulseInfo.confirmed_status && !qIsNaN(pulseInfo.snr)) {
         qCDebug(CustomPluginLog) << "Updating RotationInfo pulse rate counts" << _pulseRateCounts << " _ " << Q_FUNC_INFO;
         _pulseRateCounts[rateIndex]++;
         emit pulseRateCountsChanged();
     }
 
     // Update max snr for rotation
-    if (qIsNaN(_maxSNR) || pulseInfo.snr > _maxSNR) {
-        qCDebug(CustomPluginLog) << "Updating RotationInfo max SNR to" << pulseInfo.snr << " _ " << Q_FUNC_INFO;
-        _maxSNR = pulseInfo.snr;
-        emit maxSNRChanged(_maxSNR);
+    if (!qIsNaN(sliceStrength) && sliceStrength > 0.0) {
+        if (qIsNaN(_maxSNR) || sliceStrength > _maxSNR) {
+            qCDebug(CustomPluginLog) << "Updating RotationInfo max SNR to" << sliceStrength << " _ " << Q_FUNC_INFO;
+            _maxSNR = sliceStrength;
+            emit maxSNRChanged(_maxSNR);
+        }
     }
 }
