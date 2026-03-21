@@ -179,11 +179,13 @@ void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& 
     memcpy(&pulseInfo, tunnel.payload, sizeof(pulseInfo));
 
     bool isDetectorHeartbeat = pulseInfo.frequency_hz == 0;
+    const bool isPythonMode = _customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON;
+    const bool isLowConfidencePulse = !isDetectorHeartbeat && !pulseInfo.confirmed_status && pulseInfo.detection_status != 3;
 
-    if (pulseInfo.confirmed_status || isDetectorHeartbeat) {
+    if (pulseInfo.confirmed_status || isDetectorHeartbeat || (isPythonMode && isLowConfidencePulse)) {
         if (!isDetectorHeartbeat) {
             qCDebug(CustomPluginLog) << Qt::fixed << qSetRealNumberPrecision(2) <<
-                "Confirmed pulse tag_id" <<
+                (pulseInfo.confirmed_status ? "Confirmed pulse tag_id" : "Low-confidence pulse tag_id") <<
                 pulseInfo.tag_id <<
                 "snr" <<
                 pulseInfo.snr <<
@@ -198,7 +200,7 @@ void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& 
         }
 
         if (_activeRotation) {
-            // Send pulse info to current rotation info
+            // Send pulse info to current rotation info, including low-confidence pulses in Python mode.
             auto rotationInfo = _rotationInfoList.value<RotationInfo*>(_rotationInfoList.count() - 1);
             if (rotationInfo) {
                 rotationInfo->pulseInfoReceived(pulseInfo);
@@ -219,40 +221,42 @@ void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& 
             emit detectorHeartbeatReceived(pulseInfo.tag_id % 2 ? 1 : 2 /* oneBaseRateIndex */);
         } else {
             // Notify Python rotation state machine that this detector has a result
-            if (_customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON) {
+            if (isPythonMode) {
                 emit pythonDetectorResultReceived(pulseInfo.tag_id);
             }
 
-            _csvLogManager.csvLogPulse(pulseInfo);
+            if (pulseInfo.confirmed_status) {
+                _csvLogManager.csvLogPulse(pulseInfo);
 
-            if (qIsNaN(_minSNR) || pulseInfo.snr < _minSNR) {
-                _minSNR = pulseInfo.snr;
-                emit minSNRChanged(_minSNR);
-            }
-            if (qIsNaN(_maxSNR) || pulseInfo.snr > _maxSNR) {
-                _maxSNR = pulseInfo.snr;
-                emit maxSNRChanged(_maxSNR);
-            }
-
-            // Add pulse to map
-            if (_customSettings->detectionFlightMode()->rawValue().toUInt() == CustomSettings::SurveyDetection && pulseInfo.snr != 0) {
-                double antennaHeading = -1;
-                if (_customSettings->antennaType()->rawValue().toInt() == CustomSettings::DirectionalAntenna) {
-                    double antennaOffset = _customSettings->antennaOffset()->rawValue().toDouble();
-                    double vehicleHeading = vehicle->heading()->rawValue().toDouble();
-                    qDebug() << "vehicleHeading" << vehicleHeading;
-                    antennaHeading = fmod(vehicleHeading + antennaOffset + 360.0, 360.0);
-                    qDebug() << "antennaHeading" << antennaHeading;
+                if (qIsNaN(_minSNR) || pulseInfo.snr < _minSNR) {
+                    _minSNR = pulseInfo.snr;
+                    emit minSNRChanged(_minSNR);
+                }
+                if (qIsNaN(_maxSNR) || pulseInfo.snr > _maxSNR) {
+                    _maxSNR = pulseInfo.snr;
+                    emit maxSNRChanged(_maxSNR);
                 }
 
-                QUrl url = QUrl::fromUserInput("qrc:/qml/PulseMapItem.qml");
-                PulseMapItem* mapItem = new PulseMapItem(url, QGeoCoordinate(pulseInfo.position_x, pulseInfo.position_y), pulseInfo.tag_id, _useSNRForPulseStrength() ? pulseInfo.snr : pulseInfo.stft_score, antennaHeading, this);
-                _customMapItems.append(mapItem);
+                // Add pulse to map
+                if (_customSettings->detectionFlightMode()->rawValue().toUInt() == CustomSettings::SurveyDetection && pulseInfo.snr != 0) {
+                    double antennaHeading = -1;
+                    if (_customSettings->antennaType()->rawValue().toInt() == CustomSettings::DirectionalAntenna) {
+                        double antennaOffset = _customSettings->antennaOffset()->rawValue().toDouble();
+                        double vehicleHeading = vehicle->heading()->rawValue().toDouble();
+                        qDebug() << "vehicleHeading" << vehicleHeading;
+                        antennaHeading = fmod(vehicleHeading + antennaOffset + 360.0, 360.0);
+                        qDebug() << "antennaHeading" << antennaHeading;
+                    }
+
+                    QUrl url = QUrl::fromUserInput("qrc:/qml/PulseMapItem.qml");
+                    PulseMapItem* mapItem = new PulseMapItem(url, QGeoCoordinate(pulseInfo.position_x, pulseInfo.position_y), pulseInfo.tag_id, _useSNRForPulseStrength() ? pulseInfo.snr : pulseInfo.stft_score, antennaHeading, this);
+                    _customMapItems.append(mapItem);
+                }
             }
         }
     } else {
         // detection_status==3 means the Python detector completed a scan cycle and found no pulse
-        if (pulseInfo.detection_status == 3 && _customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON) {
+        if (pulseInfo.detection_status == 3 && isPythonMode) {
             qCDebug(CustomPluginLog) << "No-pulse (detection_status=3) for tag_id" << pulseInfo.tag_id << " - " << Q_FUNC_INFO;
             emit pythonDetectorResultReceived(pulseInfo.tag_id);
         }

@@ -83,7 +83,8 @@ Item {
                         Rectangle {
                             anchors.rightMargin:    ((maxStrength - filteredSNR) / maxStrength) *  parent.width
                             anchors.fill:           parent
-                            color:                  object.lastPulseStale ? "yellow" : "green"
+                            color:                  object.lastPulseStale ? "yellow" :
+                                                    object.lastPulseLowConfidence ? "orange" : "green"
                             visible:                !object.heartbeatLost
 
                         }

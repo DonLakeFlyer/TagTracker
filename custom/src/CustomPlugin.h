@@ -104,7 +104,7 @@ signals:
     void minSNRChanged                  (double minSNR);
     void activeRotationChanged          (bool activeRotation);
     void detectorHeartbeatReceived      (int oneBasedRateIndex);
-    void pythonDetectorResultReceived   (uint32_t tagId);  // confirmed pulse or no-pulse in Python mode
+    void pythonDetectorResultReceived   (uint32_t tagId);  // confirmed, low-confidence, or no-pulse in Python mode
 
 private slots:
     void _controllerHeartbeatFailed(void);

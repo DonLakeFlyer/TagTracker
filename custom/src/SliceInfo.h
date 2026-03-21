@@ -12,18 +12,25 @@ public:
     Q_PROPERTY(double centerHeading READ centerHeading  CONSTANT)
     Q_PROPERTY(double sliceDegrees  READ sliceDegrees   CONSTANT)
     Q_PROPERTY(double maxSNR        READ maxSNR         NOTIFY maxSNRChanged)
+    Q_PROPERTY(double displaySNR    READ displaySNR     NOTIFY displaySNRChanged)
+    Q_PROPERTY(bool   lowConfidenceOnly READ lowConfidenceOnly NOTIFY lowConfidenceOnlyChanged)
 
     double centerHeading(void) const { return _centerHeading; }
     double sliceDegrees(void) const { return _sliceDegrees; }
     double maxSNR(void) const { return _maxSNR; }
-    void updateMaxSNR(double snr);
+    double displaySNR(void) const;
+    bool lowConfidenceOnly(void) const;
+    void updateMaxSNR(double snr, bool confirmedPulse);
 
 signals:
     void maxSNRChanged(double maxSNR);
+    void displaySNRChanged(double displaySNR);
+    void lowConfidenceOnlyChanged(bool lowConfidenceOnly);
 
 private:
     int     _sliceIndex     = 0;
     double  _centerHeading  = 0.0;
     double  _sliceDegrees   = 0.0;
     double  _maxSNR         = qQNaN();
+    double  _maxLowConfidenceSNR = qQNaN();
 };
