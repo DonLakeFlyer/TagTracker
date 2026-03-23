@@ -5,7 +5,7 @@ This guide covers how to charge the vehicle battery using the iMAX B6AC V2 charg
 ## Connecting the Battery
 
 1. Plug the charger into a wall outlet using the included AC power cable.
-2. Connect the battery's **main power lead** to the charger output ports. Match red to red (+) and black to black (−).
+2. Connect the battery's **main power lead** to the charger output ports. Match red to red (+) and black to black (-).
 3. Connect the battery's **balance lead** (the smaller white connector with multiple wires) to the matching balance port on the side of the charger.
 
 ## Starting a Charge
