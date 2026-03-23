@@ -12,6 +12,7 @@ on:
     paths-ignore:
       - 'deploy/**'
       - 'docs/**'
+      - 'custom/docs/**'
 
 # concurrency:
 #   group: ${{ github.workflow }}-${{ github.ref }}
