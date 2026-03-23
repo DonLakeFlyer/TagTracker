@@ -1,47 +1,48 @@
 # Auto Detection
 
-Auto Detection is a one-button operation that performs an automated detection flight: takeoff, rotate while capturing tag pulses, then return to launch. This guide covers how to select tags and run an Auto Detection.
+Auto Detection lets you perform a complete tag detection flight with a single button press. The vehicle takes off, rotates in place to listen for tag signals, and then returns home — all automatically.
 
 ## Selecting Tags
 
-Before starting Auto Detection you must select at least one tag to track. Tags are selected from the Controller Indicator in the toolbar.
+Before starting you need to select which tags to listen for.
 
-1. Tap the **Controller Indicator** in the top toolbar. This is the bar that shows signal strength and tag labels for each connected detector.
-2. The indicator popup displays all configured tags as a list with checkboxes. Each row shows the tag name and frequency in MHz.
-3. Check the box next to each tag you want to track. If multi-tag detection is disabled, selecting a tag automatically deselects any previously selected tag.
-4. Close the popup. Your tag selection is saved automatically.
+1. Tap the **Controller Indicator** bar in the top toolbar.
+2. A popup lists your configured tags with checkboxes showing each tag's name and frequency.
+3. Check the tag you want to detect.
+4. Close the popup. Your selection is saved automatically.
 
-## Starting Auto Detection
+## Starting a Detection Flight
 
-When the Detection Flight Mode is set to **Auto**, the Fly View toolbar displays a simplified set of actions with a **Go** button.
+1. Tap the **Go** button in the toolbar on the left side of the Fly View.
+2. A confirmation dialog appears: *"Takeoff, rotate, return."* Slide the confirmation slider across to start or tap **Cancel** to abort.
 
-1. Ensure the vehicle is armed but **not flying**.
-2. Verify the Controller Indicator shows a green status bar (controller heartbeat is active and at least one detector is connected).
-3. Tap the **Go** button in the Fly View toolbar on the left side of the screen.
-4. A confirmation dialog appears with the message: *"Takeoff, rotate, return."*
-5. Tap **Confirm** to begin the automated sequence. Tap **Cancel** to abort.
+## What to Expect
 
-## What Happens During Auto Detection
+After you confirm, the vehicle will:
 
-Once confirmed, TagTracker runs through the following sequence automatically:
+1. Announce *"Starting auto detection"* over audio.
+2. Take off to the configured altitude.
+3. Rotate a full 360° in place, listening for tag pulses at each heading. As pulses are detected they appear on the map in real time.
+4. Announce *"Auto detection complete. Returning"* over audio.
+5. Fly back to the launch point and land.
 
-1. **Audio announcement** — "Starting auto detection" is spoken aloud.
-2. **Airspy status check** — The SDR hardware status is verified.
-3. **Start detection** — Pulse detection begins for all selected tags.
-4. **Takeoff** — The vehicle climbs to the configured takeoff altitude.
-5. **Rotate and capture** — The vehicle performs a full 360° rotation in place, capturing pulses at each rotation division. Detected pulses appear on the map in real time.
-6. **Stop detection** — Pulse detection is stopped.
-7. **Audio announcement** — "Auto detection complete. Returning" is spoken.
-8. **Return to launch** — The vehicle automatically returns to its launch point and lands.
+No manual input is needed during this sequence.
 
-## During the Flight
+## Reading the Display
 
-While the auto detection sequence is running:
+While the flight is in progress:
 
-- The **Controller Indicator** in the toolbar shows live signal strength for each detector. A green bar indicates active pulses, yellow means the last pulse is stale, and red means the detector heartbeat is lost.
-- Detected pulses are plotted on the **map** as they are received, showing the estimated bearing and strength for each tag.
-- You can tap **Pause** to pause the vehicle or **RTL** to abort and return home at any time.
+- The **Controller Indicator** bar shows live signal strength. Green means pulses are being received, yellow means no recent pulse, and red means the detector connection has been lost.
+- Each detected pulse is plotted on the **map** with its estimated bearing and signal strength so you can see the likely direction of each tag.
 
-## After Detection
+## Intervening
 
-When the sequence completes and the vehicle has landed, review the pulse locations plotted on the map. Detection logs can be saved or downloaded using the **Save Logs** and **Download** actions available in the Fly View additional actions menu.
+You can interrupt the sequence at any time using the toolbar buttons:
+
+- Tap **Return** to abort the detection and fly back to the launch point.
+- Tap **Pause** to stop the vehicle in place. This also cancels the detection.
+- Tap **Emergency Stop** to immediately stop the vehicle. **Warning:** confirming Emergency Stop while the vehicle is flying will cause it to crash.
+
+## After the Flight
+
+Once the vehicle has landed, the map shows all detected pulse locations. Use these to determine the bearing toward each tag. Detection logs can be saved or downloaded from the additional actions menu (tap **...** in the toolbar, then **Save Logs** or **Download**).
