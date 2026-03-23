@@ -1,0 +1,42 @@
+name: Build PDF Docs
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'custom/docs/**'
+  pull_request:
+    branches: [ master ]
+    paths:
+      - 'custom/docs/**'
+  workflow_dispatch:
+
+jobs:
+  build-pdf:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pandoc and LaTeX
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pandoc texlive-latex-recommended texlive-latex-extra texlive-fonts-recommended
+
+      - name: Convert Markdown to PDF
+        run: |
+          mkdir -p custom/docs/pdf
+          for md in custom/docs/*.md; do
+            filename=$(basename "$md" .md)
+            pandoc "$md" -o "custom/docs/pdf/${filename}.pdf" \
+              --pdf-engine=pdflatex \
+              -V geometry:margin=1in \
+              -V colorlinks=true
+          done
+
+      - name: Upload PDFs
+        uses: actions/upload-artifact@v4
+        with:
+          name: tagtracker-docs
+          path: custom/docs/pdf/*.pdf
