@@ -28,7 +28,7 @@ SendTagsState::SendTagsState(QState* parent)
         }
     }
     if (!foundSelectedTag) {
-        qCWarning(CustomPluginLog) << Q_FUNC_INFO << "No tags are available/selected to send.";
+        qCWarning(CustomStateMachineLog) << Q_FUNC_INFO << "No tags are available/selected to send.";
         return;
     }
 

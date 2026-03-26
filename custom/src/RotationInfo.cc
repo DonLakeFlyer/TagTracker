@@ -20,7 +20,7 @@ RotationInfo::RotationInfo(int cSlices, QObject* parent)
 
 void RotationInfo::pulseInfoReceived(const TunnelProtocol::PulseInfo_t& pulseInfo)
 {
-    if (pulseInfo.tag_id == 0) {
+    if (pulseInfo.frequency_hz == 0) {
         // Detector heartbeat
         return;
     }

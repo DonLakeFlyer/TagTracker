@@ -48,10 +48,10 @@ void PythonWaitForDetectionResultState::_startListening()
         }
     }
 
-    qCDebug(CustomPluginLog) << "Python: waiting for detection results from tag IDs:" << _pendingTagIds << " - " << Q_FUNC_INFO;
+    qCDebug(CustomStateMachineLog) << "Python: waiting for detection results from tag IDs:" << _pendingTagIds << " - " << Q_FUNC_INFO;
 
     if (_pendingTagIds.isEmpty()) {
-        qCWarning(CustomPluginLog) << "PythonWaitForDetectionResultState: no detectors in list" << Q_FUNC_INFO;
+        qCWarning(CustomStateMachineLog) << "PythonWaitForDetectionResultState: no detectors in list" << Q_FUNC_INFO;
         emit resultsReceived();
         return;
     }
@@ -67,12 +67,12 @@ void PythonWaitForDetectionResultState::_startListening()
 void PythonWaitForDetectionResultState::_pythonDetectorResultReceived(uint32_t tagId)
 {
     if (_pendingTagIds.remove(tagId)) {
-        qCDebug(CustomPluginLog) << "Python detection result for tag_id" << tagId
+        qCDebug(CustomStateMachineLog) << "Python detection result for tag_id" << tagId
                                  << "- still pending:" << _pendingTagIds << " - " << Q_FUNC_INFO;
     }
 
     if (_pendingTagIds.isEmpty()) {
-        qCDebug(CustomPluginLog) << "Python: all detection results received" << " - " << Q_FUNC_INFO;
+        qCDebug(CustomStateMachineLog) << "Python: all detection results received" << " - " << Q_FUNC_INFO;
         _disconnectAll();
         emit resultsReceived();
     }

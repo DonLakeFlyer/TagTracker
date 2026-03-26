@@ -30,9 +30,9 @@ void SendMavlinkCommandState::setup(MAV_CMD command, double param1, double param
     _param6 = param6;
     _param7 = param7;
 
-    connect(this, &QState::entered, this, [this] () 
-        { 
-            qCDebug(CustomPluginLog) << QStringLiteral("Sending %1 command").arg(MissionCommandTree::instance()->friendlyName(_command)) << " - " << Q_FUNC_INFO;
+    connect(this, &QState::entered, this, [this] ()
+        {
+            qCDebug(CustomStateMachineLog) << QStringLiteral("Sending %1 command").arg(MissionCommandTree::instance()->friendlyName(_command)) << " - " << Q_FUNC_INFO;
             _sendMavlinkCommand();
         });
 
@@ -61,15 +61,15 @@ void SendMavlinkCommandState::_mavCommandResult(int vehicleId, int component, in
 
     Vehicle* vehicle = dynamic_cast<Vehicle*>(sender());
     if (!vehicle) {
-        qWarning() << "Vehicle dynamic cast on sender() failed!" << " - " << Q_FUNC_INFO;
+        qCWarning(CustomStateMachineLog) << "Vehicle dynamic cast on sender() failed!" << " - " << Q_FUNC_INFO;
         return;
     }
     if (vehicle != _vehicle) {
-        qCWarning(CustomPluginLog) << "Received mavCommandResult from unexpected vehicle" << " - " << Q_FUNC_INFO;
+        qCWarning(CustomStateMachineLog) << "Received mavCommandResult from unexpected vehicle" << " - " << Q_FUNC_INFO;
         return;
     }
     if (command != _command) {
-        qCWarning(CustomPluginLog) << "Received mavCommandResult for unexpected command - expected:actual" << _command << command << " - " << Q_FUNC_INFO;
+        qCWarning(CustomStateMachineLog) << "Received mavCommandResult for unexpected command - expected:actual" << _command << command << " - " << Q_FUNC_INFO;
         return;
     }
 
@@ -78,16 +78,16 @@ void SendMavlinkCommandState::_mavCommandResult(int vehicleId, int component, in
     QString commandName = MissionCommandTree::instance()->friendlyName(_command);
 
     if (noResponseFromVehicle) {
-        qCDebug(CustomPluginLog) << QStringLiteral("%1 Command - No response from vehicle").arg(commandName) << " - " << Q_FUNC_INFO;
+        qCDebug(CustomStateMachineLog) << QStringLiteral("%1 Command - No response from vehicle").arg(commandName) << " - " << Q_FUNC_INFO;
         QString message = QStringLiteral("%1 command failed").arg(commandName);
         setError(message);
     } else if (result != MAV_RESULT_ACCEPTED) {
-        qCWarning(CustomPluginLog) << QStringLiteral("%1 Command failed = ack.result: %2").arg(commandName).arg(result) << " - " << Q_FUNC_INFO;
+        qCWarning(CustomStateMachineLog) << QStringLiteral("%1 Command failed = ack.result: %2").arg(commandName).arg(result) << " - " << Q_FUNC_INFO;
         QString message = QStringLiteral("%1 command failed").arg(commandName);
         setError(message);
     } else {
         // MAV_RESULT_ACCEPTED
-        qCDebug(CustomPluginLog) << QStringLiteral("%1 Command succeeded").arg(commandName) << " - " << Q_FUNC_INFO;
+        qCDebug(CustomStateMachineLog) << QStringLiteral("%1 Command succeeded").arg(commandName) << " - " << Q_FUNC_INFO;
         emit success();
     }
 }

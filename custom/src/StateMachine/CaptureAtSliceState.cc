@@ -89,7 +89,7 @@ CustomState* CaptureAtSliceState::_rotateAndCaptureAtHeadingState()
 {
     auto groupingState = new CustomState("RotateAndCaptureAtHeadingState", this);
     connect(groupingState, &QState::entered, this, [this] () {
-            qCDebug(CustomPluginLog) << QStringLiteral("Rotating to heading %1").arg(this->_sliceHeadingDegrees) << " - " << Q_FUNC_INFO;
+            qCDebug(CustomStateMachineLog) << QStringLiteral("Rotating to heading %1").arg(this->_sliceHeadingDegrees) << " - " << Q_FUNC_INFO;
     }); 
 
     auto announceRotateState        = new SayState("Announce Rotate", groupingState, QStringLiteral("Searching at %1 degrees").arg(_sliceHeadingDegrees));

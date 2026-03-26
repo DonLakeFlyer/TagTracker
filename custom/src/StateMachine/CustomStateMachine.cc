@@ -20,10 +20,10 @@ CustomStateMachine::CustomStateMachine(const QString& machineName, QObject* pare
     setObjectName(machineName);
 
     connect(this, &CustomStateMachine::started, this, [this] () {
-        qCDebug(CustomPluginLog) << "State machine started:" << objectName();
+        qCDebug(CustomStateMachineLog) << "State machine started:" << objectName();
     });
     connect(this, &CustomStateMachine::stopped, this, [this] () {
-        qCDebug(CustomPluginLog) << "State machine finished:" << objectName();
+        qCDebug(CustomStateMachineLog) << "State machine finished:" << objectName();
         qobject_cast<CustomPlugin*>(CustomPlugin::instance())->rotationIsEnding();
         disconnect(_vehicle, &Vehicle::flightModeChanged, this, &CustomStateMachine::_flightModeChanged);
     });
@@ -35,7 +35,7 @@ CustomStateMachine::CustomStateMachine(const QString& machineName, QObject* pare
 void CustomStateMachine::setError(const QString& errorString)
 {
     bool rtlOnError = _eventMode & RTLOnError;
-    qWarning(CustomPluginLog) << "errorString" << errorString << " - " << Q_FUNC_INFO;
+    qWarning(CustomStateMachineLog) << "errorString" << errorString << " - " << Q_FUNC_INFO;
     _errorString = errorString;
     if (_vehicle->flying()) {
         AudioOutput::instance()->say(QStringLiteral("%1 failed. %2").arg(objectName()).arg(rtlOnError ? "Returning" : "User is in control of vehicle"));
@@ -55,7 +55,7 @@ void CustomStateMachine::setError(const QString& errorString)
 
 void CustomStateMachine::displayError()
 {
-    qCWarning(CustomPluginLog) << _errorString << " - " << Q_FUNC_INFO;
+    qCWarning(CustomStateMachineLog) << _errorString << " - " << Q_FUNC_INFO;
     qgcApp()->showAppMessage(_errorString);
     _errorString.clear();
 }
@@ -78,13 +78,13 @@ void CustomStateMachine::_flightModeChanged(const QString& flightMode)
 void CustomStateMachine::setEventMode(uint eventMode)
 {
     if (eventMode == 0) {
-        qCDebug(CustomPluginLog) << "Clearing all event modes"<< " - " << Q_FUNC_INFO;
+        qCDebug(CustomStateMachineLog) << "Clearing all event modes"<< " - " << Q_FUNC_INFO;
     } else {
         if (eventMode & CancelOnFlightModeChange) {
-            qCDebug(CustomPluginLog) << "Setting event mode: CancelOnFlightModeChange" << " - " << Q_FUNC_INFO;
+            qCDebug(CustomStateMachineLog) << "Setting event mode: CancelOnFlightModeChange" << " - " << Q_FUNC_INFO;
         }
         if (eventMode & RTLOnError) {
-            qCDebug(CustomPluginLog) << "Setting event mode: RTLOnError" << " - " << Q_FUNC_INFO;
+            qCDebug(CustomStateMachineLog) << "Setting event mode: RTLOnError" << " - " << Q_FUNC_INFO;
         }
     }
     _eventMode = eventMode;

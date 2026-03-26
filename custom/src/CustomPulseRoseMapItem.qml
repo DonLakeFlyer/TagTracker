@@ -46,7 +46,7 @@ MapQuickItem {
         radius:         width / 2
         color:          "transparent"
         border.color:   mapPal.text
-        border.width:   2
+        border.width:   1
 
         Repeater {
             model: _sliceCount
@@ -70,13 +70,13 @@ MapQuickItem {
                     ctx.reset();
 
                     var hasDetection = !noDetection;
-                    var sliceColor = noDetection ? "white" : (lowConfidenceOnly ? "orange" : "red");
+                    var sliceColor = noDetection ? "white" : (lowConfidenceOnly ? "orange" : "green");
 
                     ctx.beginPath();
-                    ctx.globalAlpha = 0.5;
+                    ctx.globalAlpha = 0.75;
                     ctx.fillStyle = sliceColor;
-                    ctx.strokeStyle = sliceColor;
-                    ctx.lineWidth = noDetection ? 1 : 3;
+                    ctx.strokeStyle = "white";
+                    ctx.lineWidth = 1;
                     ctx.moveTo(centerX, centerY);
                     ctx.arc(centerX, centerY, (width / 2) * arcCanvas.strengthRatio, 0, arcRadians, false);
                     ctx.lineTo(centerX, centerY);
@@ -115,16 +115,18 @@ MapQuickItem {
                 property var  sliceInfo:        _rotationInfo.slices.get(index)
                 property real rawStrengthRatio: _rotationInfo.maxSNR > 0 ? sliceInfo.displaySNR / _rotationInfo.maxSNR : 0
                 property bool noDetection:      rawStrengthRatio == 0
-                property real strengthRatio:    noDetection ? 1 : rawStrengthRatio
+                property bool lowConfidenceOnly: sliceInfo.lowConfidenceOnly
                 property real sliceAngleDeg:    -90 + (360 / _sliceCount) * index
                 property real sliceAngleRad:    sliceAngleDeg * Math.PI / 180
-                property real outerRadius:      (mapRect.width / 2) * strengthRatio
+                property real outerRadius:      mapRect.width / 2
 
                 x:              mapRect.width / 2 + outerRadius * Math.cos(sliceAngleRad) - width / 2
                 y:              mapRect.height / 2 + outerRadius * Math.sin(sliceAngleRad) - height / 2
                 visible:        !noDetection && sliceInfo.displaySNR > 0
                 text:           sliceInfo.displaySNR.toFixed(1)
-                color:          "white"
+                font.pointSize: ScreenTools.largeFontPointSize
+                font.bold:      true
+                color:          lowConfidenceOnly ? "orange" : "white"
                 style:          Text.Outline
                 styleColor:     "black"
             }

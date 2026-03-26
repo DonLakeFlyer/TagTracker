@@ -39,7 +39,7 @@ PythonCaptureAtSliceState::PythonCaptureAtSliceState(QState* parentState, int sl
     _sliceHeadingDegrees += -antennaOffset;
 
     connect(this, &QState::entered, this, [this] () {
-        qCDebug(CustomPluginLog) << QStringLiteral("Python: rotating to heading %1").arg(_sliceHeadingDegrees) << " - " << Q_FUNC_INFO;
+        qCDebug(CustomStateMachineLog) << QStringLiteral("Python: rotating to heading %1").arg(_sliceHeadingDegrees) << " - " << Q_FUNC_INFO;
     });
 
     // Build StartDetectionInfo for this slice

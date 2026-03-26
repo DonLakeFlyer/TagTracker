@@ -94,6 +94,7 @@ public:
     const QVariantList& toolBarIndicators       (void) final;
 
     static double normalizeHeading(double heading);
+    static const char* controllerStatusString(int status);
 
 signals:
     void calcedBearingsChanged          (void);

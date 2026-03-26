@@ -43,7 +43,7 @@ PythonRotateAndCaptureState::PythonRotateAndCaptureState(QState* parentState)
 void PythonRotateAndCaptureState::_rotationBegin()
 {
     _customPlugin->rotationIsStarting();
-    qCDebug(CustomPluginLog) << "Python rotation begin" << " - " << Q_FUNC_INFO;
+    qCDebug(CustomStateMachineLog) << "Python rotation begin" << " - " << Q_FUNC_INFO;
 }
 
 void PythonRotateAndCaptureState::_rotationEnd()
