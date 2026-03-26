@@ -35,7 +35,7 @@ CustomStateMachine::CustomStateMachine(const QString& machineName, QObject* pare
 void CustomStateMachine::setError(const QString& errorString)
 {
     bool rtlOnError = _eventMode & RTLOnError;
-    qWarning(CustomStateMachineLog) << "errorString" << errorString << " - " << Q_FUNC_INFO;
+    qCWarning(CustomStateMachineLog) << "errorString" << errorString << " - " << Q_FUNC_INFO;
     _errorString = errorString;
     if (_vehicle->flying()) {
         AudioOutput::instance()->say(QStringLiteral("%1 failed. %2").arg(objectName()).arg(rtlOnError ? "Returning" : "User is in control of vehicle"));

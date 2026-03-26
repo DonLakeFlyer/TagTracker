@@ -47,7 +47,7 @@ void SetFlightModeState::_disconnectAll()
 void SetFlightModeState::_validateFlightModeChange(const QString& flightMode)
 {
     if (flightMode == _flightMode) {
-        qCDebug(CustomStateMachineLog) << "Flight mode succesfully changed to" << flightMode << " - " << Q_FUNC_INFO;
+        qCDebug(CustomStateMachineLog) << "Flight mode successfully changed to" << flightMode << " - " << Q_FUNC_INFO;
         _disconnectAll();
         emit flightModeChanged();
     }
