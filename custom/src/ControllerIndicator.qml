@@ -9,7 +9,6 @@
 
 import QtQuick
 import QtQuick.Layouts
-import QtQuick.Controls
 
 import QGroundControl
 import QGroundControl.Controls
@@ -21,8 +20,6 @@ import QGroundControl.Palette
 import QGroundControl.SettingsManager
 import MAVLink
 
-import QGroundControl.CustomControls
-
 Item {
     id:                 control
     anchors.margins:    -ScreenTools.defaultFontPixelHeight / 2
@@ -33,11 +30,21 @@ Item {
     property bool showIndicator: true
 
     property var    activeVehicle:              QGroundControl.multiVehicleManager.activeVehicle
-    property real   maxStrength:                QGroundControl.corePlugin.customSettings.maxPulseStrength.rawValue
-    property bool   detectorsAvailable:         QGroundControl.corePlugin.detectorList.count > 0
     property bool   controllerHeartbeatLost:    QGroundControl.corePlugin.controllerLostHeartbeat
     property var    tagDatabase:                QGroundControl.corePlugin.tagDatabase
     property var    customSettings:             QGroundControl.corePlugin.customSettings
+
+    function selectedTagName() {
+        var names = []
+        for (var i = 0; i < tagDatabase.tagInfoList.count; i++) {
+            var tag = tagDatabase.tagInfoList.get(i)
+            if (tag.selected.rawValue) {
+                names.push(tag.name.valueString)
+            }
+        }
+        if (names.length === 0) return qsTr("No Tag")
+        return names.join(", ")
+    }
 
     Row {
         id:             rowLayout
@@ -46,68 +53,23 @@ Item {
         spacing:        ScreenTools.defaultFontPixelWidth / 2
 
         Rectangle {
-            id:         controllerStatus
             height:     parent.height
-            width:      ScreenTools.defaultFontPixelWidth * 20
-            color:      QGroundControl.corePlugin.controllerLostHeartbeat ? "red" : "green"
-            visible:    controllerHeartbeatLost || !detectorsAvailable
+            width:      ScreenTools.defaultFontPixelWidth * 15
+            color:      controllerHeartbeatLost ? "red" : "green"
 
             QGCLabel {
+                id:                     tagNameLabel
                 anchors.fill:           parent
-                text:                   controllerHeartbeatLost ? qsTr("Controller Lost") : qsTr("No Detectors")
-                color:                  "white"
+                anchors.leftMargin:     ScreenTools.defaultFontPixelWidth / 2
+                anchors.rightMargin:    ScreenTools.defaultFontPixelWidth / 2
                 horizontalAlignment:    Text.AlignHCenter
                 verticalAlignment:      Text.AlignVCenter
+                text:                   selectedTagName()
+                elide:                  Text.ElideRight
             }
         }
 
-        ColumnLayout {
-            height:     parent.height
-            spacing:    2
-            visible:    !controllerStatus.visible
 
-            Repeater {
-                model: QGroundControl.corePlugin.detectorList
-
-                RowLayout {
-                    property real filteredSNR: Math.max(0, Math.min(object.lastPulseStrength, maxStrength))
-
-                    Rectangle {
-                        id:                     pulseRect
-                        Layout.fillHeight:      true
-                        Layout.preferredWidth:  ScreenTools.defaultFontPixelWidth * 20
-                        color:                  object.heartbeatLost ?
-                                                    "red" :
-                                                    object.lastPulseStale ? "yellow" : "transparent"
-
-                        Rectangle {
-                            anchors.rightMargin:    ((maxStrength - filteredSNR) / maxStrength) *  parent.width
-                            anchors.fill:           parent
-                            color:                  object.lastPulseStale ? "yellow" :
-                                                    object.lastPulseLowConfidence ? "orange" : "green"
-                            visible:                !object.heartbeatLost
-
-                        }
-
-                        QGCLabel {
-                            anchors.fill:           parent
-                            text:                   filteredSNR.toFixed(1)
-                            font.bold:              true
-                            color:                  "black"
-                            horizontalAlignment:    Text.AlignHCenter
-                            verticalAlignment:      Text.AlignVCenter
-                        }
-                    }
-
-                    QGCLabel {
-                        Layout.preferredHeight: pulseRect.height
-                        text:                   object.tagLabel[0]
-                        fontSizeMode:           Text.VerticalFit
-                        verticalAlignment:      Text.AlignVCenter
-                    }
-                }
-            }
-        }
     }
 
     MouseArea {
@@ -119,21 +81,10 @@ Item {
         id: indicatorPopup
 
         ToolIndicatorPage {
-            showExpand:         true
+            showExpand:         false
             waitForParameters:  false
             contentComponent:   indicatorContentComponent
-            expandedComponent:  indicatorExpandedComponent
         }
-    }
-
-    Component {
-        id: manufacturersDialogComponent
-        TagManufacturersDialog { }
-    }
-
-    Component {
-        id: tagInfoDialogComponent
-        TagInfoDialog { }
     }
 
     Component {
@@ -149,7 +100,7 @@ Item {
 
             GridLayout {
                 rows:       tagDatabase.tagInfoList.count
-                columns:    4
+                columns:    3
                 flow:       GridLayout.TopToBottom
 
                 Repeater {
@@ -181,71 +132,6 @@ Item {
                     model: tagDatabase.tagInfoList
 
                     QGCLabel { text: object.frequencyMHz.valueString }
-                }
-
-                Repeater {
-                    model: tagDatabase.tagInfoList
-
-                    QGCButton {
-                        text:       qsTr("Edit")
-                        onClicked:  tagInfoDialogComponent.createObject(mainWindow, { tagInfo: object }).open()
-                    }
-                }
-
-                Repeater {
-                    model: tagDatabase.tagInfoList
-
-                    QGCButton {
-                        text:       qsTr("Del")
-                        onClicked: {
-                            tagDatabase.deleteTagInfoListItem(object)
-                            tagDatabase.save()
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    Component {
-        id: indicatorExpandedComponent
-
-        ColumnLayout {
-            property var _customSettings:               QGroundControl.corePlugin.customSettings
-
-            SettingsGroupLayout {
-                RowLayout {
-                    spacing: ScreenTools.defaultFontPixelWidth
-
-                    QGCButton {
-                        text:       qsTr("Add Tag")
-                        onClicked: {
-                            if (tagDatabase.tagManufacturerList.count == 0) {
-                                mainWindow.showMessageDialog(qsTr("Add Tag"), qsTr("You must add a Manufacturer first."))
-                            } else {
-                                tagInfoDialogComponent.createObject(mainWindow, { tagInfo: tagDatabase.newTagInfo() }).open()
-                            }
-                        }
-                    }
-
-                    QGCButton {
-                        text:       qsTr("Manufacturers")
-                        onClicked:  manufacturersDialogComponent.createObject(mainWindow).open()
-                    }
-                }
-            }
-
-            SettingsGroupLayout {
-                LabelledFactComboBox {
-                    Layout.fillWidth:   true
-                    label:              fact.shortDescription
-                    fact:               _customSettings.detectionFlightMode
-                }
-
-                FactCheckBoxSlider {
-                    Layout.fillWidth:   true
-                    text:               fact.shortDescription
-                    fact:               _customSettings.allowMultiTagDetection
                 }
             }
         }

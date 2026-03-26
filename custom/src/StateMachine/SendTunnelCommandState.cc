@@ -111,7 +111,7 @@ void SendTunnelCommandState::_sendTunnelCommand()
                     &msg,
                     &tunnel);
 
-        qCDebug(CustomPluginLog) << "SendTunnelCommandState::_sendTunnelCommand: Sending tunnel command - " << commandIdToText(_sentTunnelCommand);
+        qCDebug(CustomStateMachineLog) << "SendTunnelCommandState::_sendTunnelCommand: Sending tunnel command - " << commandIdToText(_sentTunnelCommand);
 
         _vehicle->sendMessageOnLinkThreadSafe(sharedLink.get(), msg);
     }
@@ -128,7 +128,7 @@ void SendTunnelCommandState::_handleTunnelCommandAck(const mavlink_tunnel_t& tun
 
         _disconnectAll();
 
-        qCDebug(CustomPluginLog) << "Tunnel command ack received - command:result" << commandIdToText(ack.command) << ack.result;
+        qCDebug(CustomStateMachineLog) << "Tunnel command ack received - command:result" << commandIdToText(ack.command) << ack.result;
         if (ack.result == COMMAND_RESULT_SUCCESS) {
             emit commandSucceeded();
         } else {
@@ -148,7 +148,7 @@ void SendTunnelCommandState::_handleTunnelCommandAck(const mavlink_tunnel_t& tun
             }
         }
     } else {
-        qWarning() << "SendTunnelCommandState::_handleTunnelCommandAck: Received unexpected command id ack expected:actual" <<
+        qCWarning(CustomStateMachineLog) << "SendTunnelCommandState::_handleTunnelCommandAck: Received unexpected command id ack expected:actual" <<
                       commandIdToText(_sentTunnelCommand) <<
                       commandIdToText(ack.command);
     }
@@ -161,11 +161,11 @@ void SendTunnelCommandState::_ackResponseTimedOut(void)
     _disconnectAll();
 
     if (_retryCount < _maxRetries) {
-        qCDebug(CustomPluginLog) << message << "Retrying...";
+        qCDebug(CustomStateMachineLog) << message << "Retrying...";
         _retryCount++;
         _sendTunnelCommand();
     } else {
-        qCWarning(CustomPluginLog) << message;
+        qCWarning(CustomStateMachineLog) << message;
         setError(message);
     }
 }

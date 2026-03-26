@@ -38,7 +38,7 @@ void SliceSequenceCaptureState::setup(const QString& stateName, int firstSlice, 
     sliceStates.last()->addTransition(sliceStates.last(), &QState::finished, new QFinalState(this));
 
     connect(this, &QState::entered, this, [this, firstSlice, skipCount, clockwiseDirection, sliceCount] () {
-        qCDebug(CustomPluginLog) << "Four point rotate and capture at firstSlice:skipCount:clockwiseDirection:sliceCount" << firstSlice << skipCount << clockwiseDirection << sliceCount << Q_FUNC_INFO;
+        qCDebug(CustomStateMachineLog) << "Four point rotate and capture at firstSlice:skipCount:clockwiseDirection:sliceCount" << firstSlice << skipCount << clockwiseDirection << sliceCount << Q_FUNC_INFO;
     });
 
     setInitialState(sliceStates.first());

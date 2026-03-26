@@ -40,6 +40,8 @@ Item {
     property var _customPlugin:     QGroundControl.corePlugin
     property var _customSettings:   _customPlugin.customSettings
 
+    QGCPalette { id: qgcPal; colorGroupEnabled: true }
+
     property real _minSNR:          _customPlugin.minSNR
     property real _maxSNR:          _customPlugin.maxSNR
     property real _snrRange:        _maxSNR - _minSNR
@@ -69,11 +71,69 @@ Item {
         bottomEdgeRightInset:   parentToolInsets.bottomEdgeRightInset
     }
 
-    ColumnLayout {
-        anchors.margins:    ScreenTools.defaultFontPixelWidth
+    Rectangle {
+        id:                 pulseOverlayBackground
         anchors.top:        parent.top
         anchors.right:      parent.right
-        height:             parent.height - (anchors.margins * 2) - parentToolInsets.bottomEdgeRightInset
+        anchors.topMargin:  ScreenTools.defaultFontPixelWidth
+        anchors.rightMargin: ScreenTools.defaultFontPixelWidth
+        width:              pulseOverlay.width + ScreenTools.defaultFontPixelWidth * 2
+        height:             pulseOverlay.height + ScreenTools.defaultFontPixelWidth * 2
+        color:              Qt.rgba(qgcPal.window.r, qgcPal.window.g, qgcPal.window.b, 0.75)
+        radius:             ScreenTools.defaultFontPixelWidth / 2
+        visible:            _customPlugin.detectorList.count > 0 && !_customPlugin.controllerLostHeartbeat
+
+        ColumnLayout {
+            id:                 pulseOverlay
+            anchors.centerIn:   parent
+            spacing:            2
+
+            Repeater {
+                model: _customPlugin.detectorList
+
+                RowLayout {
+                    property real maxStrength:  _customSettings.maxPulseStrength.rawValue
+
+                    Rectangle {
+                        id:                     pulseRect
+                        Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 1.5
+                        Layout.preferredWidth:  ScreenTools.defaultFontPixelWidth * 20
+                        color:                  object.heartbeatLost ? "red" : "transparent"
+
+                        Rectangle {
+                            property real filteredSNR: Math.max(0, Math.min(object.lastPulseStrength, maxStrength))
+
+                            anchors.rightMargin:    ((maxStrength - filteredSNR) / maxStrength) * parent.width
+                            anchors.fill:           parent
+                            color:                  object.lastPulseLowConfidence ? "orange" : "green"
+                            visible:                !object.heartbeatLost && !object.lastPulseStale
+                        }
+
+                        QGCLabel {
+                            anchors.fill:           parent
+                            text:                   Math.max(0, Math.min(object.lastPulseStrength, maxStrength)).toFixed(1)
+                            font.bold:              true
+                            color:                  "black"
+                            horizontalAlignment:    Text.AlignHCenter
+                            verticalAlignment:      Text.AlignVCenter
+                        }
+                    }
+
+                    QGCLabel {
+                        text:               object.tagLabel[0]
+                        color:              qgcPal.text
+                        verticalAlignment:  Text.AlignVCenter
+                    }
+                }
+            }
+        }
+    }
+
+    ColumnLayout {
+        anchors.margins:    ScreenTools.defaultFontPixelWidth
+        anchors.top:        pulseOverlayBackground.bottom
+        anchors.right:      parent.right
+        height:             parent.height - pulseOverlayBackground.height - (anchors.margins * 2) - parentToolInsets.bottomEdgeRightInset
         spacing:            ScreenTools.defaultFontPixelHeight / 4
 
         Rectangle {

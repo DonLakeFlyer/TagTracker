@@ -31,7 +31,7 @@ RotateAndRateHeartbeatWaitState::RotateAndRateHeartbeatWaitState(QState* parentS
 
 void RotateAndRateHeartbeatWaitState::_heartbeatWaitStateEntered()
 {
-    qCDebug(CustomPluginLog) << "Waiting for heartbeat from both rate detectors" << " - " << Q_FUNC_INFO;
+    qCDebug(CustomStateMachineLog) << "Waiting for heartbeat from both rate detectors" << " - " << Q_FUNC_INFO;
     _heartbeatTimeoutTimer.start();
     connect(_customPlugin, &CustomPlugin::detectorHeartbeatReceived, this, &RotateAndRateHeartbeatWaitState::_detectorHeartbeatReceived);
 }
@@ -39,15 +39,15 @@ void RotateAndRateHeartbeatWaitState::_heartbeatWaitStateEntered()
 void RotateAndRateHeartbeatWaitState::_detectorHeartbeatReceived(int oneBasedRateIndex)
 {
     if (oneBasedRateIndex == 1) {
-        qCDebug(CustomPluginLog) << "Rate detector 1 heartbeat received";
+        qCDebug(CustomStateMachineLog) << "Rate detector 1 heartbeat received";
         _rateDetector1Heartbeat = true;
     } else if (oneBasedRateIndex == 2) {
-        qCDebug(CustomPluginLog) << "Rate detector 2 heartbeat received";
+        qCDebug(CustomStateMachineLog) << "Rate detector 2 heartbeat received";
         _rateDetector2Heartbeat = true;
     }
 
     if (_rateDetector1Heartbeat && _rateDetector2Heartbeat) {
-        qCDebug(CustomPluginLog) << "Heartbeats from both rate detectors received";
+        qCDebug(CustomStateMachineLog) << "Heartbeats from both rate detectors received";
         _disconnectAll();
         emit heartbeatsReceived();
     }

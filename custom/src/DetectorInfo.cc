@@ -87,7 +87,8 @@ void DetectorInfo::handleTunnelPulse(const mavlink_tunnel_t& tunnel)
 
             // We track the max pulse in each K group, clamping SNR to 0 and ignoring NaN
             const double clampedSNR = qIsNaN(pulseInfo.snr) ? 0.0 : std::max(0.0, pulseInfo.snr);
-            if (_lastPulseGroupSeqCtr != pulseInfo.group_seq_counter) {
+            // Python detector doesn't send group_seq_counter — every pulse is its own group
+            if (isPythonMode || _lastPulseGroupSeqCtr != pulseInfo.group_seq_counter) {
                 _lastPulseGroupSeqCtr = pulseInfo.group_seq_counter;
                 _pulseGroupCount++;
                 _lastPulseStrength = clampedSNR;

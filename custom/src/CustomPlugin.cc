@@ -147,7 +147,7 @@ void CustomPlugin::_handleTunnelHeartbeat(const mavlink_tunnel_t& tunnel)
 
     switch (heartbeat.system_id) {
     case HEARTBEAT_SYSTEM_ID_MAVLINKCONTROLLER:
-        //qCDebug(CustomPluginLog) << "HEARTBEAT from MavlinkTagController - counter:status:temp" << counter++ << heartbeat.status << heartbeat.cpu_temp_c;
+        qCDebug(CustomPluginLog) << "HEARTBEAT from MavlinkTagController - status:temp" << controllerStatusString(heartbeat.status) << heartbeat.cpu_temp_c;
         _controllerLostHeartbeat = false;
         emit controllerLostHeartbeatChanged();
         _controllerHeartbeatTimer.start();
@@ -650,4 +650,16 @@ double CustomPlugin::normalizeHeading(double heading)
         heading += 360.0;
     }
     return heading;
+}
+
+const char* CustomPlugin::controllerStatusString(int status)
+{
+    switch (status) {
+    case ControllerStatusIdle:          return "Idle";
+    case ControllerStatusReceivingTags: return "ReceivingTags";
+    case ControllerStatusHasTags:       return "HasTags";
+    case ControllerStatusDetecting:     return "Detecting";
+    case ControllerStatusCapture:       return "Capture";
+    default:                            return "Unknown";
+    }
 }

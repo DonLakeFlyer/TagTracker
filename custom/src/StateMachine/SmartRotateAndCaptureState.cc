@@ -35,7 +35,7 @@ DetermineSearchTypeState::DetermineSearchTypeState(SmartRotateAndCaptureState* p
         _fourPointSliceStartList << 0 << 2 << 1 << 3;
         break;
     default:
-        qCCritical(CustomPluginLog) << QStringLiteral("Unsupported rotation divisions %1").arg(_rotationDivisions) << " - " << Q_FUNC_INFO;
+        qCCritical(CustomStateMachineLog) << QStringLiteral("Unsupported rotation divisions %1").arg(_rotationDivisions) << " - " << Q_FUNC_INFO;
         for (int i=0; i<_rotationDivisions; i++) {
             _fourPointSliceStartList << 0;
         }
@@ -82,8 +82,8 @@ void DetermineSearchTypeState::_calcStrengthInfo()
         }
     }
 
-    qCDebug(CustomPluginLog) << QStringLiteral("Max strength %1 at slice %2").arg(_maxSliceStrength).arg(_maxSlice) << " - " << Q_FUNC_INFO;
-    qCDebug(CustomPluginLog) << QStringLiteral("Max quadrant strength %1 at slice %2, clockwise %3").arg(_maxQuadrantStrength).arg(_maxQuadrantSlice).arg(_clockwiseSearch) << " - " << Q_FUNC_INFO;
+    qCDebug(CustomStateMachineLog) << QStringLiteral("Max strength %1 at slice %2").arg(_maxSliceStrength).arg(_maxSlice) << " - " << Q_FUNC_INFO;
+    qCDebug(CustomStateMachineLog) << QStringLiteral("Max quadrant strength %1 at slice %2, clockwise %3").arg(_maxQuadrantStrength).arg(_maxQuadrantSlice).arg(_clockwiseSearch) << " - " << Q_FUNC_INFO;
 }
 
 void DetermineSearchTypeState::_nextSearchTypeFromInitialFourPoint()
