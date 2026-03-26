@@ -103,7 +103,7 @@ Item {
                         Rectangle {
                             property real filteredSNR: Math.max(0, Math.min(object.lastPulseStrength, maxStrength))
 
-                            anchors.rightMargin:    ((maxStrength - filteredSNR) / maxStrength) * parent.width
+                            anchors.rightMargin:    maxStrength <= 0 ? parent.width : ((maxStrength - filteredSNR) / maxStrength) * parent.width
                             anchors.fill:           parent
                             color:                  object.lastPulseLowConfidence ? "orange" : "green"
                             visible:                !object.heartbeatLost && !object.lastPulseStale
@@ -131,9 +131,9 @@ Item {
 
     ColumnLayout {
         anchors.margins:    ScreenTools.defaultFontPixelWidth
-        anchors.top:        pulseOverlayBackground.bottom
+        anchors.top:        pulseOverlayBackground.visible ? pulseOverlayBackground.bottom : parent.top
         anchors.right:      parent.right
-        height:             parent.height - pulseOverlayBackground.height - (anchors.margins * 2) - parentToolInsets.bottomEdgeRightInset
+        height:             parent.height - (pulseOverlayBackground.visible ? pulseOverlayBackground.height : 0) - (anchors.margins * 2) - parentToolInsets.bottomEdgeRightInset
         spacing:            ScreenTools.defaultFontPixelHeight / 4
 
         Rectangle {

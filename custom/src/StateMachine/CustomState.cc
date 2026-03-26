@@ -1,7 +1,7 @@
 #include "CustomStateMachine.h"
 #include "CustomLoggingCategory.h"
 
-CustomState::CustomState(const QString& stateName, QState* parentState) 
+CustomState::CustomState(const QString& stateName, QState* parentState)
     : QState(QState::ExclusiveStates, parentState)
 {
     setObjectName(stateName);
@@ -14,13 +14,13 @@ CustomState::CustomState(const QString& stateName, QState* parentState)
     });
 }
 
-void CustomState::setError(const QString& errorString) 
+void CustomState::setError(const QString& errorString)
 {
-    qWarning(CustomStateMachineLog) << "errorString" << errorString << " - " << Q_FUNC_INFO;
+    qCWarning(CustomStateMachineLog) << "errorString" << errorString << " - " << Q_FUNC_INFO;
     machine()->setError(errorString);
 }
 
-CustomStateMachine* CustomState::machine() 
-{ 
-    return qobject_cast<CustomStateMachine*>(QState::machine()); 
+CustomStateMachine* CustomState::machine()
+{
+    return qobject_cast<CustomStateMachine*>(QState::machine());
 }
