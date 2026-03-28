@@ -156,6 +156,13 @@ SettingsPage {
             fact:               _customSettings.detectionMode
         }
 
+        FactCheckBoxSlider {
+            Layout.fillWidth:   true
+            text:               fact.shortDescription
+            fact:               _customSettings.pythonCrossRateCoalescingEnabled
+            visible:            _customSettings.detectionMode.rawValue === 1
+        }
+
         LabelledFactTextField {
             Layout.fillWidth:   true
             label:              fact.shortDescription

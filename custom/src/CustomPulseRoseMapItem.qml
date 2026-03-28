@@ -98,6 +98,7 @@ MapQuickItem {
 
                     function onMaxSNRChanged(maxSNR) { arcCanvas.requestPaint() }
                     function onDisplaySNRChanged(displaySNR) { arcCanvas.requestPaint() }
+                    function onDisplaySourceChanged(displaySource) { arcCanvas.requestPaint() }
                     function onLowConfidenceOnlyChanged(lowConfidenceOnly) { arcCanvas.requestPaint() }
                 }
                 Connections {
@@ -116,6 +117,7 @@ MapQuickItem {
                 property real rawStrengthRatio: _rotationInfo.maxSNR > 0 ? sliceInfo.displaySNR / _rotationInfo.maxSNR : 0
                 property bool noDetection:      rawStrengthRatio == 0
                 property bool lowConfidenceOnly: sliceInfo.lowConfidenceOnly
+                property string displaySource:  sliceInfo.displaySource
                 property real sliceAngleDeg:    -90 + (360 / _sliceCount) * index
                 property real sliceAngleRad:    sliceAngleDeg * Math.PI / 180
                 property real outerRadius:      mapRect.width / 2
@@ -123,7 +125,7 @@ MapQuickItem {
                 x:              mapRect.width / 2 + outerRadius * Math.cos(sliceAngleRad) - width / 2
                 y:              mapRect.height / 2 + outerRadius * Math.sin(sliceAngleRad) - height / 2
                 visible:        !noDetection && sliceInfo.displaySNR > 0
-                text:           sliceInfo.displaySNR.toFixed(1)
+                text:           sliceInfo.displaySNR.toFixed(1) + " " + displaySource
                 font.pointSize: ScreenTools.largeFontPointSize
                 font.bold:      true
                 color:          lowConfidenceOnly ? "orange" : "white"
