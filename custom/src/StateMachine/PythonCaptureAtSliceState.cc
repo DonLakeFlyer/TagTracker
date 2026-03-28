@@ -17,6 +17,10 @@
 #include <QFinalState>
 #include <QtMath>
 
+namespace {
+static constexpr int kPythonResultTimeoutFudgeMsecs = 1000;
+}
+
 using namespace TunnelProtocol;
 
 PythonCaptureAtSliceState::PythonCaptureAtSliceState(QState* parentState, int sliceIndex)
@@ -58,7 +62,8 @@ PythonCaptureAtSliceState::PythonCaptureAtSliceState(QState* parentState, int sl
     auto rotateCommandState         = _rotateMavlinkCommandState(this);
     auto waitForHeadingState        = new FactWaitForValueTarget(this, _vehicle->heading(), _sliceHeadingDegrees, 1.0, 10 * 1000);
     auto startDetectionState        = new SendTunnelCommandState("Python StartDetection", this, (uint8_t*)&startDetectionInfo, sizeof(startDetectionInfo));
-    auto waitForDetectionResultState= new PythonWaitForDetectionResultState(this);
+    const int waitForDetectionTimeoutMsecs = _customPlugin->maxWaitMSecsForKGroup() + kPythonResultTimeoutFudgeMsecs;
+    auto waitForDetectionResultState= new PythonWaitForDetectionResultState(this, waitForDetectionTimeoutMsecs);
     auto stopDetectionState         = new SendTunnelCommandState("Python StopDetection", this, (uint8_t*)&stopDetectionInfo, sizeof(stopDetectionInfo));
     auto finalState                 = new QFinalState(this);
 
