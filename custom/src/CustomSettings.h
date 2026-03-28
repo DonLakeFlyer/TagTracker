@@ -35,6 +35,7 @@ public:
     DEFINE_SETTINGFACT(allowMultiTagDetection)
     DEFINE_SETTINGFACT(rotationType)
     DEFINE_SETTINGFACT(detectionMode)
+    DEFINE_SETTINGFACT(pythonCrossRateCoalescingEnabled)
 
     enum AntennaType {
         OmniAntenna = 0,
