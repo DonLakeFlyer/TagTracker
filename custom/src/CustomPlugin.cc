@@ -43,6 +43,7 @@
 #include <QScreen>
 #include <QThread>
 #include <QFinalState>
+#include <algorithm>
 
 using namespace TunnelProtocol;
 
@@ -139,15 +140,13 @@ bool CustomPlugin::mavlinkMessage(Vehicle *vehicle, LinkInterface *link, const m
 
 void CustomPlugin::_handleTunnelHeartbeat(const mavlink_tunnel_t& tunnel)
 {
-    static uint32_t counter = 0;
-
     Heartbeat_t heartbeat;
 
     memcpy(&heartbeat, tunnel.payload, sizeof(heartbeat));
 
     switch (heartbeat.system_id) {
     case HEARTBEAT_SYSTEM_ID_MAVLINKCONTROLLER:
-        qCDebug(CustomPluginLog) << "HEARTBEAT from MavlinkTagController - status:temp" << controllerStatusString(heartbeat.status) << heartbeat.cpu_temp_c;
+        //qCDebug(CustomPluginLog) << "HEARTBEAT from MavlinkTagController - status:temp" << controllerStatusString(heartbeat.status) << heartbeat.cpu_temp_c;
         _controllerLostHeartbeat = false;
         emit controllerLostHeartbeatChanged();
         _controllerHeartbeatTimer.start();
@@ -180,12 +179,14 @@ void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& 
 
     bool isDetectorHeartbeat = pulseInfo.frequency_hz == 0;
     const bool isPythonMode = _customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON;
-    const bool isLowConfidencePulse = !isDetectorHeartbeat && !pulseInfo.confirmed_status && pulseInfo.detection_status != 3;
+    const bool enablePythonCrossRateCoalescing = isPythonMode && _customSettings->pythonCrossRateCoalescingEnabled()->rawValue().toBool();
+    const bool isNoPulseResult = !isDetectorHeartbeat && pulseInfo.detection_status == 3;
+    const bool isLowConfidencePulse = !isDetectorHeartbeat && !pulseInfo.confirmed_status && !isNoPulseResult;
 
-    if (pulseInfo.confirmed_status || isDetectorHeartbeat || (isPythonMode && isLowConfidencePulse)) {
+    if (pulseInfo.confirmed_status || isDetectorHeartbeat || (isPythonMode && (isLowConfidencePulse || isNoPulseResult))) {
         if (!isDetectorHeartbeat) {
             qCDebug(CustomPluginLog) << Qt::fixed << qSetRealNumberPrecision(2) <<
-                (pulseInfo.confirmed_status ? "Confirmed pulse tag_id" : "Low-confidence pulse tag_id") <<
+                (pulseInfo.confirmed_status ? "Confirmed pulse tag_id" : (isNoPulseResult ? "No-pulse tag_id" : "Low-confidence pulse tag_id")) <<
                 pulseInfo.tag_id <<
                 "snr" <<
                 pulseInfo.snr <<
@@ -193,6 +194,8 @@ void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& 
                 pulseInfo.orientation_z <<
                 "stft_score" <<
                 pulseInfo.stft_score <<
+                "detection_status" <<
+                pulseInfo.detection_status <<
                 "group_seq_counter" <<
                 pulseInfo.group_seq_counter <<
                 "at time" <<
@@ -203,7 +206,8 @@ void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& 
             // Send pulse info to current rotation info, including low-confidence pulses in Python mode.
             auto rotationInfo = _rotationInfoList.value<RotationInfo*>(_rotationInfoList.count() - 1);
             if (rotationInfo) {
-                rotationInfo->pulseInfoReceived(pulseInfo);
+                const double pendingPairTimeoutSeconds = std::max(1.0, maxWaitMSecsForKGroup() / 1000.0);
+                rotationInfo->pulseInfoReceived(pulseInfo, enablePythonCrossRateCoalescing, pendingPairTimeoutSeconds);
             } else {
                 qWarning() << "_handleTunnelPulse: No rotation info available - " << Q_FUNC_INFO;
             }
@@ -253,12 +257,6 @@ void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& 
                     _customMapItems.append(mapItem);
                 }
             }
-        }
-    } else {
-        // detection_status==3 means the Python detector completed a scan cycle and found no pulse
-        if (pulseInfo.detection_status == 3 && isPythonMode) {
-            qCDebug(CustomPluginLog) << "No-pulse (detection_status=3) for tag_id" << pulseInfo.tag_id << " - " << Q_FUNC_INFO;
-            emit pythonDetectorResultReceived(pulseInfo.tag_id);
         }
     }
 
