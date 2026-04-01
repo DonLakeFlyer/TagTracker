@@ -1,6 +1,6 @@
 ### Powering On Controller
 
-To turn the controller on, press the power button once. Then press again and hold down till you see the logo.
+To turn the controller on, press the power button once. Then press again and hold down till you see the logo. Open the **Tag Tracker** app.
 
 ### Main Screen
 
