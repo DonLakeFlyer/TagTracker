@@ -1,48 +1,50 @@
-# Auto Detection
+### Powering On Controller
 
-Auto Detection lets you perform a complete tag detection flight with a single button press. The vehicle takes off, rotates in place to listen for tag signals, and then returns home — all automatically.
+To turn the controller on, press the power button once. Then press again and hold down till you see the logo.
 
-## Selecting Tags
+### Main Screen
 
-Before starting you need to select which tags to listen for.
+<img src="main-screen.jpeg" width="400">
 
-1. Tap the **Controller Indicator** bar in the top toolbar.
-2. A popup lists your configured tags with checkboxes showing each tag's name and frequency.
-3. Check the tag you want to detect.
-4. Close the popup. Your selection is saved automatically.
+* Drone Status - Green Ready To Fly means the drone is ready to takeoff
+* Detector Status - Green means ready. Also shows you which collar you are tracking.
+* Battery Status - Percent remaining of battery.
+* Start Detection - Pressing go will start the detection process.
 
-## Starting a Detection Flight
+### Selecting Collar To Track
 
-1. Tap the **Go** button in the toolbar on the left side of the Fly View.
-2. A confirmation dialog appears: *"Takeoff, rotate, return."* Slide the confirmation slider across to start or tap **Cancel** to abort.
+Tap the Detector Status control and it will show you the list of collars to select from.
 
-## What to Expect
+### Starting a Detection Flight
+
+1. Make sure both the Drone Status and Detector Status are green
+1. Tap the **Go** button
+1. A confirmation slider will display. Slide it to the right with your finger to confirm or tap the **X** to abort.
+
+<img src="auto-detection-slider.jpeg" width="150">
 
 After you confirm, the vehicle will:
 
-1. Announce *"Starting auto detection"* over audio.
-2. Take off to the configured altitude.
-3. Rotate a full 360° in place, listening for tag pulses at each heading. As pulses are detected they appear on the map in real time.
-4. Announce *"Auto detection complete. Returning"* over audio.
-5. Fly back to the launch point and land.
+1. Take off straight up to the maximum altitude.
+1. Rotate a full 360° in place, showing you detected pulses at each heading.
+1. When it has completed all headings it will come back down to land.
+1. If you touch the control sticks during this process the detection will be cancelled and you will have to **Return** manually.
 
-No manual input is needed during this sequence.
+##### Cancelling a Detection
 
-## Reading the Display
+To cancel a detection and have the drone return to land. Touch the **Return** button and confirm. You may want to do this if:
 
-While the flight is in progress:
+* You see a plane coming flying low in your direction
+* The drone seems to be acting oddly
 
-- The **Controller Indicator** bar shows live signal strength. Green means pulses are being received, yellow means no recent pulse, and red means the detector connection has been lost.
-- Each detected pulse is plotted on the **map** with its estimated bearing and signal strength so you can see the likely direction of each tag.
+##### Emergency Stop
 
-## Intervening
+If at any time you have lost control of the drone and it isn't responding to your commands you can select Emergency Stop. If you confirm the action this will stop the motors on the drone. If it is flying it will crash! This is for emergencies only where there is nothing left to do and safety is a concern.
 
-You can interrupt the sequence at any time using the toolbar buttons:
+### Reading the Display
 
-- Tap **Return** to abort the detection and fly back to the launch point.
-- Tap **Pause** to stop the vehicle in place. This also cancels the detection.
-- Tap **Emergency Stop** to immediately stop the vehicle. **Warning:** confirming Emergency Stop while the vehicle is flying will cause it to crash.
+<img src="return-flight.jpeg" width="400">
 
-## After the Flight
+Once the vehicle has landed, the map shows all detected pulse locations. In this example the strongest signal strength is directly north. So that is where the dogs are.
 
-Once the vehicle has landed, the map shows all detected pulse locations. Use these to determine the bearing toward each tag. Detection logs can be saved or downloaded from the additional actions menu (tap **...** in the toolbar, then **Save Logs** or **Download**).
+If the heading pie slice is colored green this means there is high confidence this is a good signal. If the pie slice is orange it means there is low confidence on this detection. It may be a false positive. For no detection the slice will be empty.
