@@ -1,6 +1,6 @@
 ### Powering On Controller
 
-To turn the controller on, press the power button once. Then press again and hold down till you see the logo. Open the **Tag Tracker** app.
+To turn the controller on, press the power button once. Then press again and hold down till you see the logo. Press the **Home** button. Select the **Tag Tracker** app.
 
 ### Main Screen
 
@@ -18,8 +18,8 @@ Tap the Detector Status control and it will show you the list of collars to sele
 ### Starting a Detection Flight
 
 1. Make sure both the Drone Status and Detector Status are green
-1. Tap the **Go** button
-1. A confirmation slider will display. Slide it to the right with your finger to confirm or tap the **X** to abort.
+1. Select the **Go** button
+1. A confirmation slider will display. Slide it to the right with your finger to confirm or select the **X** to abort.
 
 ![Auto Detection Slider](auto-detection-slider.jpeg){ width=150px }
 
