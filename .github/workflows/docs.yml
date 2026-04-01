@@ -30,6 +30,7 @@ jobs:
           for md in custom/docs/*.md; do
             filename=$(basename "$md" .md)
             pandoc "$md" -o "custom/docs/pdf/${filename}.pdf" \
+              --resource-path=custom/docs \
               --pdf-engine=pdflatex \
               -V geometry:margin=1in \
               -V colorlinks=true
