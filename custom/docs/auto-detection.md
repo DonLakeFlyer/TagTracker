@@ -4,7 +4,7 @@ To turn the controller on, press the power button once. Then press again and hol
 
 ### Main Screen
 
-<img src="main-screen.jpeg" width="400">
+![Main Screen](main-screen.jpeg){ width=400px }
 
 * Drone Status - Green Ready To Fly means the drone is ready to takeoff
 * Detector Status - Green means ready. Also shows you which collar you are tracking.
@@ -21,7 +21,7 @@ Tap the Detector Status control and it will show you the list of collars to sele
 1. Tap the **Go** button
 1. A confirmation slider will display. Slide it to the right with your finger to confirm or tap the **X** to abort.
 
-<img src="auto-detection-slider.jpeg" width="150">
+![Auto Detection Slider](auto-detection-slider.jpeg){ width=150px }
 
 After you confirm, the vehicle will:
 
@@ -43,7 +43,7 @@ If at any time you have lost control of the drone and it isn't responding to you
 
 ### Reading the Display
 
-<img src="return-flight.jpeg" width="400">
+![Return Flight](return-flight.jpeg){ width=400px }
 
 Once the vehicle has landed, the map shows all detected pulse locations. In this example the strongest signal strength is directly north. So that is where the dogs are.
 
