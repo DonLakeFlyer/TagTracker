@@ -22,7 +22,7 @@ jobs:
 
     strategy:
       matrix:
-        BuildType: [Debug]
+        BuildType: [Release]
 
     defaults:
       run:
@@ -73,8 +73,15 @@ jobs:
         working-directory: ${{ runner.temp }}/shadow_build_dir
         run: cmake --build . --target all --config ${{ matrix.BuildType }}
 
-      - name: Save artifact
+      - name: Install create-dmg
+        run: brew install create-dmg
+
+      - name: Create DMG
+        working-directory: ${{ runner.temp }}/shadow_build_dir
+        run: cmake --install . --prefix ${{ runner.temp }}/shadow_build_dir/staging
+
+      - name: Save DMG artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.ARTIFACT }}
-          path: ${{ runner.temp }}/shadow_build_dir/${{ matrix.BuildType }}/${{ env.ARTIFACT }}
+          name: TagTracker.dmg
+          path: ${{ runner.temp }}/shadow_build_dir/TagTracker.dmg

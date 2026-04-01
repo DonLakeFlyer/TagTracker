@@ -13,7 +13,7 @@ if(MACOS OR WIN32)
     set(deploy_tool_options_arg "-qmldir=${CMAKE_SOURCE_DIR}")
     if(MACOS_SIGNING_IDENTITY)
         message(STATUS "Signing MacOS Bundle")
-        set(deploy_tool_options_arg "${deplay_tool_options_arg} -sign-for-notarization=${MACOS_SIGNING_IDENTITY}")
+        set(deploy_tool_options_arg "${deploy_tool_options_arg} -sign-for-notarization=${MACOS_SIGNING_IDENTITY}")
     endif()
 endif()
 
