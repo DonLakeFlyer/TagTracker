@@ -14,7 +14,7 @@ Here is how to update to a new app version.
 
 ## Uninstall the old version
 
-1. Power on the controller. Click power once. Click and hold again until the logo appears. Once it starts up, click the **Home** button.
+1. Power on the controller. Press power once. Press and hold again until the logo appears. Once it starts up, press the **Home** button.
 1. Swipe down from the top of the screen. Touch the **Settings** gear icon.
 1. Scroll down until you see the **Apps** entry. Select it.
 1. Scroll down until you see the **Tag Tracker** entry. Select it.
