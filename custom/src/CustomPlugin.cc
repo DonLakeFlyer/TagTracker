@@ -393,10 +393,28 @@ void CustomPlugin::stopDetection(void)
 
 void CustomPlugin::rawCapture(void)
 {
-    RawCaptureInfo_t rawCapture;
+    auto tagDatabase        = TagDatabase::instance();
+    auto tagInfoListModel   = tagDatabase->tagInfoListModel();
+
+    // Find the first selected tag
+    TagInfo* selectedTagInfo = nullptr;
+    for (int i = 0; i < tagInfoListModel->count(); i++) {
+        auto tagInfo = tagInfoListModel->value<TagInfo*>(i);
+        if (tagInfo->selected()->rawValue().toUInt()) {
+            selectedTagInfo = tagInfo;
+            break;
+        }
+    }
+    if (!selectedTagInfo) {
+        qCWarning(CustomPluginLog) << Q_FUNC_INFO << "No selected tag found for raw capture";
+        return;
+    }
+
+    RawCaptureInfo_t rawCapture = {};
 
     rawCapture.header.command   = COMMAND_ID_RAW_CAPTURE;
     rawCapture.gain             = _customSettings->gain()->rawValue().toUInt();
+    rawCapture.frequency_hz     = selectedTagInfo->frequencyMHz()->rawValue().toDouble() * 1000000;
 
     auto stateMachine = new CustomStateMachine("RawCapture", this);
 
