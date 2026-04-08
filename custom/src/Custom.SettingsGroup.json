@@ -130,6 +130,24 @@
     "shortDesc":        "Enable Python Cross-Rate Rejection",
     "type":             "bool",
     "default":          true
+},
+{
+    "name":             "detectionMargin",
+    "shortDesc":        "Detection Margin",
+    "type":             "double",
+    "decimalPlaces":    2,
+    "min":              0.01,
+    "max":              2.0,
+    "default":          0.90
+},
+{
+    "name":             "confidenceRatio",
+    "shortDesc":        "Confidence Ratio",
+    "type":             "double",
+    "decimalPlaces":    2,
+    "min":              0.1,
+    "max":              10.0,
+    "default":          1.3
 }
 ]
 }

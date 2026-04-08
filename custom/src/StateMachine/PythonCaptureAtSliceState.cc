@@ -53,6 +53,8 @@ PythonCaptureAtSliceState::PythonCaptureAtSliceState(QState* parentState, int sl
     startDetectionInfo.radio_center_frequency_hz    = TagDatabase::instance()->channelizerTuner();
     startDetectionInfo.gain                         = _customSettings->gain()->rawValue().toUInt();
     startDetectionInfo.detection_mode               = DETECTION_MODE_PYTHON;
+    startDetectionInfo.detection_margin             = _customSettings->detectionMargin()->rawValue().toDouble();
+    startDetectionInfo.confidence_ratio             = _customSettings->confidenceRatio()->rawValue().toDouble();
 
     StopDetectionInfo_t stopDetectionInfo;
     stopDetectionInfo.header.command = COMMAND_ID_STOP_DETECTION;

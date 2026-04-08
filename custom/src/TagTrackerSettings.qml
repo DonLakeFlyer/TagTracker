@@ -11,8 +11,9 @@ import QGroundControl.ScreenTools
 import QGroundControl.SettingsManager
 
 SettingsPage {
-    property var _customSettings:   QGroundControl.corePlugin.customSettings
-    property var _tagDatabase:      QGroundControl.corePlugin.tagDatabase
+    property var  _customSettings:  QGroundControl.corePlugin.customSettings
+    property var  _tagDatabase:     QGroundControl.corePlugin.tagDatabase
+    property bool _isPythonMode:    _customSettings.detectionMode.rawValue === 1
 
     Component {
         id: tagInfoDialogComponent
@@ -160,7 +161,21 @@ SettingsPage {
             Layout.fillWidth:   true
             text:               fact.shortDescription
             fact:               _customSettings.pythonCrossRateCoalescingEnabled
-            visible:            _customSettings.detectionMode.rawValue === 1
+            visible:            _isPythonMode
+        }
+
+        LabelledFactTextField {
+            Layout.fillWidth:   true
+            label:              fact.shortDescription
+            fact:               _customSettings.detectionMargin
+            visible:            _isPythonMode
+        }
+
+        LabelledFactTextField {
+            Layout.fillWidth:   true
+            label:              fact.shortDescription
+            fact:               _customSettings.confidenceRatio
+            visible:            _isPythonMode
         }
 
         LabelledFactTextField {
