@@ -36,6 +36,8 @@ public:
     DEFINE_SETTINGFACT(rotationType)
     DEFINE_SETTINGFACT(detectionMode)
     DEFINE_SETTINGFACT(pythonCrossRateCoalescingEnabled)
+    DEFINE_SETTINGFACT(detectionMargin)
+    DEFINE_SETTINGFACT(confidenceRatio)
 
     enum AntennaType {
         OmniAntenna = 0,
