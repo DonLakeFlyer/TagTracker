@@ -310,10 +310,12 @@ bool TagDatabase::_saveTagInfo()
 
     for (int i=0; i<_tagInfoListModel->count(); i++) {
         TagInfo* tagInfo = _tagInfoListModel->value<TagInfo*>(i);
+        QString name = tagInfo->_nameFact->rawValue().toString().remove(',');
+        tagInfo->_nameFact->setRawValue(name);
         file.write(QStringLiteral("%1,%2,%3,%4,%5\n")
             .arg(tagInfo->_selectedFact->rawValue().toInt())
             .arg(tagInfo->_idFact->rawValue().toInt())
-            .arg(tagInfo->_nameFact->rawValue().toString())
+            .arg(name)
             .arg(tagInfo->_manufacturerIdFact->rawValue().toInt())
             .arg(tagInfo->_frequencyMHzFact->rawValue().toDouble())
             .toUtf8());
@@ -334,13 +336,19 @@ bool TagDatabase::_saveTagManufacturer()
 
     for (int i=0; i<_tagManufacturerListModel->count(); i++) {
         TagManufacturer* tagManufacturer = _tagManufacturerListModel->value<TagManufacturer*>(i);
+        QString mfgName    = tagManufacturer->_nameFact->rawValue().toString().remove(',');
+        tagManufacturer->_nameFact->setRawValue(mfgName);
+        QString rateId1    = tagManufacturer->_ip_msecs_1_idFact->rawValue().toString().remove(',');
+        tagManufacturer->_ip_msecs_1_idFact->setRawValue(rateId1);
+        QString rateId2    = tagManufacturer->_ip_msecs_2_idFact->rawValue().toString().remove(',');
+        tagManufacturer->_ip_msecs_2_idFact->setRawValue(rateId2);
         file.write(QStringLiteral("%1,%2,%3,%4,%5,%6,%7,%8,%9\n")
             .arg(tagManufacturer->_idFact->rawValue().toInt())
-            .arg(tagManufacturer->_nameFact->rawValue().toString())
+            .arg(mfgName)
             .arg(tagManufacturer->_ip_msecs_1Fact->rawValue().toInt())
             .arg(tagManufacturer->_ip_msecs_2Fact->rawValue().toInt())
-            .arg(tagManufacturer->_ip_msecs_1_idFact->rawValue().toString())
-            .arg(tagManufacturer->_ip_msecs_2_idFact->rawValue().toString())
+            .arg(rateId1)
+            .arg(rateId2)
             .arg(tagManufacturer->_pulse_width_msecsFact->rawValue().toInt())
             .arg(tagManufacturer->_ip_uncertainty_msecsFact->rawValue().toInt())
             .arg(tagManufacturer->_ip_jitter_msecsFact->rawValue().toInt())
