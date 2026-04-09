@@ -8,7 +8,6 @@
 #include <limits>
 
 namespace {
-static constexpr uint8_t kNoPulseDetectionStatus = 3;
 static constexpr double kSameFrequencyToleranceHz = 35.0;
 static constexpr double kMaxPairTimeDeltaSeconds = 0.25;
 static constexpr double kSuppressionSNRGapDb = 3.0;

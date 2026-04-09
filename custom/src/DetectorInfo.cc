@@ -44,6 +44,14 @@ DetectorInfo::DetectorInfo(uint32_t tagId, const QString& tagLabel, uint32_t int
             _lastPulseLowConfidence = false;
             emit lastPulseLowConfidenceChanged();
         }
+        if (_lastPulseNoPulse) {
+            _lastPulseNoPulse = false;
+            emit lastPulseNoPulseChanged();
+        }
+        if (_noPulseCount > 0) {
+            _noPulseCount = 0;
+            emit noPulseCountChanged();
+        }
     });
 }
 
@@ -56,6 +64,7 @@ void DetectorInfo::handleTunnelPulse(const mavlink_tunnel_t& tunnel)
 {
     if (tunnel.payload_length != sizeof(PulseInfo_t)) {
         qWarning() << "handleTunnelPulse Received incorrectly sized PulseInfo payload expected:actual" <<  sizeof(PulseInfo_t) << tunnel.payload_length;
+        return;
     }
 
     PulseInfo_t pulseInfo;
@@ -64,7 +73,7 @@ void DetectorInfo::handleTunnelPulse(const mavlink_tunnel_t& tunnel)
     bool isDetectorHeartbeat = pulseInfo.frequency_hz == 0;
     CustomSettings* customSettings = qobject_cast<CustomPlugin*>(CustomPlugin::instance())->customSettings();
     const bool isPythonMode = customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON;
-    const bool isLowConfidencePythonPulse = isPythonMode && !pulseInfo.confirmed_status && !isDetectorHeartbeat && pulseInfo.detection_status != 3;
+    const bool isLowConfidencePythonPulse = isPythonMode && !pulseInfo.confirmed_status && !isDetectorHeartbeat && pulseInfo.detection_status != kNoPulseDetectionStatus;
 
     if (pulseInfo.tag_id == _tagId) {
         if (isDetectorHeartbeat) {
@@ -100,12 +109,31 @@ void DetectorInfo::handleTunnelPulse(const mavlink_tunnel_t& tunnel)
                 _lastPulseLowConfidence = newLowConfidence;
                 emit lastPulseLowConfidenceChanged();
             }
+            if (_lastPulseNoPulse) {
+                _lastPulseNoPulse = false;
+                emit lastPulseNoPulseChanged();
+            }
+            if (_noPulseCount > 0) {
+                _noPulseCount = 0;
+                emit noPulseCountChanged();
+            }
 
             emit lastPulseStrengthChanged();
             emit lastPulseStaleChanged();
             _stalePulseStrengthTimer.start();
 
             _maxStrength = qMax(_maxStrength, pulseInfo.snr);
+        } else if (pulseInfo.detection_status == kNoPulseDetectionStatus) {
+            qCDebug(DetectorInfoLog) << "NO_PULSE from Detector id" << _tagId;
+            if (!_lastPulseNoPulse) {
+                _lastPulseNoPulse = true;
+                emit lastPulseNoPulseChanged();
+            }
+            _noPulseCount++;
+            emit noPulseCountChanged();
+            _lastPulseStale = false;
+            emit lastPulseStaleChanged();
+            _stalePulseStrengthTimer.start();
         }
     }
 }

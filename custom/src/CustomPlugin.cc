@@ -180,7 +180,7 @@ void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& 
     bool isDetectorHeartbeat = pulseInfo.frequency_hz == 0;
     const bool isPythonMode = _customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON;
     const bool enablePythonCrossRateCoalescing = isPythonMode && _customSettings->pythonCrossRateCoalescingEnabled()->rawValue().toBool();
-    const bool isNoPulseResult = !isDetectorHeartbeat && pulseInfo.detection_status == 3;
+    const bool isNoPulseResult = !isDetectorHeartbeat && pulseInfo.detection_status == kNoPulseDetectionStatus;
     const bool isLowConfidencePulse = !isDetectorHeartbeat && !pulseInfo.confirmed_status && !isNoPulseResult;
 
     if (pulseInfo.confirmed_status || isDetectorHeartbeat || (isPythonMode && (isLowConfidencePulse || isNoPulseResult))) {
