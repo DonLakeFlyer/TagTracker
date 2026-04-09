@@ -68,31 +68,11 @@ void CSVLogManager::csvStartRotationPulseLog()
     }
 }
 
-void CSVLogManager::csvStopRotationPulseLog(bool calcBearing)
+void CSVLogManager::csvStopRotationPulseLog()
 {
     if (_csvRotationPulseLogFile.isOpen()) {
         csvLogRotationStop();
         _csvRotationPulseLogFile.close();
-
-#if 0
-        if (calcBearing) {
-            coder::array<char, 2U> rotationFileNameAsArray;
-            std::string rotationFileName = _csvRotationPulseLogFile.fileName().toStdString();
-            rotationFileNameAsArray.set_size(1, rotationFileName.length());
-            int index = 0;
-            for (auto chr : rotationFileName) {
-                rotationFileNameAsArray[index++] = chr;
-            }
-
-            double calcedBearing = bearing(rotationFileNameAsArray);
-            if (calcedBearing < 0) {
-                calcedBearing += 360;
-            }
-            _rgCalcedBearings.last() = calcedBearing;
-            qCDebug(CustomPluginLog) << "Calculated bearing:" << _rgCalcedBearings.last();
-            FIX ME emit calcedBearingsChanged();
-        }
-#endif
     }
 }
 

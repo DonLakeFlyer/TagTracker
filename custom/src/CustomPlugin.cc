@@ -33,9 +33,6 @@
 #include "PulseMapItem.h"
 #include "PulseRoseMapItem.h"
 
-#include "coder_array.h"
-#include "bearing.h"
-
 #include <QDebug>
 #include <QPointF>
 #include <QLineF>
@@ -74,7 +71,7 @@ CustomPlugin::CustomPlugin(QObject* parent)
 CustomPlugin::~CustomPlugin()
 {
     _csvLogManager.csvStopFullPulseLog();
-    _csvLogManager.csvStopRotationPulseLog(false /* calcBearing*/);
+    _csvLogManager.csvStopRotationPulseLog();
 }
 
 QGCCorePlugin *CustomPlugin::instance()
@@ -625,8 +622,6 @@ void CustomPlugin::rotationIsStarting()
     logManager.csvStartRotationPulseLog();
     logManager.csvLogRotationStart();
 
-    emit calcedBearingsChanged();
-
     // Create compass rose ui on map
     QUrl url = QUrl::fromUserInput("qrc:/qml/CustomPulseRoseMapItem.qml");
     PulseRoseMapItem* mapItem = new PulseRoseMapItem(url, _rotationInfoList.count() - 1, MultiVehicleManager::instance()->activeVehicle()->coordinate(), this);
@@ -637,8 +632,17 @@ void CustomPlugin::rotationIsEnding()
 {
     if (_activeRotation) {
         _setActiveRotation(false);
+
+        // Fit bearing curve to rotation data
+        if (_rotationInfoList.count() > 0) {
+            auto* rotationInfo = _rotationInfoList.value<RotationInfo*>(_rotationInfoList.count() - 1);
+            if (rotationInfo) {
+                rotationInfo->fitBearing();
+            }
+        }
+
         csvLogManager().csvLogRotationStop();
-        csvLogManager().csvStopRotationPulseLog(false /* calcBearing*/);
+        csvLogManager().csvStopRotationPulseLog();
     }
 }
 

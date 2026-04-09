@@ -17,7 +17,7 @@ public:
     void    csvStopFullPulseLog     ();
     void    csvClearPrevRotationLogs();
     void    csvStartRotationPulseLog();
-    void    csvStopRotationPulseLog (bool calcBearing);
+    void    csvStopRotationPulseLog ();
     void    csvLogPulse             (const TunnelProtocol::PulseInfo_t& pulseInfo);
     void    csvLogRotationStart     () { _csvLogRotationStartStop(true); }
     void    csvLogRotationStop      () { _csvLogRotationStartStop(false); }
