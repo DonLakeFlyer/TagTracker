@@ -23,6 +23,8 @@ public:
     Q_PROPERTY(double   lastPulseStrength   MEMBER _lastPulseStrength   NOTIFY lastPulseStrengthChanged)
     Q_PROPERTY(bool     lastPulseStale      MEMBER _lastPulseStale      NOTIFY lastPulseStaleChanged)
     Q_PROPERTY(bool     lastPulseLowConfidence MEMBER _lastPulseLowConfidence NOTIFY lastPulseLowConfidenceChanged)
+    Q_PROPERTY(bool     lastPulseNoPulse    MEMBER _lastPulseNoPulse    NOTIFY lastPulseNoPulseChanged)
+    Q_PROPERTY(int      noPulseCount        MEMBER _noPulseCount        NOTIFY noPulseCountChanged)
 
     void        handleTunnelPulse   (const mavlink_tunnel_t& tunnel);
     uint32_t    tagId               () const                        { return _tagId; }
@@ -38,6 +40,8 @@ signals:
     void lastPulseStrengthChanged   ();
     void lastPulseStaleChanged      ();
     void lastPulseLowConfidenceChanged();
+    void lastPulseNoPulseChanged     ();
+    void noPulseCountChanged          ();
 
 private:
     uint32_t        _tagId                  = 0;
@@ -49,6 +53,8 @@ private:
     bool            _lastPulseLowConfidence = false;
     int             _lastPulseGroupSeqCtr   = -1;
     bool            _lastPulseStale         = true;
+    bool            _lastPulseNoPulse       = false;
+    int             _noPulseCount           = 0;
     uint32_t        _heartbeatTimerInterval = 0;
     QTimer          _heartbeatTimeoutTimer;
     QTimer          _stalePulseStrengthTimer;

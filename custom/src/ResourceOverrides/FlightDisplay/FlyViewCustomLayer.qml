@@ -98,7 +98,7 @@ Item {
                         id:                     pulseRect
                         Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 1.5
                         Layout.preferredWidth:  ScreenTools.defaultFontPixelWidth * 20
-                        color:                  object.heartbeatLost ? "red" : "transparent"
+                        color:                  object.heartbeatLost ? "red" : (object.lastPulseNoPulse ? "gray" : "transparent")
 
                         Rectangle {
                             property real filteredSNR: Math.max(0, Math.min(object.lastPulseStrength, maxStrength))
@@ -106,14 +106,14 @@ Item {
                             anchors.rightMargin:    maxStrength <= 0 ? parent.width : ((maxStrength - filteredSNR) / maxStrength) * parent.width
                             anchors.fill:           parent
                             color:                  object.lastPulseLowConfidence ? "orange" : "green"
-                            visible:                !object.heartbeatLost && !object.lastPulseStale
+                            visible:                !object.heartbeatLost && !object.lastPulseStale && !object.lastPulseNoPulse
                         }
 
                         QGCLabel {
                             anchors.fill:           parent
-                            text:                   Math.max(0, Math.min(object.lastPulseStrength, maxStrength)).toFixed(1)
+                            text:                   object.lastPulseNoPulse ? qsTr("No Pulse ×%1").arg(object.noPulseCount) : Math.max(0, Math.min(object.lastPulseStrength, maxStrength)).toFixed(1)
                             font.bold:              true
-                            color:                  "black"
+                            color:                  object.lastPulseNoPulse ? "white" : "black"
                             horizontalAlignment:    Text.AlignHCenter
                             verticalAlignment:      Text.AlignVCenter
                         }
