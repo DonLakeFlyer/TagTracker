@@ -49,7 +49,6 @@ public:
     };
 
     Q_PROPERTY(CustomSettings*      customSettings          READ    customSettings              CONSTANT)
-    Q_PROPERTY(QList<double>        calcedBearings          MEMBER  _rgCalcedBearings           NOTIFY calcedBearingsChanged)
     Q_PROPERTY(bool                 controllerLostHeartbeat MEMBER  _controllerLostHeartbeat    NOTIFY controllerLostHeartbeatChanged)
     Q_PROPERTY(int                  controllerStatus        MEMBER  _controllerStatus           NOTIFY controllerStatusChanged)
     Q_PROPERTY(float                controllerCPUTemp       MEMBER  _controllerCPUTemp          NOTIFY controllerCPUTempChanged)
@@ -65,13 +64,10 @@ public:
     QString             holdFlightMode();
     int                 maxWaitMSecsForKGroup();
 
-    QList<double>&          rgCalcedBearings() { return _rgCalcedBearings; }
     CSVLogManager&          csvLogManager() { return _csvLogManager; }
     void                    rotationIsStarting();
     void                    rotationIsEnding();
     QmlObjectListModel*     rotationInfoList() { return &_rotationInfoList; }
-
-    void signalCalcedBearingsChanged() { emit calcedBearingsChanged(); }
 
     TagDatabase* tagDatabase();
 
@@ -97,7 +93,6 @@ public:
     static const char* controllerStatusString(int status);
 
 signals:
-    void calcedBearingsChanged          (void);
     void controllerLostHeartbeatChanged ();
     void controllerStatusChanged        ();
     void controllerCPUTempChanged       ();
@@ -123,7 +118,6 @@ private:
     void    _sendStopDetectionDirect    (void);
 
     bool                    _activeRotation     = false;
-    QList<double>           _rgCalcedBearings;
     int                     _controllerStatus   = ControllerStatusIdle;
     float                   _controllerCPUTemp  = 0.0;
 

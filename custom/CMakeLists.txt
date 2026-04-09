@@ -38,10 +38,6 @@ set(QGC_RESOURCES ${CUSTOM_RESOURCES} PARENT_SCOPE)
 
 set(QML_IMPORT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/res" CACHE STRING "Extra qml import paths" PARENT_SCOPE)
 
-FILE(GLOB BearingHeaders uavrt_bearing/codegen/exe/bearing/*.h)
-FILE(GLOB BearingSources uavrt_bearing/codegen/exe/bearing/*.cpp)
-FILE(GLOB BearingSourcesC uavrt_bearing/codegen/exe/bearing/*.c)
-
 qt_add_library(CustomPlugin STATIC
     src/CSVLogManager.cc
     src/CSVLogManager.h
@@ -116,13 +112,7 @@ qt_add_library(CustomPlugin STATIC
     src/StateMachine/StopDetectionState.h
     src/StateMachine/TakeoffState.cc
     src/StateMachine/TakeoffState.h
-    ${BearingHeaders}
-    ${BearingSources}
-    ${BearingSourcesC}
 )
-
-# $$files(uavrt_bearing/codegen/exe/bearing/*.cpp)
-# $$files(uavrt_bearing/codegen/exe/bearing/*.c)
 
 target_link_libraries(CustomPlugin
     PRIVATE
@@ -145,7 +135,5 @@ target_include_directories(CustomPlugin
     PUBLIC
         src
         src/StateMachine
-        matlab-coder-utils/coder-headers
-        uavrt_bearing/codegen/exe/bearing
         tunnel-protocol
 )
