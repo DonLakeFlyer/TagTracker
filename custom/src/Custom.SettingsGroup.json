@@ -121,7 +121,7 @@
     "name":             "detectionMode",
     "shortDesc":        "Detection Mode",
     "type":             "uint32",
-    "enumStrings":      "uavrt_detection,Python K=5",
+    "enumStrings":      "uavrt_detection,Python",
     "enumValues":       "0,1",
     "default":          0
 },
@@ -148,6 +148,32 @@
     "min":              0.1,
     "max":              10.0,
     "default":          1.3
+},
+{
+    "name":         "pythonK",
+    "shortDesc":    "Detector K Value",
+    "type":         "UInt32",
+    "min":          2,
+    "max":          20,
+    "default":      5
+},
+{
+    "name":         "pythonFalseAlarmPreset",
+    "shortDesc":    "False Alarm Probability",
+    "type":         "uint32",
+    "enumStrings":  "Aggressive (5%),Moderate (1%),Conservative (0.1%),Custom",
+    "enumValues":   "0,1,2,3",
+    "default":      0
+},
+{
+    "name":             "pythonFalseAlarmProbability",
+    "shortDesc":        "Custom False Alarm Probability",
+    "type":             "double",
+    "units":            "%",
+    "decimalPlaces":    2,
+    "min":              0,
+    "max":              50,
+    "default":          5.0
 }
 ]
 }

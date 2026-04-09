@@ -652,11 +652,17 @@ void CustomPlugin::_setActiveRotation(bool active)
 
 int CustomPlugin::maxWaitMSecsForKGroup()
 {
-    uint32_t maxK           = _customSettings->k()->rawValue().toUInt();
-    auto kGroups            = _customSettings->rotationKWaitCount()->rawValue().toInt();
+    const bool isPythonMode = _customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON;
+    uint32_t maxK           = isPythonMode ? _customSettings->pythonK()->rawValue().toUInt()
+                                           : _customSettings->k()->rawValue().toUInt();
     auto maxIntraPulseMsecs = TagDatabase::instance()->maxIntraPulseMsecs();
 
-    return maxIntraPulseMsecs * ((kGroups * maxK) + 1);;
+    if (isPythonMode) {
+        return maxIntraPulseMsecs * (maxK + 1);
+    } else {
+        auto kGroups = _customSettings->rotationKWaitCount()->rawValue().toInt();
+        return maxIntraPulseMsecs * ((kGroups * maxK) + 1);
+    }
 }
 
 double CustomPlugin::normalizeHeading(double heading)
