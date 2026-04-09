@@ -181,26 +181,35 @@ SettingsPage {
         LabelledFactTextField {
             Layout.fillWidth:   true
             label:              fact.shortDescription
-            fact:               _customSettings.k
+            fact:               _isPythonMode ? _customSettings.pythonK : _customSettings.k
         }
 
         LabelledFactTextField {
             Layout.fillWidth:   true
             label:              fact.shortDescription
             fact:               _customSettings.rotationKWaitCount
+            visible:            !_isPythonMode
         }
 
         LabelledFactComboBox {
             Layout.fillWidth:   true
             label:              fact.shortDescription
-            fact:               _customSettings.falseAlarmPreset
+            fact:               _customSettings.pythonFalseAlarmPreset
+            visible:            _isPythonMode
+        }
+
+        LabelledFactTextField {
+            Layout.fillWidth:   true
+            label:              fact.shortDescription
+            fact:               _customSettings.pythonFalseAlarmProbability
+            visible:            _isPythonMode && _customSettings.pythonFalseAlarmPreset.rawValue === CustomSettings.Custom
         }
 
         LabelledFactTextField {
             Layout.fillWidth:   true
             label:              fact.shortDescription
             fact:               _customSettings.falseAlarmProbability
-            visible:            _customSettings.falseAlarmPreset.rawValue === CustomSettings.Custom
+            visible:            !_isPythonMode
         }
 
         LabelledFactComboBox {

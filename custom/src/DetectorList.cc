@@ -4,11 +4,14 @@
 #include "QGCApplication.h"
 #include "CustomPlugin.h"
 #include "CustomSettings.h"
+#include "TunnelProtocol.h"
 
 #include <QDebug>
 #include <QPointF>
 #include <QLineF>
 #include <QQmlEngine>
+
+using namespace TunnelProtocol;
 
 Q_APPLICATION_STATIC(DetectorList, _detectorListInstance);
 
@@ -35,6 +38,9 @@ void DetectorList::setupFromSelectedTags()
     TagDatabase*        tagDB               = TagDatabase::instance();
     QmlObjectListModel* tagInfoList         = tagDB->tagInfoListModel();
     CustomSettings*     customSettings      = qobject_cast<CustomPlugin*>(CustomPlugin::instance())->customSettings();
+    const bool          isPythonMode        = customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON;
+    const uint32_t      kValue              = isPythonMode ? customSettings->pythonK()->rawValue().toUInt()
+                                                           : customSettings->k()->rawValue().toUInt();
 
     for (int i=0; i<tagInfoList->count(); i++) {
         TagInfo* tagInfo = tagInfoList->value<TagInfo*>(i);
@@ -48,7 +54,7 @@ void DetectorList::setupFromSelectedTags()
                                             tagInfo->id()->rawValue().toUInt(),
                                             tagManufacturer->ip_msecs_1_id()->rawValue().toString(),
                                             tagManufacturer->ip_msecs_1()->rawValue().toUInt(),
-                                            customSettings->k()->rawValue().toUInt(),
+                                            kValue,
                                             this);
         append(detectorInfo);
 
@@ -57,7 +63,7 @@ void DetectorList::setupFromSelectedTags()
                                                 tagInfo->id()->rawValue().toUInt() + 1,
                                                 tagManufacturer->ip_msecs_2_id()->rawValue().toString(),
                                                 tagManufacturer->ip_msecs_2()->rawValue().toUInt(),
-                                                customSettings->k()->rawValue().toUInt(),
+                                                kValue,
                                                 this);
             append(detectorInfo);
         }

@@ -38,6 +38,9 @@ public:
     DEFINE_SETTINGFACT(pythonCrossRateCoalescingEnabled)
     DEFINE_SETTINGFACT(detectionMargin)
     DEFINE_SETTINGFACT(confidenceRatio)
+    DEFINE_SETTINGFACT(pythonK)
+    DEFINE_SETTINGFACT(pythonFalseAlarmPreset)
+    DEFINE_SETTINGFACT(pythonFalseAlarmProbability)
 
     enum AntennaType {
         OmniAntenna = 0,

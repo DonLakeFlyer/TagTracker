@@ -105,23 +105,31 @@ SendTunnelCommandState* SendTagsState::_sendTagState(int tagIndex, QState* paren
     tunnelTagInfo.intra_pulse2_msecs                        = tagManufacturer->ip_msecs_2()->rawValue().toUInt();
     tunnelTagInfo.intra_pulse_uncertainty_msecs             = tagManufacturer->ip_uncertainty_msecs()->rawValue().toUInt();
     tunnelTagInfo.intra_pulse_jitter_msecs                  = tagManufacturer->ip_jitter_msecs()->rawValue().toUInt();
-    tunnelTagInfo.k                                         = customSettings->k()->rawValue().toUInt();
+
+    const bool isPythonMode = customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON;
+
+    tunnelTagInfo.k                                         = isPythonMode ? customSettings->pythonK()->rawValue().toUInt()
+                                                                          : customSettings->k()->rawValue().toUInt();
 
     double falseAlarmProbability;
-    switch (customSettings->falseAlarmPreset()->rawValue().toUInt()) {
-    case CustomSettings::Aggressive:
-        falseAlarmProbability = CustomSettings::AggressivePf;
-        break;
-    case CustomSettings::Moderate:
-        falseAlarmProbability = CustomSettings::ModeratePf;
-        break;
-    case CustomSettings::Conservative:
-        falseAlarmProbability = CustomSettings::ConservativePf;
-        break;
-    case CustomSettings::Custom:
-    default:
+    if (isPythonMode) {
+        switch (customSettings->pythonFalseAlarmPreset()->rawValue().toUInt()) {
+        case CustomSettings::Aggressive:
+            falseAlarmProbability = CustomSettings::AggressivePf;
+            break;
+        case CustomSettings::Moderate:
+            falseAlarmProbability = CustomSettings::ModeratePf;
+            break;
+        case CustomSettings::Conservative:
+            falseAlarmProbability = CustomSettings::ConservativePf;
+            break;
+        case CustomSettings::Custom:
+        default:
+            falseAlarmProbability = customSettings->pythonFalseAlarmProbability()->rawValue().toDouble() / 100.0;
+            break;
+        }
+    } else {
         falseAlarmProbability = customSettings->falseAlarmProbability()->rawValue().toDouble() / 100.0;
-        break;
     }
     tunnelTagInfo.false_alarm_probability                   = falseAlarmProbability;
     tunnelTagInfo.channelizer_channel_number                = tagInfo->channelizer_channel_number;
