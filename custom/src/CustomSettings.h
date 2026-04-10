@@ -35,7 +35,6 @@ public:
     DEFINE_SETTINGFACT(allowMultiTagDetection)
     DEFINE_SETTINGFACT(rotationType)
     DEFINE_SETTINGFACT(detectionMode)
-    DEFINE_SETTINGFACT(pythonCrossRateCoalescingEnabled)
     DEFINE_SETTINGFACT(detectionMargin)
     DEFINE_SETTINGFACT(confidenceRatio)
     DEFINE_SETTINGFACT(pythonK)

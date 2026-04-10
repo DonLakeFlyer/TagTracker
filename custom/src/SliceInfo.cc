@@ -19,7 +19,14 @@ QString SliceInfo::displaySource(void) const
 {
     const QString source = qIsNaN(_maxSNR) ? _maxLowConfidenceSourceRateLabel : _maxSNRSourceRateLabel;
     const QString trimmed = source.trimmed();
-    return trimmed.isEmpty() ? QString() : trimmed.left(1);
+    if (trimmed.isEmpty()) {
+        return QString();
+    }
+    // Compound rate-switch labels (e.g. "R/M") are already abbreviated
+    if (trimmed.contains(QLatin1Char('/'))) {
+        return trimmed;
+    }
+    return trimmed.left(1);
 }
 
 bool SliceInfo::lowConfidenceOnly(void) const

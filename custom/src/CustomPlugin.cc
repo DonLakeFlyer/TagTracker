@@ -176,7 +176,6 @@ void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& 
 
     bool isDetectorHeartbeat = pulseInfo.frequency_hz == 0;
     const bool isPythonMode = _customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON;
-    const bool enablePythonCrossRateCoalescing = isPythonMode && _customSettings->pythonCrossRateCoalescingEnabled()->rawValue().toBool();
     const bool isNoPulseResult = !isDetectorHeartbeat && pulseInfo.detection_status == kNoPulseDetectionStatus;
     const bool isLowConfidencePulse = !isDetectorHeartbeat && !pulseInfo.confirmed_status && !isNoPulseResult;
 
@@ -188,13 +187,19 @@ void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& 
                 "snr" <<
                 pulseInfo.snr <<
                 "heading" <<
-                pulseInfo.orientation_z <<
+                pulseInfo.yaw_deg <<
                 "stft_score" <<
                 pulseInfo.stft_score <<
                 "detection_status" <<
                 pulseInfo.detection_status <<
                 "group_seq_counter" <<
                 pulseInfo.group_seq_counter <<
+                "group_ind" <<
+                pulseInfo.group_ind <<
+                "noise_psd" <<
+                pulseInfo.noise_psd <<
+                "predict_next" <<
+                pulseInfo.predict_next_start_seconds <<
                 "at time" <<
                 pulseInfo.start_time_seconds;
         }
@@ -203,8 +208,7 @@ void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& 
             // Send pulse info to current rotation info, including low-confidence pulses in Python mode.
             auto rotationInfo = _rotationInfoList.value<RotationInfo*>(_rotationInfoList.count() - 1);
             if (rotationInfo) {
-                const double pendingPairTimeoutSeconds = std::max(1.0, maxWaitMSecsForKGroup() / 1000.0);
-                rotationInfo->pulseInfoReceived(pulseInfo, enablePythonCrossRateCoalescing, pendingPairTimeoutSeconds);
+                rotationInfo->pulseInfoReceived(pulseInfo);
             } else {
                 qWarning() << "_handleTunnelPulse: No rotation info available - " << Q_FUNC_INFO;
             }
@@ -250,7 +254,7 @@ void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& 
                     }
 
                     QUrl url = QUrl::fromUserInput("qrc:/qml/PulseMapItem.qml");
-                    PulseMapItem* mapItem = new PulseMapItem(url, QGeoCoordinate(pulseInfo.position_x, pulseInfo.position_y), pulseInfo.tag_id, _useSNRForPulseStrength() ? pulseInfo.snr : pulseInfo.stft_score, antennaHeading, this);
+                    PulseMapItem* mapItem = new PulseMapItem(url, QGeoCoordinate(pulseInfo.latitude, pulseInfo.longitude), pulseInfo.tag_id, _useSNRForPulseStrength() ? pulseInfo.snr : pulseInfo.stft_score, antennaHeading, this);
                     _customMapItems.append(mapItem);
                 }
             }

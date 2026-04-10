@@ -8,12 +8,6 @@
 #include <cmath>
 #include <limits>
 
-namespace {
-static constexpr double kSameFrequencyToleranceHz = 35.0;
-static constexpr double kMaxPairTimeDeltaSeconds = 0.25;
-static constexpr double kSuppressionSNRGapDb = 3.0;
-}
-
 RotationInfo::RotationInfo(int cSlices, QObject* parent)
     : QObject           (parent)
     , _cSlices          (cSlices)
@@ -29,16 +23,16 @@ RotationInfo::RotationInfo(int cSlices, QObject* parent)
     }
 }
 
-void RotationInfo::pulseInfoReceived(const TunnelProtocol::PulseInfo_t& pulseInfo, bool enablePythonCrossRateCoalescing, double pendingPairTimeoutSeconds)
+void RotationInfo::pulseInfoReceived(const TunnelProtocol::PulseInfo_t& pulseInfo)
 {
     if (pulseInfo.frequency_hz == 0) {
         // Detector heartbeat
         return;
     }
 
-    qCDebug(CustomPluginLog) << "PulseInfo received - tag_id:snr:heading:cSlices" << pulseInfo.tag_id << pulseInfo.snr << pulseInfo.orientation_z << _cSlices << " _ " << Q_FUNC_INFO;
+    qCDebug(CustomPluginLog) << "PulseInfo received - tag_id:snr:heading:cSlices" << pulseInfo.tag_id << pulseInfo.snr << pulseInfo.yaw_deg << _cSlices << " _ " << Q_FUNC_INFO;
 
-    const double normalizedHeading = CustomPlugin::normalizeHeading(pulseInfo.orientation_z);
+    const double normalizedHeading = CustomPlugin::normalizeHeading(pulseInfo.yaw_deg);
     const int sliceIndex = _sliceIndexForHeading(normalizedHeading);
 
     if (sliceIndex < 0) {
@@ -46,36 +40,7 @@ void RotationInfo::pulseInfoReceived(const TunnelProtocol::PulseInfo_t& pulseInf
         return;
     }
 
-    if (!enablePythonCrossRateCoalescing) {
-        _applyPulseToSlice(pulseInfo, sliceIndex);
-        return;
-    }
-
-    _expireStalePendingPairs(pulseInfo.start_time_seconds, pendingPairTimeoutSeconds);
-
-    const uint32_t baseTagId = pulseInfo.tag_id - (pulseInfo.tag_id % cRates);
-    const int rateIndex = pulseInfo.tag_id % cRates;
-    const quint64 key = _pairKey(baseTagId, sliceIndex);
-
-    PendingPairResult& pendingPair = _pendingPairResults[key];
-    if (qIsNaN(pendingPair.pendingSinceSeconds)) {
-        pendingPair.pendingSinceSeconds = pulseInfo.start_time_seconds;
-    }
-    PendingRateResult& pendingRate = pendingPair.rates[rateIndex];
-
-    pendingRate.received = true;
-    pendingRate.noDetection = _isNoDetectionPulse(pulseInfo);
-    pendingRate.frequencyHz = pulseInfo.frequency_hz;
-    pendingRate.snr = pulseInfo.snr;
-    pendingRate.startTimeSeconds = pulseInfo.start_time_seconds;
-    pendingRate.pulseInfo = pulseInfo;
-
-    if (!pendingPair.rates[0].received || !pendingPair.rates[1].received) {
-        return;
-    }
-
-    _coalescePairAndApply(baseTagId, sliceIndex, pendingPair);
-    _pendingPairResults.remove(key);
+    _applyPulseToSlice(pulseInfo, sliceIndex);
 }
 
 int RotationInfo::_sliceIndexForHeading(double normalizedHeading)
@@ -116,7 +81,10 @@ void RotationInfo::_applyPulseToSlice(const TunnelProtocol::PulseInfo_t& pulseIn
     }
 
     if (!qIsNaN(sliceStrength) && sliceStrength > 0.0) {
-        slice->updateMaxSNR(sliceStrength, pulseInfo.confirmed_status, _sourceRateLabelForTagId(pulseInfo.tag_id));
+        CustomSettings* customSettings = qobject_cast<CustomPlugin*>(CustomPlugin::instance())->customSettings();
+        const bool isPythonMode = customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON;
+        const QString rateLabel = isPythonMode ? _rateLabelFromGroupInd(pulseInfo) : _sourceRateLabelForTagId(pulseInfo.tag_id);
+        slice->updateMaxSNR(sliceStrength, pulseInfo.confirmed_status, rateLabel);
     }
 
     _updatePulseRateCount(pulseInfo);
@@ -125,7 +93,9 @@ void RotationInfo::_applyPulseToSlice(const TunnelProtocol::PulseInfo_t& pulseIn
 
 void RotationInfo::_updatePulseRateCount(const TunnelProtocol::PulseInfo_t& pulseInfo)
 {
-    const int rateIndex = pulseInfo.tag_id % cRates;
+    CustomSettings* customSettings = qobject_cast<CustomPlugin*>(CustomPlugin::instance())->customSettings();
+    const bool isPythonMode = customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON;
+    const int rateIndex = isPythonMode ? (pulseInfo.group_ind == 0 ? 0 : 1) : (pulseInfo.tag_id % cRates);
 
     if (pulseInfo.confirmed_status && !qIsNaN(pulseInfo.snr)) {
         qCDebug(CustomPluginLog) << "Updating RotationInfo pulse rate counts" << _pulseRateCounts << " _ " << Q_FUNC_INFO;
@@ -168,128 +138,32 @@ QString RotationInfo::_sourceRateLabelForTagId(uint32_t tagId) const
     return rate2.isEmpty() ? QStringLiteral("2") : rate2;
 }
 
-quint64 RotationInfo::_pairKey(uint32_t baseTagId, int sliceIndex) const
+QString RotationInfo::_rateLabelFromGroupInd(const TunnelProtocol::PulseInfo_t& pulseInfo) const
 {
-    return (static_cast<quint64>(baseTagId) << 32) | static_cast<quint64>(sliceIndex);
-}
+    TagInfo* tagInfo = TagDatabase::instance()->findTagInfo(pulseInfo.tag_id);
+    TagManufacturer* manufacturer = tagInfo ? TagDatabase::instance()->findTagManufacturer(tagInfo->manufacturerId()->rawValue().toUInt()) : nullptr;
+    const QString rateA = manufacturer ? manufacturer->ip_msecs_1_id()->rawValue().toString() : QString();
+    const QString rateB = manufacturer ? manufacturer->ip_msecs_2_id()->rawValue().toString() : QString();
+    const QString letterA = rateA.isEmpty() ? QStringLiteral("1") : rateA.left(1);
+    const QString letterB = rateB.isEmpty() ? QStringLiteral("2") : rateB.left(1);
 
-int RotationInfo::_sliceIndexFromPairKey(quint64 key) const
-{
-    return static_cast<int>(key & 0xffffffffu);
-}
+    CustomSettings* customSettings = qobject_cast<CustomPlugin*>(CustomPlugin::instance())->customSettings();
+    const uint32_t k = customSettings->pythonK()->rawValue().toUInt();
 
-uint32_t RotationInfo::_baseTagIdFromPairKey(quint64 key) const
-{
-    return static_cast<uint32_t>(key >> 32);
+    if (pulseInfo.group_ind == 0) {
+        return rateA.isEmpty() ? QStringLiteral("1") : rateA;
+    } else if (pulseInfo.group_ind == 1) {
+        return rateB.isEmpty() ? QStringLiteral("2") : rateB;
+    } else if (pulseInfo.group_ind < k) {
+        return letterA + QStringLiteral("/") + letterB;
+    } else {
+        return letterB + QStringLiteral("/") + letterA;
+    }
 }
 
 bool RotationInfo::_isNoDetectionPulse(const TunnelProtocol::PulseInfo_t& pulseInfo) const
 {
     return pulseInfo.detection_status == kNoPulseDetectionStatus;
-}
-
-void RotationInfo::_coalescePairAndApply(uint32_t baseTagId, int sliceIndex, const PendingPairResult& pendingPair)
-{
-    const PendingRateResult& rate0 = pendingPair.rates[0];
-    const PendingRateResult& rate1 = pendingPair.rates[1];
-
-    if (rate0.noDetection && rate1.noDetection) {
-        qCDebug(CustomPluginLog) << "Cross-rate coalescing: both rates no-detection for tag" << baseTagId << "slice" << sliceIndex;
-        return;
-    }
-
-    if (rate0.noDetection != rate1.noDetection) {
-        const PendingRateResult& detectedRate = rate0.noDetection ? rate1 : rate0;
-        qCDebug(CustomPluginLog) << "Cross-rate coalescing: keep single detection for tag" << baseTagId << "slice" << sliceIndex << "snr" << detectedRate.snr;
-        _applyPulseToSlice(detectedRate.pulseInfo, sliceIndex);
-        return;
-    }
-
-    const double frequencyDelta = std::abs(static_cast<double>(rate0.frequencyHz) - static_cast<double>(rate1.frequencyHz));
-    const bool sameFrequency = frequencyDelta <= kSameFrequencyToleranceHz;
-
-    double timeDelta = std::numeric_limits<double>::infinity();
-    if (!qIsNaN(rate0.startTimeSeconds) && !qIsNaN(rate1.startTimeSeconds)) {
-        timeDelta = std::abs(rate0.startTimeSeconds - rate1.startTimeSeconds);
-    }
-    const bool timeAligned = timeDelta <= kMaxPairTimeDeltaSeconds;
-
-    if (!sameFrequency || !timeAligned || qIsNaN(rate0.snr) || qIsNaN(rate1.snr)) {
-        qCDebug(CustomPluginLog) << "Cross-rate coalescing: keep both for tag" << baseTagId
-                                 << "slice" << sliceIndex
-                                 << "frequencyDelta" << frequencyDelta
-                                 << "timeDelta" << timeDelta;
-        _applyPulseToSlice(rate0.pulseInfo, sliceIndex);
-        _applyPulseToSlice(rate1.pulseInfo, sliceIndex);
-        return;
-    }
-
-    const double snrGap = std::abs(rate0.snr - rate1.snr);
-    if (snrGap < kSuppressionSNRGapDb) {
-        qCDebug(CustomPluginLog) << "Cross-rate coalescing: same frequency but near-tie, keep both for tag" << baseTagId
-                                 << "slice" << sliceIndex
-                                 << "snrGap" << snrGap;
-        _applyPulseToSlice(rate0.pulseInfo, sliceIndex);
-        _applyPulseToSlice(rate1.pulseInfo, sliceIndex);
-        return;
-    }
-
-    if (rate0.pulseInfo.confirmed_status != rate1.pulseInfo.confirmed_status) {
-        const PendingRateResult& confirmedRate = rate0.pulseInfo.confirmed_status ? rate0 : rate1;
-        const PendingRateResult& lowConfidenceRate = rate0.pulseInfo.confirmed_status ? rate1 : rate0;
-        qCDebug(CustomPluginLog) << "Cross-rate coalescing: keep confirmed result for tag" << baseTagId
-                                 << "slice" << sliceIndex
-                                 << "confirmedSnr" << confirmedRate.snr
-                                 << "lowConfidenceSnr" << lowConfidenceRate.snr;
-        _applyPulseToSlice(confirmedRate.pulseInfo, sliceIndex);
-        return;
-    }
-
-    const PendingRateResult& strongerRate = rate0.snr >= rate1.snr ? rate0 : rate1;
-    const PendingRateResult& weakerRate = rate0.snr >= rate1.snr ? rate1 : rate0;
-    qCDebug(CustomPluginLog) << "Cross-rate coalescing: suppress weaker rate for tag" << baseTagId
-                             << "slice" << sliceIndex
-                             << "strongerSnr" << strongerRate.snr
-                             << "weakerSnr" << weakerRate.snr
-                             << "snrGap" << snrGap;
-    _applyPulseToSlice(strongerRate.pulseInfo, sliceIndex);
-}
-
-void RotationInfo::_expireStalePendingPairs(double currentStartTimeSeconds, double pendingPairTimeoutSeconds)
-{
-    if (qIsNaN(currentStartTimeSeconds) || qIsNaN(pendingPairTimeoutSeconds) || pendingPairTimeoutSeconds <= 0.0) {
-        return;
-    }
-
-    for (auto it = _pendingPairResults.begin(); it != _pendingPairResults.end();) {
-        const PendingPairResult& pendingPair = it.value();
-
-        if (qIsNaN(pendingPair.pendingSinceSeconds) || (currentStartTimeSeconds - pendingPair.pendingSinceSeconds) < pendingPairTimeoutSeconds) {
-            ++it;
-            continue;
-        }
-
-        const quint64 key = it.key();
-        const uint32_t baseTagId = _baseTagIdFromPairKey(key);
-        const int sliceIndex = _sliceIndexFromPairKey(key);
-        const PendingRateResult& rate0 = pendingPair.rates[0];
-        const PendingRateResult& rate1 = pendingPair.rates[1];
-
-        const bool rate0HasDetection = rate0.received && !rate0.noDetection;
-        const bool rate1HasDetection = rate1.received && !rate1.noDetection;
-
-        if (rate0HasDetection && !rate1.received) {
-            qCDebug(CustomPluginLog) << "Cross-rate coalescing timeout: keeping unmatched rate0 detection for tag" << baseTagId << "slice" << sliceIndex;
-            _applyPulseToSlice(rate0.pulseInfo, sliceIndex);
-        } else if (rate1HasDetection && !rate0.received) {
-            qCDebug(CustomPluginLog) << "Cross-rate coalescing timeout: keeping unmatched rate1 detection for tag" << baseTagId << "slice" << sliceIndex;
-            _applyPulseToSlice(rate1.pulseInfo, sliceIndex);
-        } else {
-            qCDebug(CustomPluginLog) << "Cross-rate coalescing timeout: dropping stale pending pair for tag" << baseTagId << "slice" << sliceIndex;
-        }
-
-        it = _pendingPairResults.erase(it);
-    }
 }
 
 // RA-2AK measured antenna pattern in dB, normalized to 0 dB at boresight.

@@ -58,7 +58,7 @@ void DetectorList::setupFromSelectedTags()
                                             this);
         append(detectorInfo);
 
-        if (tagManufacturer->ip_msecs_2()->rawValue().toUInt() != 0) {
+        if (!isPythonMode && tagManufacturer->ip_msecs_2()->rawValue().toUInt() != 0) {
             DetectorInfo* detectorInfo = new DetectorInfo(
                                                 tagInfo->id()->rawValue().toUInt() + 1,
                                                 tagManufacturer->ip_msecs_2_id()->rawValue().toString(),

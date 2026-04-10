@@ -126,12 +126,6 @@
     "default":          0
 },
 {
-    "name":             "pythonCrossRateCoalescingEnabled",
-    "shortDesc":        "Enable Python Cross-Rate Rejection",
-    "type":             "bool",
-    "default":          true
-},
-{
     "name":             "detectionMargin",
     "shortDesc":        "Detection Margin",
     "type":             "double",

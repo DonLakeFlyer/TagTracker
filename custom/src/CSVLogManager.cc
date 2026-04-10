@@ -80,12 +80,12 @@ void CSVLogManager::_csvLogPulse(QFile& csvFile, const TunnelProtocol::PulseInfo
 {
     if (csvFile.isOpen()) {
         if (csvFile.size() == 0) {
-            csvFile.write(QString("# %1, tag_id, frequency_hz, start_time_seconds, predict_next_start_seconds, snr, stft_score, group_seq_counter, group_ind, group_snr, noise_psd, detection_status, confirmed_status, position_x, _y, _z, orientation_x, _y, _z, _w, antenna_offset\n")
+            csvFile.write(QString("# %1, tag_id, frequency_hz, start_time_seconds, predict_next_start_seconds, snr, stft_score, group_seq_counter, group_ind, group_snr, noise_psd, detection_status, confirmed_status, latitude, longitude, altitude_rel, roll_deg, pitch_deg, yaw_deg, antenna_offset\n")
                 .arg(COMMAND_ID_PULSE)
                 .toUtf8());
         }
         auto customSettings = qobject_cast<CustomPlugin*>(CustomPlugin::instance())->customSettings();
-        csvFile.write(QString("%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15, %16, %17, %18, %19, %20, %21\n")
+        csvFile.write(QString("%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15, %16, %17, %18, %19, %20\n")
             .arg(COMMAND_ID_PULSE)
             .arg(pulseInfo.tag_id)
             .arg(pulseInfo.frequency_hz)
@@ -99,13 +99,12 @@ void CSVLogManager::_csvLogPulse(QFile& csvFile, const TunnelProtocol::PulseInfo
             .arg(pulseInfo.noise_psd,                   0, 'g', 7)
             .arg(pulseInfo.detection_status)
             .arg(pulseInfo.confirmed_status)
-            .arg(pulseInfo.position_x,                  0, 'f', 6)
-            .arg(pulseInfo.position_y,                  0, 'f', 6)
-            .arg(pulseInfo.position_z,                  0, 'f', 6)
-            .arg(pulseInfo.orientation_x,               0, 'f', 6)
-            .arg(pulseInfo.orientation_y,               0, 'f', 6)
-            .arg(pulseInfo.orientation_z,               0, 'f', 6)
-            .arg(pulseInfo.orientation_w,               0, 'f', 6)
+            .arg(pulseInfo.latitude,                    0, 'f', 6)
+            .arg(pulseInfo.longitude,                   0, 'f', 6)
+            .arg(pulseInfo.altitude_rel,                0, 'f', 6)
+            .arg(pulseInfo.roll_deg,                    0, 'f', 6)
+            .arg(pulseInfo.pitch_deg,                   0, 'f', 6)
+            .arg(pulseInfo.yaw_deg,                     0, 'f', 6)
             .arg(customSettings->antennaOffset()->rawValue().toDouble(), 0, 'f', 6)
             .toUtf8());
     }

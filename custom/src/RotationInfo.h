@@ -4,7 +4,6 @@
 #include "TunnelProtocol.h"
 
 #include <QObject>
-#include <QHash>
 #include <QString>
 
 class RotationInfo : public QObject
@@ -33,7 +32,7 @@ public:
     bool   bearingAmbiguous(void) const { return _bearingAmbiguous; }
     bool   bearingValid(void) const { return _bearingValid; }
 
-    void pulseInfoReceived(const TunnelProtocol::PulseInfo_t& pulseInfo, bool enablePythonCrossRateCoalescing, double pendingPairTimeoutSeconds);
+    void pulseInfoReceived(const TunnelProtocol::PulseInfo_t& pulseInfo);
     void fitBearing(void);
 
 signals:
@@ -44,31 +43,13 @@ signals:
 private:
     static constexpr int cRates = 2;
 
-    struct PendingRateResult {
-        bool                            received = false;
-        bool                            noDetection = false;
-        uint32_t                        frequencyHz = 0;
-        double                          snr = qQNaN();
-        double                          startTimeSeconds = qQNaN();
-        TunnelProtocol::PulseInfo_t     pulseInfo = {};
-    };
-
-    struct PendingPairResult {
-        double pendingSinceSeconds = qQNaN();
-        PendingRateResult rates[cRates];
-    };
-
     int _sliceIndexForHeading(double normalizedHeading);
     void _applyPulseToSlice(const TunnelProtocol::PulseInfo_t& pulseInfo, int sliceIndex);
     void _updatePulseRateCount(const TunnelProtocol::PulseInfo_t& pulseInfo);
     void _updateMaxSNR(double sliceStrength);
     QString _sourceRateLabelForTagId(uint32_t tagId) const;
-    quint64 _pairKey(uint32_t baseTagId, int sliceIndex) const;
-    int _sliceIndexFromPairKey(quint64 key) const;
-    uint32_t _baseTagIdFromPairKey(quint64 key) const;
+    QString _rateLabelFromGroupInd(const TunnelProtocol::PulseInfo_t& pulseInfo) const;
     bool _isNoDetectionPulse(const TunnelProtocol::PulseInfo_t& pulseInfo) const;
-    void _coalescePairAndApply(uint32_t baseTagId, int sliceIndex, const PendingPairResult& pendingPair);
-    void _expireStalePendingPairs(double currentStartTimeSeconds, double pendingPairTimeoutSeconds);
 
     static double _antennaPattern(double thetaDeg, double phiDeg, double A, double B);
 
@@ -76,7 +57,6 @@ private:
     QmlObjectListModel  _slices;
     QList<int>          _pulseRateCounts;
     double              _maxSNR = qQNaN();
-    QHash<quint64, PendingPairResult> _pendingPairResults;
 
     // Bearing fit results
     double              _bearingDeg         = qQNaN();

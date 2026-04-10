@@ -1,7 +1,8 @@
 #include "DetectorInfo.h"
 #include "CustomPlugin.h"
-#include "Vehicle.h"
 #include "CustomSettings.h"
+#include "TagDatabase.h"
+#include "Vehicle.h"
 #include "QGCApplication.h"
 #include "SettingsManager.h"
 #include "AppSettings.h"
@@ -121,6 +122,30 @@ void DetectorInfo::handleTunnelPulse(const mavlink_tunnel_t& tunnel)
             emit lastPulseStrengthChanged();
             emit lastPulseStaleChanged();
             _stalePulseStrengthTimer.start();
+
+            if (isPythonMode) {
+                TagInfo* tagInfo = TagDatabase::instance()->findTagInfo(_tagId);
+                TagManufacturer* manufacturer = tagInfo ? TagDatabase::instance()->findTagManufacturer(tagInfo->manufacturerId()->rawValue().toUInt()) : nullptr;
+                const QString rateA = manufacturer ? manufacturer->ip_msecs_1_id()->rawValue().toString() : QString();
+                const QString rateB = manufacturer ? manufacturer->ip_msecs_2_id()->rawValue().toString() : QString();
+                const QString letterA = rateA.isEmpty() ? QStringLiteral("1") : rateA.left(1);
+                const QString letterB = rateB.isEmpty() ? QStringLiteral("2") : rateB.left(1);
+
+                QString newRateLabel;
+                if (pulseInfo.group_ind == 0) {
+                    newRateLabel = letterA;
+                } else if (pulseInfo.group_ind == 1) {
+                    newRateLabel = letterB;
+                } else if (pulseInfo.group_ind < _k) {
+                    newRateLabel = letterA + QStringLiteral("/") + letterB;
+                } else {
+                    newRateLabel = letterB + QStringLiteral("/") + letterA;
+                }
+                if (_rateLabel != newRateLabel) {
+                    _rateLabel = newRateLabel;
+                    emit rateLabelChanged();
+                }
+            }
 
             _maxStrength = qMax(_maxStrength, pulseInfo.snr);
         } else if (pulseInfo.detection_status == kNoPulseDetectionStatus) {
