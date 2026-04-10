@@ -93,6 +93,46 @@ Item {
         ColumnLayout {
             spacing: ScreenTools.defaultFontPixelHeight
 
+            RowLayout {
+                spacing: ScreenTools.defaultFontPixelWidth
+                visible: customSettings.detectionMode.rawValue === 1
+
+                QGCLabel { text: qsTr("Range") }
+
+                QGCComboBox {
+                    id:                 kCombo
+                    Layout.fillWidth:   true
+
+                    property var    baseLabels: ["3K", "4K", "5K+"]
+                    property var    kValues:    [5, 10, 20]
+
+                    model: {
+                        var currentK = customSettings.pythonK.rawValue
+                        for (var i = 0; i < kValues.length; i++) {
+                            if (kValues[i] === currentK)
+                                return baseLabels
+                        }
+                        return baseLabels.concat(["Custom: " + currentK])
+                    }
+
+                    Component.onCompleted: {
+                        var currentK = customSettings.pythonK.rawValue
+                        for (var i = 0; i < kValues.length; i++) {
+                            if (kValues[i] === currentK) {
+                                currentIndex = i
+                                return
+                            }
+                        }
+                        currentIndex = baseLabels.length
+                    }
+
+                    onActivated: (index) => {
+                        if (index < kValues.length)
+                            customSettings.pythonK.rawValue = kValues[index]
+                    }
+                }
+            }
+
             QGCLabel {
                 text:       qsTr("No Tags Specified")
                 visible:    tagDatabase.tagInfoList.count === 0

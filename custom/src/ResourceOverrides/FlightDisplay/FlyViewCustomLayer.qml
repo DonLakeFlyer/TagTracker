@@ -120,7 +120,8 @@ Item {
                     }
 
                     QGCLabel {
-                        text:               object.tagLabel[0]
+                        text:               object.rateLabel !== "" ? object.rateLabel : object.tagLabel[0]
+                        visible:            !object.lastPulseNoPulse
                         color:              qgcPal.text
                         verticalAlignment:  Text.AlignVCenter
                     }

@@ -19,6 +19,7 @@ public:
 
     Q_PROPERTY(int      tagId               MEMBER _tagId               CONSTANT)
     Q_PROPERTY(QString  tagLabel            MEMBER _tagLabel            CONSTANT)
+    Q_PROPERTY(QString  rateLabel           MEMBER _rateLabel           NOTIFY rateLabelChanged)
     Q_PROPERTY(bool     heartbeatLost       MEMBER _heartbeatLost       NOTIFY heartbeatLostChanged)
     Q_PROPERTY(double   lastPulseStrength   MEMBER _lastPulseStrength   NOTIFY lastPulseStrengthChanged)
     Q_PROPERTY(bool     lastPulseStale      MEMBER _lastPulseStale      NOTIFY lastPulseStaleChanged)
@@ -42,10 +43,12 @@ signals:
     void lastPulseLowConfidenceChanged();
     void lastPulseNoPulseChanged     ();
     void noPulseCountChanged          ();
+    void rateLabelChanged             ();
 
 private:
     uint32_t        _tagId                  = 0;
     QString         _tagLabel;
+    QString         _rateLabel;
     uint32_t        _intraPulseMsecs        = 0;
     uint32_t        _k                      = 0;
     bool            _heartbeatLost          = true;
