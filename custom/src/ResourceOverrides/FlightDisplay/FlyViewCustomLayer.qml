@@ -106,14 +106,14 @@ Item {
                             anchors.rightMargin:    maxStrength <= 0 ? parent.width : ((maxStrength - filteredSNR) / maxStrength) * parent.width
                             anchors.fill:           parent
                             color:                  object.lastPulseLowConfidence ? "orange" : "green"
-                            visible:                !object.heartbeatLost && !object.lastPulseStale && !object.lastPulseNoPulse
+                            visible:                !object.heartbeatLost && !object.lastPulseNoPulse && !object.waitingForFirstPulse
                         }
 
                         QGCLabel {
                             anchors.fill:           parent
-                            text:                   object.lastPulseNoPulse ? qsTr("No Pulse ×%1").arg(object.noPulseCount) : Math.max(0, Math.min(object.lastPulseStrength, maxStrength)).toFixed(1)
+                            text:                   object.waitingForFirstPulse ? qsTr("Waiting...") : (object.lastPulseNoPulse ? qsTr("No Pulse ×%1").arg(object.noPulseCount) : Math.max(0, Math.min(object.lastPulseStrength, maxStrength)).toFixed(1))
                             font.bold:              true
-                            color:                  object.lastPulseNoPulse ? "white" : "black"
+                            color:                  (object.lastPulseNoPulse || object.heartbeatLost) ? "white" : "black"
                             horizontalAlignment:    Text.AlignHCenter
                             verticalAlignment:      Text.AlignVCenter
                         }
@@ -121,7 +121,7 @@ Item {
 
                     QGCLabel {
                         text:               object.rateLabel !== "" ? object.rateLabel : object.tagLabel[0]
-                        visible:            !object.lastPulseNoPulse
+                        visible:            !object.lastPulseNoPulse && !object.waitingForFirstPulse
                         color:              qgcPal.text
                         verticalAlignment:  Text.AlignVCenter
                     }

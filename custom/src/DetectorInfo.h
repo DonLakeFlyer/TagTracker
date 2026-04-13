@@ -22,10 +22,10 @@ public:
     Q_PROPERTY(QString  rateLabel           MEMBER _rateLabel           NOTIFY rateLabelChanged)
     Q_PROPERTY(bool     heartbeatLost       MEMBER _heartbeatLost       NOTIFY heartbeatLostChanged)
     Q_PROPERTY(double   lastPulseStrength   MEMBER _lastPulseStrength   NOTIFY lastPulseStrengthChanged)
-    Q_PROPERTY(bool     lastPulseStale      MEMBER _lastPulseStale      NOTIFY lastPulseStaleChanged)
     Q_PROPERTY(bool     lastPulseLowConfidence MEMBER _lastPulseLowConfidence NOTIFY lastPulseLowConfidenceChanged)
     Q_PROPERTY(bool     lastPulseNoPulse    MEMBER _lastPulseNoPulse    NOTIFY lastPulseNoPulseChanged)
     Q_PROPERTY(int      noPulseCount        MEMBER _noPulseCount        NOTIFY noPulseCountChanged)
+    Q_PROPERTY(bool     waitingForFirstPulse MEMBER _waitingForFirstPulse NOTIFY waitingForFirstPulseChanged)
 
     void        handleTunnelPulse   (const mavlink_tunnel_t& tunnel);
     uint32_t    tagId               () const                        { return _tagId; }
@@ -39,11 +39,11 @@ public:
 signals:
     void heartbeatLostChanged       ();
     void lastPulseStrengthChanged   ();
-    void lastPulseStaleChanged      ();
     void lastPulseLowConfidenceChanged();
     void lastPulseNoPulseChanged     ();
     void noPulseCountChanged          ();
     void rateLabelChanged             ();
+    void waitingForFirstPulseChanged  ();
 
 private:
     uint32_t        _tagId                  = 0;
@@ -55,12 +55,11 @@ private:
     double          _lastPulseStrength      = 0.0;
     bool            _lastPulseLowConfidence = false;
     int             _lastPulseGroupSeqCtr   = -1;
-    bool            _lastPulseStale         = true;
     bool            _lastPulseNoPulse       = false;
+    bool            _waitingForFirstPulse   = true;
     int             _noPulseCount           = 0;
     uint32_t        _heartbeatTimerInterval = 0;
     QTimer          _heartbeatTimeoutTimer;
-    QTimer          _stalePulseStrengthTimer;
     double          _maxStrength            = 0.0;
     uint32_t        _heartbeatCount         = 0;
     uint32_t        _pulseGroupCount        = 0;

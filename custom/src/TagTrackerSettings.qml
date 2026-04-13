@@ -171,6 +171,13 @@ SettingsPage {
             visible:            _isPythonMode
         }
 
+        FactCheckBoxSlider {
+            Layout.fillWidth:   true
+            text:               fact.shortDescription
+            fact:               _customSettings.debugDetector
+            visible:            _isPythonMode
+        }
+
         LabelledFactTextField {
             Layout.fillWidth:   true
             label:              fact.shortDescription

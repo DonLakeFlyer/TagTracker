@@ -144,6 +144,12 @@
     "default":          1.3
 },
 {
+    "name":             "debugDetector",
+    "shortDesc":        "Debug Detector",
+    "type":             "bool",
+    "default":          false
+},
+{
     "name":         "pythonK",
     "shortDesc":    "Detector K Value",
     "type":         "UInt32",

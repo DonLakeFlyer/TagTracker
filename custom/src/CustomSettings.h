@@ -37,6 +37,7 @@ public:
     DEFINE_SETTINGFACT(detectionMode)
     DEFINE_SETTINGFACT(detectionMargin)
     DEFINE_SETTINGFACT(confidenceRatio)
+    DEFINE_SETTINGFACT(debugDetector)
     DEFINE_SETTINGFACT(pythonK)
     DEFINE_SETTINGFACT(pythonFalseAlarmPreset)
     DEFINE_SETTINGFACT(pythonFalseAlarmProbability)

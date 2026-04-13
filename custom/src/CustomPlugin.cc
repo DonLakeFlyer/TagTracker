@@ -487,13 +487,6 @@ void CustomPlugin::_say(QString text)
     AudioOutput::instance()->say(text.toLower());
 }
 
-int CustomPlugin::_rawPulseToPct(double rawPulse)
-{
-    double maxPossiblePulse = static_cast<double>(_customSettings->maxPulseStrength()->rawValue().toDouble());
-    return static_cast<int>(100.0 * (rawPulse / maxPossiblePulse));
-}
-
-
 bool CustomPlugin::adjustSettingMetaData(const QString& settingsGroup, FactMetaData& metaData)
 {
     if (settingsGroup == AppSettings::settingsGroup && metaData.name() == AppSettings::batteryPercentRemainingAnnounceName) {

@@ -35,25 +35,6 @@ DetectorInfo::DetectorInfo(uint32_t tagId, const QString& tagLabel, uint32_t int
         _heartbeatLost = true;
         emit heartbeatLostChanged();
     });
-
-    _stalePulseStrengthTimer.setSingleShot(true);
-    _stalePulseStrengthTimer.setInterval(_heartbeatTimerInterval);
-    _stalePulseStrengthTimer.callOnTimeout([this]() {
-        _lastPulseStale = true;
-        emit lastPulseStaleChanged();
-        if (_lastPulseLowConfidence) {
-            _lastPulseLowConfidence = false;
-            emit lastPulseLowConfidenceChanged();
-        }
-        if (_lastPulseNoPulse) {
-            _lastPulseNoPulse = false;
-            emit lastPulseNoPulseChanged();
-        }
-        if (_noPulseCount > 0) {
-            _noPulseCount = 0;
-            emit noPulseCountChanged();
-        }
-    });
 }
 
 DetectorInfo::~DetectorInfo()
@@ -105,10 +86,13 @@ void DetectorInfo::handleTunnelPulse(const mavlink_tunnel_t& tunnel)
             } else {
                 _lastPulseStrength = std::max(clampedSNR, _lastPulseStrength);
             }
-            _lastPulseStale = false;
             if (_lastPulseLowConfidence != newLowConfidence) {
                 _lastPulseLowConfidence = newLowConfidence;
                 emit lastPulseLowConfidenceChanged();
+            }
+            if (_waitingForFirstPulse) {
+                _waitingForFirstPulse = false;
+                emit waitingForFirstPulseChanged();
             }
             if (_lastPulseNoPulse) {
                 _lastPulseNoPulse = false;
@@ -120,8 +104,6 @@ void DetectorInfo::handleTunnelPulse(const mavlink_tunnel_t& tunnel)
             }
 
             emit lastPulseStrengthChanged();
-            emit lastPulseStaleChanged();
-            _stalePulseStrengthTimer.start();
 
             if (isPythonMode) {
                 TagInfo* tagInfo = TagDatabase::instance()->findTagInfo(_tagId);
@@ -156,9 +138,10 @@ void DetectorInfo::handleTunnelPulse(const mavlink_tunnel_t& tunnel)
             }
             _noPulseCount++;
             emit noPulseCountChanged();
-            _lastPulseStale = false;
-            emit lastPulseStaleChanged();
-            _stalePulseStrengthTimer.start();
+            if (_waitingForFirstPulse) {
+                _waitingForFirstPulse = false;
+                emit waitingForFirstPulseChanged();
+            }
         }
     }
 }
