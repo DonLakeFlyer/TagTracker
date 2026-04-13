@@ -7,7 +7,6 @@
 #include "CustomPlugin.h"
 #include "CustomSettings.h"
 #include "CustomLoggingCategory.h"
-#include "TagDatabase.h"
 #include "TunnelProtocol.h"
 
 #include "MultiVehicleManager.h"
@@ -41,42 +40,37 @@ PythonCaptureAtSliceState::PythonCaptureAtSliceState(QState* parentState, int sl
 
     double antennaOffset = _customSettings->antennaOffset()->rawValue().toDouble();
     _sliceHeadingDegrees += -antennaOffset;
+    _sliceHeadingDegrees = fmod(_sliceHeadingDegrees, 360.0);
+    if (_sliceHeadingDegrees < 0.0) {
+        _sliceHeadingDegrees += 360.0;
+    }
 
     connect(this, &QState::entered, this, [this] () {
         qCDebug(CustomStateMachineLog) << QStringLiteral("Python: rotating to heading %1").arg(_sliceHeadingDegrees) << " - " << Q_FUNC_INFO;
     });
 
-    // Build StartDetectionInfo for this slice
-    StartDetectionInfo_t startDetectionInfo;
-    memset(&startDetectionInfo, 0, sizeof(startDetectionInfo));
-    startDetectionInfo.header.command               = COMMAND_ID_START_DETECTION;
-    startDetectionInfo.radio_center_frequency_hz    = TagDatabase::instance()->channelizerTuner();
-    startDetectionInfo.gain                         = _customSettings->gain()->rawValue().toUInt();
-    startDetectionInfo.detection_mode               = DETECTION_MODE_PYTHON;
-    startDetectionInfo.detection_margin             = _customSettings->detectionMargin()->rawValue().toDouble();
-    startDetectionInfo.confidence_ratio             = _customSettings->confidenceRatio()->rawValue().toDouble();
-
-    StopDetectionInfo_t stopDetectionInfo;
-    stopDetectionInfo.header.command = COMMAND_ID_STOP_DETECTION;
+    // Build StartDetectionAtHeading for this slice
+    StartDetectionAtHeading_t startAtHeading;
+    memset(&startAtHeading, 0, sizeof(startAtHeading));
+    startAtHeading.header.command = COMMAND_ID_START_DETECTION_AT_HEADING;
+    startAtHeading.heading_deg    = static_cast<float>(_sliceHeadingDegrees);
 
     // States
     auto announceRotateState        = new SayState("Announce Rotate", this, QStringLiteral("Searching at %1 degrees").arg(_sliceHeadingDegrees));
     auto rotateCommandState         = _rotateMavlinkCommandState(this);
     auto waitForHeadingState        = new FactWaitForValueTarget(this, _vehicle->heading(), _sliceHeadingDegrees, 1.0, 10 * 1000);
-    auto startDetectionState        = new SendTunnelCommandState("Python StartDetection", this, (uint8_t*)&startDetectionInfo, sizeof(startDetectionInfo));
+    auto startAtHeadingState        = new SendTunnelCommandState("Python StartDetectionAtHeading", this, (uint8_t*)&startAtHeading, sizeof(startAtHeading));
     const int maxWaitMsecs = _customPlugin->maxWaitMSecsForKGroup();
     const int waitForDetectionTimeoutMsecs = maxWaitMsecs + static_cast<int>(maxWaitMsecs * kPythonResultTimeoutFudgeFactor);
     auto waitForDetectionResultState= new PythonWaitForDetectionResultState(this, waitForDetectionTimeoutMsecs);
-    auto stopDetectionState         = new SendTunnelCommandState("Python StopDetection", this, (uint8_t*)&stopDetectionInfo, sizeof(stopDetectionInfo));
     auto finalState                 = new QFinalState(this);
 
     // Transitions
     announceRotateState->addTransition      (announceRotateState,           &SayState::functionCompleted,               rotateCommandState);
     rotateCommandState->addTransition       (rotateCommandState,            &SendMavlinkCommandState::success,          waitForHeadingState);
-    waitForHeadingState->addTransition      (waitForHeadingState,           &FactWaitForValueTarget::success,           startDetectionState);
-    startDetectionState->addTransition      (startDetectionState,           &SendTunnelCommandState::commandSucceeded,  waitForDetectionResultState);
-    waitForDetectionResultState->addTransition(waitForDetectionResultState, &QState::finished,                          stopDetectionState);
-    stopDetectionState->addTransition       (stopDetectionState,            &SendTunnelCommandState::commandSucceeded,  finalState);
+    waitForHeadingState->addTransition      (waitForHeadingState,           &FactWaitForValueTarget::success,           startAtHeadingState);
+    startAtHeadingState->addTransition      (startAtHeadingState,           &SendTunnelCommandState::commandSucceeded,  waitForDetectionResultState);
+    waitForDetectionResultState->addTransition(waitForDetectionResultState, &QState::finished,                          finalState);
 
     setInitialState(announceRotateState);
 }

@@ -71,6 +71,14 @@ QString SendTunnelCommandState::commandIdToText(uint32_t vhfCommandId)
         return QStringLiteral("Clean Logs");
     case COMMAND_ID_AIRSPY_STATUS:
         return QStringLiteral("Airspy Status");
+    case COMMAND_ID_START_ROTATION_DETECTION:
+        return QStringLiteral("Start Rotation Detection");
+    case COMMAND_ID_START_DETECTION_AT_HEADING:
+        return QStringLiteral("Start Detection At Heading");
+    case COMMAND_ID_STOP_ROTATION_DETECTION:
+        return QStringLiteral("Stop Rotation Detection");
+    case COMMAND_ID_BEARING_RESULT:
+        return QStringLiteral("Bearing Result");
     default:
         return QStringLiteral("Unknown command: %1").arg(vhfCommandId);
     }

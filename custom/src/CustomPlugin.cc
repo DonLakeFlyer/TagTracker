@@ -129,6 +129,9 @@ bool CustomPlugin::mavlinkMessage(Vehicle *vehicle, LinkInterface *link, const m
         case COMMAND_ID_HEARTBEAT:
             _handleTunnelHeartbeat(tunnel);
             return false;
+        case COMMAND_ID_BEARING_RESULT:
+            _handleBearingResult(tunnel);
+            return false;
         }
     }
 
@@ -557,10 +560,11 @@ void CustomPlugin::_sendStopDetectionDirect()
         return;
     }
 
-    qCDebug(CustomPluginLog) << "Sending direct STOP_DETECTION (Python mode cleanup)" << " - " << Q_FUNC_INFO;
+    qCDebug(CustomPluginLog) << "Sending direct STOP_ROTATION_DETECTION (Python mode cleanup)" << " - " << Q_FUNC_INFO;
 
-    StopDetectionInfo_t stopDetectionInfo;
-    stopDetectionInfo.header.command = COMMAND_ID_STOP_DETECTION;
+    StopRotationDetection_t stopRotationDetection;
+    memset(&stopRotationDetection, 0, sizeof(stopRotationDetection));
+    stopRotationDetection.header.command = COMMAND_ID_STOP_ROTATION_DETECTION;
 
     SharedLinkInterfacePtr  sharedLink  = weakLink.lock();
     MAVLinkProtocol*        mavlink     = MAVLinkProtocol::instance();
@@ -568,12 +572,12 @@ void CustomPlugin::_sendStopDetectionDirect()
     mavlink_tunnel_t        tunnel;
 
     memset(&tunnel, 0, sizeof(tunnel));
-    memcpy(tunnel.payload, &stopDetectionInfo, sizeof(stopDetectionInfo));
+    memcpy(tunnel.payload, &stopRotationDetection, sizeof(stopRotationDetection));
 
     tunnel.target_system    = vehicle->id();
     tunnel.target_component = MAV_COMP_ID_ONBOARD_COMPUTER;
     tunnel.payload_type     = MAV_TUNNEL_PAYLOAD_TYPE_UNKNOWN;
-    tunnel.payload_length   = sizeof(stopDetectionInfo);
+    tunnel.payload_length   = sizeof(stopRotationDetection);
 
     mavlink_msg_tunnel_encode_chan(
                 static_cast<uint8_t>(mavlink->getSystemId()),
@@ -637,8 +641,10 @@ void CustomPlugin::rotationIsEnding()
     if (_activeRotation) {
         _setActiveRotation(false);
 
-        // Fit bearing curve to rotation data
-        if (_rotationInfoList.count() > 0) {
+        // In C++ detector mode, fit bearing locally. In Python mode the controller
+        // computes the bearing and sends COMMAND_ID_BEARING_RESULT.
+        const bool isPythonMode = _customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON;
+        if (!isPythonMode && _rotationInfoList.count() > 0) {
             auto* rotationInfo = _rotationInfoList.value<RotationInfo*>(_rotationInfoList.count() - 1);
             if (rotationInfo) {
                 rotationInfo->fitBearing();
@@ -647,6 +653,32 @@ void CustomPlugin::rotationIsEnding()
 
         csvLogManager().csvLogRotationStop();
         csvLogManager().csvStopRotationPulseLog();
+    }
+}
+
+void CustomPlugin::_handleBearingResult(const mavlink_tunnel_t& tunnel)
+{
+    if (tunnel.payload_length != sizeof(BearingResult_t)) {
+        qWarning() << "_handleBearingResult: Received incorrectly sized BearingResult payload expected:actual" << sizeof(BearingResult_t) << tunnel.payload_length;
+        return;
+    }
+
+    BearingResult_t bearingResult;
+    memcpy(&bearingResult, tunnel.payload, sizeof(bearingResult));
+
+    qCDebug(CustomPluginLog) << "BearingResult received - tag_id:bearing:r2:nValid:bestSNR"
+                             << bearingResult.tag_id
+                             << bearingResult.bearing_deg
+                             << bearingResult.r_squared
+                             << bearingResult.n_valid_slices
+                             << bearingResult.best_snr;
+
+    if (_rotationInfoList.count() > 0) {
+        auto* rotationInfo = _rotationInfoList.value<RotationInfo*>(_rotationInfoList.count() - 1);
+        if (rotationInfo) {
+            rotationInfo->setBearingResult(bearingResult.bearing_deg, bearingResult.r_squared,
+                                           bearingResult.n_valid_slices, bearingResult.best_snr);
+        }
     }
 }
 
