@@ -28,6 +28,7 @@ PythonRotateAndCaptureState::PythonRotateAndCaptureState(QState* parentState)
     startRotationDetection.n_slices                  = rotationDivisions;
     startRotationDetection.detection_margin          = _customSettings->detectionMargin()->rawValue().toDouble();
     startRotationDetection.confidence_ratio          = _customSettings->confidenceRatio()->rawValue().toDouble();
+    startRotationDetection.debug_detector            = _customSettings->debugDetector()->rawValue().toBool() ? 1 : 0;
 
     // Build StopRotationDetection command
     StopRotationDetection_t stopRotationDetection;

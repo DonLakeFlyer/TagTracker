@@ -30,6 +30,7 @@ StartDetectionState::StartDetectionState(QState* parentState, bool sendCommand)
     startDetectionInfo.detection_mode               = customPlugin->customSettings()->detectionMode()->rawValue().toUInt();
     startDetectionInfo.detection_margin             = customPlugin->customSettings()->detectionMargin()->rawValue().toDouble();
     startDetectionInfo.confidence_ratio             = customPlugin->customSettings()->confidenceRatio()->rawValue().toDouble();
+    startDetectionInfo.debug_detector               = customPlugin->customSettings()->debugDetector()->rawValue().toBool() ? 1 : 0;
 
     if (startDetectionInfo.radio_center_frequency_hz == 0) {
         _channelizerTunerFailed = true;
