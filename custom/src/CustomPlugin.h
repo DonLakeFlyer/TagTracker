@@ -110,6 +110,7 @@ private slots:
 private:
     void    _handleTunnelPulse          (Vehicle* vehicle, const mavlink_tunnel_t& tunnel);
     void    _handleTunnelHeartbeat      (const mavlink_tunnel_t& tunnel);
+    void    _handleBearingResult        (const mavlink_tunnel_t& tunnel);
     void    _say                        (QString text);
     int     _rawPulseToPct              (double rawPulse);
     bool    _useSNRForPulseStrength     (void) { return _customSettings->useSNRForPulseStrength()->rawValue().toBool(); }

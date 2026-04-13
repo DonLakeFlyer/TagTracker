@@ -483,3 +483,20 @@ void RotationInfo::fitBearing(void)
 
     emit bearingChanged();
 }
+
+void RotationInfo::setBearingResult(float bearingDeg, float rSquared, uint32_t nValidSlices, float bestSNR)
+{
+    _bearingDeg         = static_cast<double>(bearingDeg);
+    _bearingRSquared    = static_cast<double>(rSquared);
+    _bearingUncertainty = qQNaN();
+    _bearingAmbiguous   = false;
+    _bearingValid       = nValidSlices >= 3;
+
+    qCDebug(CustomPluginLog) << "BearingResult applied: bearing" << _bearingDeg
+                             << "R²" << _bearingRSquared
+                             << "nValidSlices" << nValidSlices
+                             << "bestSNR" << bestSNR
+                             << "valid" << _bearingValid;
+
+    emit bearingChanged();
+}
