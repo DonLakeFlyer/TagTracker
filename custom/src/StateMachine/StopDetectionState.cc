@@ -23,21 +23,21 @@ StopDetectionState::StopDetectionState(QState* parentState, bool sendCommand)
         auto sendStopDetectionState = new SendTunnelCommandState("StopDetectionCommand", this, (uint8_t*)&stopDetectionInfo, sizeof(stopDetectionInfo));
 
         // Transitions
-        stopPulseLoggingState->addTransition(stopPulseLoggingState, &FunctionState::functionCompleted, sendStopDetectionState);
+        stopPulseLoggingState->addTransition(stopPulseLoggingState, &FunctionState::advance, sendStopDetectionState);
         sendStopDetectionState->addTransition(sendStopDetectionState, &SendTunnelCommandState::commandSucceeded, clearDetectorListState);
     } else {
         // Python mode: STOP_DETECTION already sent after the last slice
-        stopPulseLoggingState->addTransition(stopPulseLoggingState, &FunctionState::functionCompleted, clearDetectorListState);
+        stopPulseLoggingState->addTransition(stopPulseLoggingState, &FunctionState::advance, clearDetectorListState);
     }
 
-    clearDetectorListState->addTransition(clearDetectorListState, &FunctionState::functionCompleted, finalState);
+    clearDetectorListState->addTransition(clearDetectorListState, &FunctionState::advance, finalState);
 
     setInitialState(stopPulseLoggingState);
 }
 
 void StopDetectionState::_clearDetectorList()
 {
-    DetectorList::instance()->clear();
+    DetectorList::instance()->clearDetectors();
 }
 
 void StopDetectionState::_stopPulseLogging()

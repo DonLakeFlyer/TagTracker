@@ -1,15 +1,25 @@
-# QGroundControl License
+# QGroundControl License Information
 
-QGroundControl (QGC) is dual-licensed as Apache 2.0 and GPLv3. All contributions have to be made under both licenses (see [CONTRIBUTING](CONTRIBUTING.md)).
+QGroundControl is dual-licensed under **Apache 2.0** and **GPL v3**. You may choose either license.
 
-## Apache 2.0 License
+## Apache License 2.0
 
-The [Apache 2.0](http://www.apache.org/licenses/LICENSE-2.0) License is a permissive license which allows QGC to be built and used in any environment, including proprietary applications. It allows QGC to be built for mobile app stores. When building with Apache 2.0 a commercial Qt license is required.
+Permissive license that allows QGroundControl to be built and used in any environment, including proprietary applications and mobile app stores. **Requires a commercial Qt license.**
 
-## GPL v3 License
+Full text: [LICENSE-APACHE](../LICENSE-APACHE) · <http://www.apache.org/licenses/LICENSE-2.0>
 
-The [GPL v3 License](http://www.gnu.org/licenses/gpl-3.0.en.html) is a strong copyleft license. When building QGC under this license the open source version of Qt can be used. Our licensing grants the permission to use a later version of the license, however, contributions have to be made under 3.0.
+## GNU General Public License v3
 
-## Contact
+Strong copyleft license. Compatible with the open-source build of Qt.
 
-If you have questions regarding the licensing, please contact the maintainer Lorenz Meier, [lm@groundcontrol.org].
+Full text: [LICENSE-GPL](../LICENSE-GPL) · <http://www.gnu.org/licenses/gpl-3.0.en.html>
+
+## Contributing
+
+Contributions must be compatible with **both** licenses. Acceptable sources: original work, or code under BSD-2-Clause, BSD-3-Clause, MIT, or Apache 2.0. GPL-only code cannot be accepted.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full process.
+
+## Questions
+
+Licensing questions: Lorenz Meier <lm@qgroundcontrol.org>

@@ -1,23 +1,15 @@
 #pragma once
 
-#include "FunctionState.h"
-#include "CustomState.h"
+#include "QGCStateMachine.h"
 
-#include <QStateMachine>
-#include <QFinalState>
-#include <QString>
+#include <QtCore/QString>
 
 #include <functional>
 
-class Vehicle;
-class GuidedModeCancelledTransition;
-class FunctioState;
-class SayState;
-class SetFlightModeState;
-
-class CustomStateMachine : public QStateMachine
+class CustomStateMachine : public QGCStateMachine
 {
     Q_OBJECT
+
 public:
     CustomStateMachine(const QString& machineName, QObject* parent = nullptr);
 
@@ -29,9 +21,6 @@ public:
         RTLOnError              = 0x02
     };
 
-signals:
-    void error();
-
 public slots:
     void displayError();
     void setEventMode(uint eventMode);
@@ -40,13 +29,9 @@ private slots:
     void _flightModeChanged(const QString& flightMode);
 
 private:
-    void _init();
+    void _runStopHandler();
 
-    Vehicle*                _vehicle = nullptr;
     QString                 _errorString;
     uint                    _eventMode = 0;
     std::function<void()>   _stopHandler;
-
-    friend class CustomState;
 };
-

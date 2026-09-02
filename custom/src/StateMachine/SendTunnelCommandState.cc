@@ -5,6 +5,7 @@
 
 #include "MultiVehicleManager.h"
 #include "Vehicle.h"
+#include "VehicleLinkManager.h"
 #include "LinkInterface.h"
 #include "MAVLinkProtocol.h"
 #include "QGCApplication.h"
@@ -143,7 +144,7 @@ void SendTunnelCommandState::_handleTunnelCommandAck(const mavlink_tunnel_t& tun
             // Command failed
             if (sentTunnelCommand == COMMAND_ID_START_DETECTION) {
                 // Special case for start detection failure, we want to clear the detector list
-                DetectorList::instance()->clear();
+                DetectorList::instance()->clearDetectors();
             }
             if (ack.message[0] != 0) {
                 // Failed with detailed message

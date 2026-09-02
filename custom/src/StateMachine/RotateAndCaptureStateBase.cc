@@ -16,13 +16,15 @@
 #include "TagDatabase.h"
 #include "FirmwarePlugin.h"
 
+#include <QtStateMachine/QFinalState>
+
 RotateAndCaptureStateBase::RotateAndCaptureStateBase(const QString& stateName, QState* parentState)
     : CustomState       (stateName, parentState)
     , _vehicle          (MultiVehicleManager::instance()->activeVehicle())
     , _customPlugin     (qobject_cast<CustomPlugin*>(CustomPlugin::instance()))
     , _customSettings   (_customPlugin->customSettings())
-    , _detectorList     (DetectorList::instance())
     , _rotationDivisions(_customSettings->divisions()->rawValue().toInt())
+    , _detectorList     (DetectorList::instance())
 {
     // States
     auto initialRotateCommandState      = new RotateAndRateHeartbeatWaitState(this, 0);
@@ -33,8 +35,8 @@ RotateAndCaptureStateBase::RotateAndCaptureStateBase(const QString& stateName, Q
 
     // Transitions
     initialRotateCommandState->addTransition(initialRotateCommandState, &QState::finished, _rotationBeginState);
-    _rotationEndState->addTransition(_rotationEndState, &FunctionState::functionCompleted, announceRotateCompleteState);
-    announceRotateCompleteState->addTransition(announceRotateCompleteState, &SayState::functionCompleted, finalState);
+    _rotationEndState->addTransition(_rotationEndState, &FunctionState::advance, announceRotateCompleteState);
+    announceRotateCompleteState->addTransition(announceRotateCompleteState, &SayState::advance, finalState);
 
     this->setInitialState(initialRotateCommandState);
 }

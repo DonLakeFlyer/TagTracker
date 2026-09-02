@@ -146,7 +146,7 @@ SmartRotateAndCaptureState::SmartRotateAndCaptureState(QState* parentState)
     auto determineSearchTypeState = new DetermineSearchTypeState(this, _rotationDivisions);
 
     // Transitions
-    _rotationBeginState->addTransition(_rotationBeginState, &FunctionState::functionCompleted, _sliceSequenceState);
+    _rotationBeginState->addTransition(_rotationBeginState, &FunctionState::advance, _sliceSequenceState);
     addTransition(_sliceSequenceState, &QState::finished, determineSearchTypeState);
     determineSearchTypeState->addTransition(determineSearchTypeState, &DetermineSearchTypeState::continueSearching, _sliceSequenceState);
     determineSearchTypeState->addTransition(determineSearchTypeState, &DetermineSearchTypeState::pulseDetectionComplete, _rotationEndState);

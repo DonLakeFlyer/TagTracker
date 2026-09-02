@@ -1,22 +1,11 @@
 #pragma once
 
-#ifdef TAG_TRACKER_HERELINK_BUILD
-    #include "HerelinkOptions.h"
-#else
-    #include "QGCOptions.h"
-#endif
+#include "QGCOptions.h"
 
-class CustomPlugin;
-
-class CustomOptions : 
-#ifdef TAG_TRACKER_HERELINK_BUILD
-    public HerelinkOptions
-#else
-    public QGCOptions
-#endif
+class CustomOptions : public QGCOptions
 {
 public:
-    CustomOptions(CustomPlugin* plugin, QObject* parent = NULL);
+    CustomOptions(QObject* parent = nullptr);
 
     // QGCOptions overrides
     virtual bool guidedBarShowOrbit () const final { return false; }

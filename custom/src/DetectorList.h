@@ -14,7 +14,7 @@ public:
     static DetectorList* instance();
 
     void    setupFromSelectedTags       ();
-    void    clear                       () { clearAndDeleteContents();}
+    void    clearDetectors              () { clearAndDeleteContents();}
     void    handleTunnelPulse           (const mavlink_tunnel_t& tunnel);
     void    resetMaxStrength            ();
     void    resetPulseGroupCount        ();

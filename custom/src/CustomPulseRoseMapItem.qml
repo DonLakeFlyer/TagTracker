@@ -7,16 +7,13 @@
  *
  ****************************************************************************/
 
-import QtQuick          2.3
-import QtQuick.Layouts  1.15
-import QtQuick.Controls 2.15
-import QtPositioning    5.15
-import QtLocation       5.15
-
-import QGroundControl               1.0
-import QGroundControl.Palette       1.0
-import QGroundControl.ScreenTools   1.0
-import QGroundControl.Controls      1.0
+import QtQuick
+import QtQuick.Layouts
+import QtQuick.Controls
+import QtPositioning
+import QtLocation
+import QGroundControl
+import QGroundControl.Controls
 
 MapQuickItem {
     coordinate:     customMapObject.rotationCenter
@@ -28,7 +25,7 @@ MapQuickItem {
     property var    _activeVehicle:     QGroundControl.multiVehicleManager.activeVehicle
     property var    _flightMap:         parent
     property var    _corePlugin:        QGroundControl.corePlugin
-    property var    _vhfSettings:       _corePlugin.customSettings
+    property var    _vhfSettings:       QGroundControl.settingsManager.customSettings
     property int    _rotationIndex:     customMapObject.rotationIndex
     property var    _rotationInfo:      _corePlugin.rotationInfoList.get(_rotationIndex)
     property int    _sliceCount:        _rotationInfo.slices.count

@@ -1,0 +1,13 @@
+{
+    "version": 1,
+    "fileType": "SettingsPages",
+    "comment": "TagTracker overlay merged into src/AppSettings/pages/SettingsPages.json at configure time.",
+    "pages": [
+        {
+            "name": "TagTracker",
+            "url": "qrc:/qml/TagTrackerSettings.qml",
+            "icon": "qrc:/InstrumentValueIcons/tag.svg",
+            "insertAfter": "General"
+        }
+    ]
+}
