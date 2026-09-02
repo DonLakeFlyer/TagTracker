@@ -1,0 +1,100 @@
+/****************************************************************************
+ *
+ * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
+ *
+ * QGroundControl is licensed according to the terms in the file
+ * COPYING.md in the root of the source code directory.
+ *
+ ****************************************************************************/
+
+import QtQuick
+
+import QGroundControl
+import QGroundControl.CustomControls
+
+// Custom builds can override this resource to add additional custom actions
+Item {
+    visible: false
+
+    property var guidedController
+
+    property bool anyActionAvailable: true
+
+    property var    _customController:      guidedController._customController
+    property var    _controllerStatus:      QGroundControl.corePlugin.controllerStatus
+    property bool   _startDetectionEnabled: false
+    property bool   _stopDetectionEnabled:  false
+    property var    _activeVehicle:         QGroundControl.multiVehicleManager.activeVehicle
+    property bool   _controllerAvailable:   _activeVehicle && !QGroundControl.corePlugin.controllerLostHeartbeat
+    property var    _customSettings:        QGroundControl.settingsManager.customSettings
+
+    on_ControllerStatusChanged: _updateStartStop(_controllerStatus)
+
+    Component.onCompleted: _updateStartStop(_controllerStatus)
+
+    function _updateStartStop(controllerStatus) {
+        switch (controllerStatus) {
+        case CustomPlugin.ControllerStatusIdle:
+        case CustomPlugin.ControllerStatusHasTags:
+            _startDetectionEnabled = true
+            _stopDetectionEnabled = false
+            break
+        case CustomPlugin.ControllerStatusReceivingTags:
+        case CustomPlugin.ControllerStatusCapture:
+            _startDetectionEnabled = false
+            _stopDetectionEnabled = false
+            break
+        case CustomPlugin.ControllerStatusDetecting:
+            _startDetectionEnabled = false
+            _stopDetectionEnabled = true
+            break
+        default:
+            console.warn("Internal error: Unhandled controller status: " + controllerStatus)
+            _startDetectionEnabled = false
+            _stopDetectionEnabled = false
+            break
+        }
+    }
+
+    property var model: [
+        {
+            title:      _customController.startDetectionTitle,
+            visible:    _customSettings.detectionFlightMode.rawValue !== CustomSettings.Auto,
+            enabled:    _controllerAvailable && _startDetectionEnabled,
+            action:     _customController.actionStartDetection,
+        },
+        {
+            title:      _customController.stopDetectionTitle,
+            visible:    _customSettings.detectionFlightMode.rawValue !== CustomSettings.Auto,
+            enabled:    _controllerAvailable && _stopDetectionEnabled,
+            action:     _customController.actionStopDetection,
+        },
+        {
+            title:      _customController.rawCaptureTitle,
+            visible:    _customSettings.detectionFlightMode.rawValue !== CustomSettings.Auto,
+            enabled:    _controllerAvailable && (QGroundControl.corePlugin.controllerStatus == CustomPlugin.ControllerStatusHasTags || QGroundControl.corePlugin.controllerStatus == CustomPlugin.ControllerStatusIdle),
+            action:     _customController.actionRawCapture,
+        },
+
+        {
+            title:      _customController.saveLogsTitle,
+            visible:    true,
+            enabled:    _controllerAvailable,
+            action:     _customController.actionSaveLogs,
+        },
+
+        {
+            title:      _customController.clearLogsTitle,
+            visible:    true,
+            enabled:    _controllerAvailable,
+            action:     _customController.actionClearLogs,
+        },
+
+        {
+            title:      _customController.clearMapTitle,
+            visible:    true,
+            enabled:    QGroundControl.corePlugin.customMapItems.count > 0 && !QGroundControl.corePlugin.activeRotation,
+            action:     _customController.actionClearMap,
+        }
+    ]
+}

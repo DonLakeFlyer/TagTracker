@@ -16,6 +16,6 @@ FullRotateAndCaptureState::FullRotateAndCaptureState(QState* parentState)
                                         _rotationDivisions);        // sliceCount
 
     // Transitions
-    _rotationBeginState->addTransition(_rotationBeginState, &FunctionState::functionCompleted, sliceSequenceState);
+    _rotationBeginState->addTransition(_rotationBeginState, &FunctionState::advance, sliceSequenceState);
     sliceSequenceState->addTransition(sliceSequenceState, &QState::finished, _rotationEndState);
 }

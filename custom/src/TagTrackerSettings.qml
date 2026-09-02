@@ -3,15 +3,13 @@ import QtQuick.Layouts
 import QtQuick.Controls
 
 import QGroundControl
-import QGroundControl.FactSystem
+import QGroundControl.AppSettings
 import QGroundControl.FactControls
 import QGroundControl.Controls
 import QGroundControl.CustomControls
-import QGroundControl.ScreenTools
-import QGroundControl.SettingsManager
 
 SettingsPage {
-    property var  _customSettings:  QGroundControl.corePlugin.customSettings
+    property var  _customSettings:  QGroundControl.settingsManager.customSettings
     property var  _tagDatabase:     QGroundControl.corePlugin.tagDatabase
     property bool _isPythonMode:    _customSettings.detectionMode.rawValue === 1
 

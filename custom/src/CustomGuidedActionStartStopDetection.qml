@@ -7,9 +7,8 @@
  *
  ****************************************************************************/
 
-import QGroundControl               1.0
-import QGroundControl.FlightDisplay 1.0
-
+import QGroundControl
+import QGroundControl.FlyView
 // The action handles:
 //  Send Tags
 //  Start/Stop Detection

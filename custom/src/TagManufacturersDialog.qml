@@ -6,7 +6,6 @@ import QGroundControl
 import QGroundControl.Controls
 import QGroundControl.FactControls
 import QGroundControl.CustomControls
-import QGroundControl.ScreenTools
 
 QGCPopupDialog {
     id:         manufacturersDialog

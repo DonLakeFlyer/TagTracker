@@ -1,56 +1,40 @@
 #include "CustomStateMachine.h"
 #include "CustomLoggingCategory.h"
 #include "CustomPlugin.h"
-#include "GuidedModeCancelledTransition.h"
-#include "ErrorTransition.h"
-#include "SayState.h"
 
 #include "QGCApplication.h"
 #include "AudioOutput.h"
 #include "MultiVehicleManager.h"
 #include "Vehicle.h"
-#include "AudioOutput.h"
-
-#include <QFinalState>
 
 CustomStateMachine::CustomStateMachine(const QString& machineName, QObject* parent)
-    : QStateMachine (parent)
-    , _vehicle      (MultiVehicleManager::instance()->activeVehicle())
+    : QGCStateMachine(machineName, MultiVehicleManager::instance()->activeVehicle(), parent)
 {
-    setObjectName(machineName);
-
-    connect(this, &CustomStateMachine::started, this, [this] () {
-        qCDebug(CustomStateMachineLog) << "State machine started:" << objectName();
-    });
     connect(this, &CustomStateMachine::stopped, this, [this] () {
-        qCDebug(CustomStateMachineLog) << "State machine finished:" << objectName();
         qobject_cast<CustomPlugin*>(CustomPlugin::instance())->rotationIsEnding();
-        disconnect(_vehicle, &Vehicle::flightModeChanged, this, &CustomStateMachine::_flightModeChanged);
+        disconnect(vehicle(), &Vehicle::flightModeChanged, this, &CustomStateMachine::_flightModeChanged);
     });
 
-    connect(_vehicle, &Vehicle::flightModeChanged, this, &CustomStateMachine::_flightModeChanged);
-    connect(this, &CustomStateMachine::stopped, this, [this] () { this->deleteLater(); });
+    connect(vehicle(), &Vehicle::flightModeChanged, this, &CustomStateMachine::_flightModeChanged);
 }
 
 void CustomStateMachine::setError(const QString& errorString)
 {
-    bool rtlOnError = _eventMode & RTLOnError;
+    const bool rtlOnError = _eventMode & RTLOnError;
+
     qCWarning(CustomStateMachineLog) << "errorString" << errorString << " - " << Q_FUNC_INFO;
     _errorString = errorString;
-    if (_vehicle->flying()) {
+    if (vehicle()->flying()) {
         AudioOutput::instance()->say(QStringLiteral("%1 failed. %2").arg(objectName()).arg(rtlOnError ? "Returning" : "User is in control of vehicle"));
         if (rtlOnError) {
-            _vehicle->setFlightMode(_vehicle->rtlFlightMode());
+            vehicle()->setFlightMode(vehicle()->rtlFlightMode());
         }
     } else {
         AudioOutput::instance()->say(QStringLiteral("%1 failed").arg(objectName()));
     }
     displayError();
-    if (_stopHandler) {
-        auto handler = std::exchange(_stopHandler, nullptr);
-        handler();
-    }
-    stop();
+    _runStopHandler();
+    stopMachine();
 }
 
 void CustomStateMachine::displayError()
@@ -62,16 +46,13 @@ void CustomStateMachine::displayError()
 
 void CustomStateMachine::_flightModeChanged(const QString& flightMode)
 {
-    QString holdFlightMode = qobject_cast<CustomPlugin*>(CustomPlugin::instance())->holdFlightMode();
+    const QString holdFlightMode = qobject_cast<CustomPlugin*>(CustomPlugin::instance())->holdFlightMode();
 
     if (_eventMode & CancelOnFlightModeChange && flightMode != holdFlightMode) {
-        disconnect(_vehicle, &Vehicle::flightModeChanged, this, &CustomStateMachine::_flightModeChanged);
+        disconnect(vehicle(), &Vehicle::flightModeChanged, this, &CustomStateMachine::_flightModeChanged);
         AudioOutput::instance()->say(QStringLiteral("%1 cancelled. User is in control of vehicle.").arg(objectName()));
-        if (_stopHandler) {
-            auto handler = std::exchange(_stopHandler, nullptr);
-            handler();
-        }
-        stop();
+        _runStopHandler();
+        stopMachine();
     }
 }
 
@@ -88,4 +69,12 @@ void CustomStateMachine::setEventMode(uint eventMode)
         }
     }
     _eventMode = eventMode;
+}
+
+void CustomStateMachine::_runStopHandler()
+{
+    if (_stopHandler) {
+        auto handler = std::exchange(_stopHandler, nullptr);
+        handler();
+    }
 }

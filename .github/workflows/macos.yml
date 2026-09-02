@@ -1,88 +1,80 @@
 name: macOS
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - master
+      - sync-upstream-master
+      - 'Stable*'
     tags:
       - 'v*'
-  pull_request:
     paths-ignore:
-      - 'deploy/**'
       - 'docs/**'
       - 'custom/docs/**'
+  pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
 
 jobs:
   build:
-    runs-on: macos-latest
-
-    strategy:
-      matrix:
-        BuildType: [Release]
+    runs-on: macos-15
+    timeout-minutes: 120
 
     defaults:
       run:
         shell: bash
 
     env:
-      ARTIFACT: TagTracker.app
-      QT_VERSION: 6.9.3
+      BUILD_TYPE: Release
+      PACKAGE: TagTracker
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
-          submodules: recursive
-          fetch-tags: true
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Initial Setup
-        uses: ./.github/actions/common
-
-      - name: Setup Caching
-        uses: ./.github/actions/cache
+      - name: Build Setup
+        id: setup
+        uses: ./.github/actions/build-setup
         with:
-          host: mac
-          target: desktop
-          build-type: ${{ matrix.BuildType }}
-          cpm-modules: ${{ runner.temp }}/shadow_build_dir/cpm_modules
+          qt-host: mac
+          qt-arch: clang_64
+          build-type: ${{ env.BUILD_TYPE }}
 
-      - name: Install Qt for macOS
-        uses: jurplel/install-qt-action@v4
+      - name: Install Dependencies
+        uses: ./.github/actions/install-dependencies
+
+      - name: CMake configure
+        uses: ./.github/actions/cmake-configure
         with:
-          version: ${{ env.QT_VERSION }}
-          host: mac
-          target: desktop
-          arch: clang_64
-          dir: ${{ runner.temp }}
-          modules: qtcharts qtlocation qtpositioning qtspeech qt5compat qtmultimedia qtserialport qtimageformats qtshadertools qtconnectivity qtquick3d qtsensors qtscxml
-          setup-python: false
-          cache: true
-
-      - name: Configure
-        working-directory: ${{ runner.temp }}/shadow_build_dir
-        run: ${{ env.QT_ROOT_DIR }}/bin/qt-cmake -S ${{ github.workspace }} -B . -G Ninja
-              -DCMAKE_BUILD_TYPE=${{ matrix.BuildType }}
-              -DQT_DEBUG_FIND_PACKAGE=ON
-              -DQGC_STABLE_BUILD=${{ github.ref_type == 'tag' || contains(github.ref, 'Stable') && 'ON' || 'OFF' }}
+          build-dir: ${{ runner.temp }}/build
+          build-type: ${{ env.BUILD_TYPE }}
+          preset: macOS
+          extra-args: -DQGC_MACOS_SIGN_WITH_IDENTITY=OFF
 
       - name: Build
-        working-directory: ${{ runner.temp }}/shadow_build_dir
-        run: cmake --build . --target all --config ${{ matrix.BuildType }}
-
-      - name: Install create-dmg
-        run: brew install create-dmg
-
-      - name: Create DMG
-        working-directory: ${{ runner.temp }}/shadow_build_dir
-        run: cmake --install . --prefix ${{ runner.temp }}/shadow_build_dir/staging
-
-      - name: Save DMG artifact
-        uses: actions/upload-artifact@v4
+        uses: ./.github/actions/cmake-build
         with:
-          name: TagTracker.dmg
-          path: ${{ runner.temp }}/shadow_build_dir/TagTracker.dmg
+          build-dir: ${{ runner.temp }}/build
+          build-type: ${{ env.BUILD_TYPE }}
+
+      - name: Create app bundle and DMG
+        uses: ./.github/actions/cmake-install
+        with:
+          build-dir: ${{ runner.temp }}/build
+          build-type: ${{ env.BUILD_TYPE }}
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.PACKAGE }}.dmg
+          path: ${{ runner.temp }}/build/${{ env.PACKAGE }}.dmg
+          if-no-files-found: error

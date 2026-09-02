@@ -15,14 +15,16 @@
 #include "TagDatabase.h"
 #include "FirmwarePlugin.h"
 
+#include <QtStateMachine/QFinalState>
+
 CaptureAtSliceState::CaptureAtSliceState(QState* parentState, int sliceIndex)
     : CustomState       ("CaptureAtSliceState", parentState)
     , _sliceIndex       (sliceIndex)
     , _vehicle          (MultiVehicleManager::instance()->activeVehicle())
     , _customPlugin     (qobject_cast<CustomPlugin*>(CustomPlugin::instance()))
     , _customSettings   (_customPlugin->customSettings())
-    , _detectorList     (DetectorList::instance())
     , _rotationDivisions(_customSettings->divisions()->rawValue().toInt())
+    , _detectorList     (DetectorList::instance())
 {
     double degreesPerSlice = 360.0 / _rotationDivisions;
 
@@ -90,7 +92,7 @@ CustomState* CaptureAtSliceState::_rotateAndCaptureAtHeadingState()
     auto groupingState = new CustomState("RotateAndCaptureAtHeadingState", this);
     connect(groupingState, &QState::entered, this, [this] () {
             qCDebug(CustomStateMachineLog) << QStringLiteral("Rotating to heading %1").arg(this->_sliceHeadingDegrees) << " - " << Q_FUNC_INFO;
-    }); 
+    });
 
     auto announceRotateState        = new SayState("Announce Rotate", groupingState, QStringLiteral("Searching at %1 degrees").arg(_sliceHeadingDegrees));
     auto rotateCommandState         = _rotateMavlinkCommandState(groupingState);
@@ -102,13 +104,13 @@ CustomState* CaptureAtSliceState::_rotateAndCaptureAtHeadingState()
     auto finalState                 = new QFinalState(groupingState);
 
     // Transitions
-    announceRotateState->addTransition(announceRotateState, &SayState::functionCompleted, rotateCommandState);
+    announceRotateState->addTransition(announceRotateState, &SayState::advance, rotateCommandState);
     rotateCommandState->addTransition(rotateCommandState, &SendMavlinkCommandState::success, waitForHeadingChangeState);
-    //rotateCommandState->addTransition(rotateCommandState, &FunctionState::functionCompleted, waitForHeadingChangeState);
+    //rotateCommandState->addTransition(rotateCommandState, &FunctionState::advance, waitForHeadingChangeState);
     waitForHeadingChangeState->addTransition(waitForHeadingChangeState, &FactWaitForValueTarget::success, sliceBeginState);
-    sliceBeginState->addTransition(sliceBeginState, &FunctionState::functionCompleted, delayForKGroupsState);
+    sliceBeginState->addTransition(sliceBeginState, &FunctionState::advance, delayForKGroupsState);
     delayForKGroupsState->addTransition(delayForKGroupsState, &DelayState::delayComplete, sliceEndState);
-    sliceEndState->addTransition(sliceEndState, &FunctionState::functionCompleted, finalState);
+    sliceEndState->addTransition(sliceEndState, &FunctionState::advance, finalState);
 
     groupingState->setInitialState(announceRotateState);
 

@@ -13,12 +13,6 @@ import QtQuick.Layouts
 import QGroundControl
 import QGroundControl.Controls
 import QGroundControl.FactControls
-import QGroundControl.FactSystem
-import QGroundControl.MultiVehicleManager
-import QGroundControl.ScreenTools
-import QGroundControl.Palette
-import QGroundControl.SettingsManager
-import MAVLink
 
 Item {
     id:                 control
@@ -32,7 +26,7 @@ Item {
     property var    activeVehicle:              QGroundControl.multiVehicleManager.activeVehicle
     property bool   controllerHeartbeatLost:    QGroundControl.corePlugin.controllerLostHeartbeat
     property var    tagDatabase:                QGroundControl.corePlugin.tagDatabase
-    property var    customSettings:             QGroundControl.corePlugin.customSettings
+    property var    customSettings:             QGroundControl.settingsManager.customSettings
 
     function selectedTagName() {
         var names = []

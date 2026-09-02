@@ -59,13 +59,13 @@ void DetectorList::setupFromSelectedTags()
         append(detectorInfo);
 
         if (!isPythonMode && tagManufacturer->ip_msecs_2()->rawValue().toUInt() != 0) {
-            DetectorInfo* detectorInfo = new DetectorInfo(
+            DetectorInfo* secondaryDetectorInfo = new DetectorInfo(
                                                 tagInfo->id()->rawValue().toUInt() + 1,
                                                 tagManufacturer->ip_msecs_2_id()->rawValue().toString(),
                                                 tagManufacturer->ip_msecs_2()->rawValue().toUInt(),
                                                 kValue,
                                                 this);
-            append(detectorInfo);
+            append(secondaryDetectorInfo);
         }
     }
 }

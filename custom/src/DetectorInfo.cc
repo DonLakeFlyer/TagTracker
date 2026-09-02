@@ -31,7 +31,7 @@ DetectorInfo::DetectorInfo(uint32_t tagId, const QString& tagLabel, uint32_t int
 
     _heartbeatTimeoutTimer.setSingleShot(true);
     _heartbeatTimeoutTimer.setInterval(_heartbeatTimerInterval);
-    _heartbeatTimeoutTimer.callOnTimeout([this]() {
+    _heartbeatTimeoutTimer.callOnTimeout(this, [this]() {
         _heartbeatLost = true;
         emit heartbeatLostChanged();
     });

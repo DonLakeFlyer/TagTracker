@@ -1,10 +1,6 @@
 #pragma once
 
-#ifdef TAG_TRACKER_HERELINK_BUILD
-    #include "HerelinkCorePlugin.h"
-#else
-    #include "QGCCorePlugin.h"
-#endif
+#include "QGCCorePlugin.h"
 #include "QmlObjectListModel.h"
 #include "CustomOptions.h"
 #include "CustomSettings.h"
@@ -17,18 +13,15 @@
 #include <QGeoCoordinate>
 #include <QTimer>
 #include <QFile>
+#include <QtQml/QQmlAbstractUrlInterceptor>
 
 class CustomState;
 class QState;
+class QQmlApplicationEngine;
 
 using namespace TunnelProtocol;
 
-class CustomPlugin :
-#ifdef TAG_TRACKER_HERELINK_BUILD
-    public HerelinkCorePlugin
-#else
-    public QGCCorePlugin
-#endif
+class CustomPlugin : public QGCCorePlugin
 {
     Q_OBJECT
 
@@ -48,7 +41,6 @@ public:
         ControllerStatusCapture        = HEARTBEAT_STATUS_CAPTURE
     };
 
-    Q_PROPERTY(CustomSettings*      customSettings          READ    customSettings              CONSTANT)
     Q_PROPERTY(bool                 controllerLostHeartbeat MEMBER  _controllerLostHeartbeat    NOTIFY controllerLostHeartbeatChanged)
     Q_PROPERTY(int                  controllerStatus        MEMBER  _controllerStatus           NOTIFY controllerStatusChanged)
     Q_PROPERTY(float                controllerCPUTemp       MEMBER  _controllerCPUTemp          NOTIFY controllerCPUTempChanged)
@@ -83,11 +75,15 @@ public:
 
     // Overrides from QGCCorePlugin
     void                init                    (void) final;
+    void                registerCustomSettings  (SettingsManager* settingsManager) final;
     bool                mavlinkMessage          (Vehicle *vehicle, LinkInterface *link, const mavlink_message_t &message) final;
     QGCOptions*         options                 (void) final { return qobject_cast<QGCOptions*>(_customOptions); }
-    bool                adjustSettingMetaData   (const QString& settingsGroup, FactMetaData& metaData) final;
-    QmlObjectListModel* customMapItems          (void) final;
+    void                adjustSettingMetaData   (const QString& settingsGroup, FactMetaData& metaData, bool& userVisible) final;
+    const QmlObjectListModel* customMapItems    (void) final;
     const QVariantList& toolBarIndicators       (void) final;
+
+    QQmlApplicationEngine* createQmlApplicationEngine  (QObject* parent) final;
+    void                   destroyQmlApplicationEngine (QQmlApplicationEngine* qmlEngine) final;
 
     static double normalizeHeading(double heading);
     static const char* controllerStatusString(int status);
@@ -138,4 +134,14 @@ private:
 
     double                  _maxSNR = qQNaN();
     double                  _minSNR = qQNaN();
+
+    QQmlApplicationEngine*  _qmlEngine = nullptr;
+    class CustomOverrideInterceptor* _urlInterceptor = nullptr;
+};
+
+/// Redirects qrc:/qml/<path> to :/Custom/qml/<path> when the custom build ships an override.
+class CustomOverrideInterceptor : public QQmlAbstractUrlInterceptor
+{
+public:
+    QUrl intercept(const QUrl& url, QQmlAbstractUrlInterceptor::DataType type) final;
 };

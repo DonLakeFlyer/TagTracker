@@ -55,7 +55,7 @@ StartDetectionState::StartDetectionState(QState* parentState, bool sendCommand)
         sendTagsState->addTransition(sendTagsState, &QState::finished, startPulseLoggingState);
     }
 
-    startPulseLoggingState->addTransition(startPulseLoggingState, &FunctionState::functionCompleted, finalState);
+    startPulseLoggingState->addTransition(startPulseLoggingState, &FunctionState::advance, finalState);
 
     setInitialState(checkForSelectedTagsState);
 }

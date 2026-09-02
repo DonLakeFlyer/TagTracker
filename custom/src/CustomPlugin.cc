@@ -19,25 +19,27 @@
 #include "RotationInfo.h"
 
 #include "Vehicle.h"
+#include "VehicleLinkManager.h"
 #include "QGCApplication.h"
 #include "SettingsManager.h"
 #include "AppSettings.h"
 #include "FlyViewSettings.h"
 #include "TunnelProtocol.h"
 #include "DetectorList.h"
-#include "QGC.h"
-#include "FTPManager.h"
 #include "MultiVehicleManager.h"
 #include "MAVLinkProtocol.h"
 #include "AudioOutput.h"
 #include "PulseMapItem.h"
 #include "PulseRoseMapItem.h"
+#include "QGCLoggingCategoryManager.h"
 
 #include <QDebug>
 #include <QPointF>
 #include <QLineF>
 #include <QQmlEngine>
+#include <QtQml/QQmlApplicationEngine>
 #include <QScreen>
+#include <QtGui/QPixmap>
 #include <QThread>
 #include <QFinalState>
 #include <algorithm>
@@ -49,11 +51,7 @@ Q_DECLARE_METATYPE(CustomPlugin::ControllerStatus)
 Q_APPLICATION_STATIC(CustomPlugin, _corePluginInstance);
 
 CustomPlugin::CustomPlugin(QObject* parent)
-#ifdef TAG_TRACKER_HERELINK_BUILD
-    : HerelinkCorePlugin    (parent)
-#else
     : QGCCorePlugin         (parent)
-#endif
     , _vehicleFrequency     (0)
     , _lastPulseSendIndex   (-1)
     , _missedPulseCount     (0)
@@ -81,16 +79,21 @@ QGCCorePlugin *CustomPlugin::instance()
 
 void CustomPlugin::init()
 {
-#ifdef TAG_TRACKER_HERELINK_BUILD
-    HerelinkCorePlugin::init();
-#else
     QGCCorePlugin::init();
-#endif
 
-    _customSettings = new CustomSettings(nullptr);
-    _customOptions = new CustomOptions(this, nullptr);
+    _customOptions = new CustomOptions(nullptr);
+
+    // TagTracker logging is on by default; QGC only enables categories the user opted into.
+    QGCLoggingCategoryManager::instance()->setCategoryEnabled(QString::fromLatin1(CustomPluginLog().categoryName()), true);
 
     _csvLogManager.csvClearPrevRotationLogs();
+}
+
+void CustomPlugin::registerCustomSettings(SettingsManager* settingsManager)
+{
+    // SettingsManager takes ownership; keep a raw pointer for the C++ side.
+    _customSettings = new CustomSettings();
+    settingsManager->registerCustomSettingsGroup(QStringLiteral("customSettings"), _customSettings);
 }
 
 TagDatabase* CustomPlugin::tagDatabase()
@@ -103,16 +106,57 @@ const QVariantList& CustomPlugin::toolBarIndicators(void)
     _toolbarIndicators = QGCCorePlugin::toolBarIndicators();
 
     _toolbarIndicators.append(QVariant::fromValue(QUrl::fromUserInput("qrc:/qml/ControllerIndicator.qml")));
+    _toolbarIndicators.append(QVariant::fromValue(QUrl::fromUserInput("qrc:/qml/EmergencyStopIndicator.qml")));
     return _toolbarIndicators;
+}
+
+QQmlApplicationEngine* CustomPlugin::createQmlApplicationEngine(QObject* parent)
+{
+    _qmlEngine = QGCCorePlugin::createQmlApplicationEngine(parent);
+
+    _urlInterceptor = new CustomOverrideInterceptor();
+    _qmlEngine->addUrlInterceptor(_urlInterceptor);
+
+    return _qmlEngine;
+}
+
+void CustomPlugin::destroyQmlApplicationEngine(QQmlApplicationEngine* qmlEngine)
+{
+    if (qmlEngine && (qmlEngine == _qmlEngine)) {
+        qmlEngine->removeUrlInterceptor(_urlInterceptor);
+        delete _urlInterceptor;
+        _urlInterceptor = nullptr;
+        _qmlEngine = nullptr;
+    }
+
+    QGCCorePlugin::destroyQmlApplicationEngine(qmlEngine);
+}
+
+QUrl CustomOverrideInterceptor::intercept(const QUrl& url, QQmlAbstractUrlInterceptor::DataType type)
+{
+    switch (type) {
+    case QQmlAbstractUrlInterceptor::QmlFile:
+    case QQmlAbstractUrlInterceptor::UrlString:
+        if (url.scheme() == QStringLiteral("qrc")) {
+            const QString overrideRes = QStringLiteral(":/Custom%1").arg(url.path());
+            if (QFile::exists(overrideRes)) {
+                QUrl result;
+                result.setScheme(QStringLiteral("qrc"));
+                result.setPath(overrideRes.mid(1));
+                return result;
+            }
+        }
+        break;
+    default:
+        break;
+    }
+
+    return url;
 }
 
 bool CustomPlugin::mavlinkMessage(Vehicle *vehicle, LinkInterface *link, const mavlink_message_t &message)
 {
-#ifdef TAG_TRACKER_HERELINK_BUILD
-    if (!HerelinkCorePlugin::mavlinkMessage(vehicle, link, message)) {
-        return false;
-    }
-#endif
+    Q_UNUSED(link);
 
     if (message.msgid == MAVLINK_MSG_ID_TUNNEL) {
         mavlink_tunnel_t tunnel;
@@ -299,15 +343,15 @@ void CustomPlugin::autoDetection()
     auto finalState             = new QFinalState(stateMachine);
 
     // Transitions
-    announceAutoStartState->addTransition   (announceAutoStartState,    &SayState::functionCompleted,       airspyStatusState);
+    announceAutoStartState->addTransition   (announceAutoStartState,    &SayState::advance,       airspyStatusState);
     airspyStatusState->addTransition        (airspyStatusState,         &SendTunnelCommandState::commandSucceeded, startDetectionState);
     startDetectionState->addTransition      (startDetectionState,       &CustomState::finished,             takeoffState);
     takeoffState->addTransition             (takeoffState,              &TakeoffState::takeoffComplete,     eventModeRTLState);
-    eventModeRTLState->addTransition        (eventModeRTLState,         &FunctionState::functionCompleted,  rotateAndCaptureState);
+    eventModeRTLState->addTransition        (eventModeRTLState,         &FunctionState::advance,  rotateAndCaptureState);
     rotateAndCaptureState->addTransition    (rotateAndCaptureState,     &QState::finished,                  eventModeNoneState);
-    eventModeNoneState->addTransition       (eventModeNoneState,        &FunctionState::functionCompleted,  stopDetectionState);
+    eventModeNoneState->addTransition       (eventModeNoneState,        &FunctionState::advance,  stopDetectionState);
     stopDetectionState->addTransition       (stopDetectionState,        &CustomState::finished,             announceAutoEndState);
-    announceAutoEndState->addTransition     (announceAutoEndState,      &SayState::functionCompleted,       rtlState);
+    announceAutoEndState->addTransition     (announceAutoEndState,      &SayState::advance,       rtlState);
     rtlState->addTransition                 (rtlState,                  &QState::finished,                  finalState);
 
     if (isPythonMode) {
@@ -487,7 +531,7 @@ void CustomPlugin::_say(QString text)
     AudioOutput::instance()->say(text.toLower());
 }
 
-bool CustomPlugin::adjustSettingMetaData(const QString& settingsGroup, FactMetaData& metaData)
+void CustomPlugin::adjustSettingMetaData(const QString& settingsGroup, FactMetaData& metaData, bool& userVisible)
 {
     if (settingsGroup == AppSettings::settingsGroup && metaData.name() == AppSettings::batteryPercentRemainingAnnounceName) {
         metaData.setRawDefaultValue(20);
@@ -495,14 +539,10 @@ bool CustomPlugin::adjustSettingMetaData(const QString& settingsGroup, FactMetaD
         metaData.setRawDefaultValue(false);
     }
 
-#ifdef TAG_TRACKER_HERELINK_BUILD
-    return HerelinkCorePlugin::adjustSettingMetaData(settingsGroup, metaData);
-#else
-    return true;
-#endif
+    QGCCorePlugin::adjustSettingMetaData(settingsGroup, metaData, userVisible);
 }
 
-QmlObjectListModel* CustomPlugin::customMapItems(void)
+const QmlObjectListModel* CustomPlugin::customMapItems(void)
 {
     return &_customMapItems;
 }
@@ -529,7 +569,7 @@ void CustomPlugin::_captureScreen(void)
 void CustomPlugin::captureScreen(void)
 {
     // We need to delay the screen capture to allow the dialog to close
-    QTimer::singleShot(500, [this]() { _captureScreen(); } );
+    QTimer::singleShot(500, this, [this]() { _captureScreen(); } );
 }
 
 void CustomPlugin::clearMap()
@@ -583,7 +623,7 @@ void CustomPlugin::_sendStopDetectionDirect()
 
     // Match StopDetectionState cleanup: stop logging and clear detector list
     _csvLogManager.csvStopFullPulseLog();
-    DetectorList::instance()->clear();
+    DetectorList::instance()->clearDetectors();
 }
 
 void CustomPlugin::_stopDetectionOnDisarmed(bool armed)
@@ -626,7 +666,7 @@ void CustomPlugin::rotationIsStarting()
     // Create compass rose ui on map
     QUrl url = QUrl::fromUserInput("qrc:/qml/CustomPulseRoseMapItem.qml");
     PulseRoseMapItem* mapItem = new PulseRoseMapItem(url, _rotationInfoList.count() - 1, MultiVehicleManager::instance()->activeVehicle()->coordinate(), this);
-    customMapItems()->append(mapItem);
+    _customMapItems.append(mapItem);
 }
 
 void CustomPlugin::rotationIsEnding()

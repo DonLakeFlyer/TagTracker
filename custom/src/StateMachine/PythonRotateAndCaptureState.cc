@@ -49,7 +49,7 @@ PythonRotateAndCaptureState::PythonRotateAndCaptureState(QState* parentState)
     }
 
     // Transitions: rotationBegin → startRotationDetection → slice[0] → ... → slice[N-1] → stopRotationDetection → rotationEnd
-    rotationBeginState->addTransition(rotationBeginState, &FunctionState::functionCompleted, startRotationDetectionState);
+    rotationBeginState->addTransition(rotationBeginState, &FunctionState::advance, startRotationDetectionState);
     startRotationDetectionState->addTransition(startRotationDetectionState, &SendTunnelCommandState::commandSucceeded, sliceStates.first());
 
     for (int i = 0; i < sliceStates.count() - 1; i++) {
@@ -58,8 +58,8 @@ PythonRotateAndCaptureState::PythonRotateAndCaptureState(QState* parentState)
     sliceStates.last()->addTransition(sliceStates.last(), &QState::finished, stopRotationDetectionState);
 
     stopRotationDetectionState->addTransition(stopRotationDetectionState, &SendTunnelCommandState::commandSucceeded, rotationEndState);
-    rotationEndState->addTransition(rotationEndState, &FunctionState::functionCompleted, announceRotateCompleteState);
-    announceRotateCompleteState->addTransition(announceRotateCompleteState, &SayState::functionCompleted, finalState);
+    rotationEndState->addTransition(rotationEndState, &FunctionState::advance, announceRotateCompleteState);
+    announceRotateCompleteState->addTransition(announceRotateCompleteState, &SayState::advance, finalState);
 
     setInitialState(rotationBeginState);
 }

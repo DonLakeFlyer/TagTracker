@@ -1,11 +1,11 @@
 #pragma once
 
-#include <QState>
-#include <QString>
+#include "QGCState.h"
 
 class CustomStateMachine;
 
-class CustomState : public QState
+/// QGCState carrying TagTracker's error semantics (audio annunciation, optional RTL, stop handler).
+class CustomState : public QGCState
 {
     Q_OBJECT
 
@@ -14,5 +14,5 @@ public:
 
     void setError(const QString& errorString);
 
-    CustomStateMachine* machine();
+    CustomStateMachine* customMachine() const;
 };

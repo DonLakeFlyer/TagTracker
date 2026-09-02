@@ -66,7 +66,7 @@ PythonCaptureAtSliceState::PythonCaptureAtSliceState(QState* parentState, int sl
     auto finalState                 = new QFinalState(this);
 
     // Transitions
-    announceRotateState->addTransition      (announceRotateState,           &SayState::functionCompleted,               rotateCommandState);
+    announceRotateState->addTransition      (announceRotateState,           &SayState::advance,               rotateCommandState);
     rotateCommandState->addTransition       (rotateCommandState,            &SendMavlinkCommandState::success,          waitForHeadingState);
     waitForHeadingState->addTransition      (waitForHeadingState,           &FactWaitForValueTarget::success,           startAtHeadingState);
     startAtHeadingState->addTransition      (startAtHeadingState,           &SendTunnelCommandState::commandSucceeded,  waitForDetectionResultState);
