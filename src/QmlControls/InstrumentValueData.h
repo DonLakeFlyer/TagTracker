@@ -1,26 +1,23 @@
-/****************************************************************************
- *
- * (c) 2009-2024 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
- *
- * QGroundControl is licensed according to the terms in the file
- * COPYING.md in the root of the source code directory.
- *
- ****************************************************************************/
-
 #pragma once
 
-#include "Fact.h"
-#include "FactValueGrid.h"
-
 #include <QtCore/QObject>
+#include <QtCore/QStringList>
+#include <QtCore/QVariantList>
+#include <QtGui/QColor>
+#include <QtQmlIntegration/QtQmlIntegration>
 
-class Vehicle;
+class Fact;
+class FactValueGrid;
 class QmlObjectListModel;
+class Vehicle;
 
 class InstrumentValueData : public QObject
 {
     Q_OBJECT
-
+    QML_ELEMENT
+    QML_UNCREATABLE("")
+    Q_MOC_INCLUDE("Fact.h")
+    Q_MOC_INCLUDE("FactValueGrid.h")
 public:
     enum RangeType {
         NoRangeInfo = 0,
@@ -28,7 +25,7 @@ public:
         OpacityRange,
         IconSelectRange,
     };
-    Q_ENUMS(RangeType)
+    Q_ENUM(RangeType)
 
     explicit InstrumentValueData(FactValueGrid* factValueGrid, QObject* parent);
 
@@ -62,7 +59,7 @@ public:
     QStringList     factValueNames          (void) const;
     QString         factGroupName           (void) const { return _factGroupName; }
     QString         factName                (void) const { return _factName; }
-    Fact*           fact                    (void) { return _fact; }
+    Fact*           fact                    (void) const { return _fact; }
     QString         text                    (void) const { return _text; }
     bool            showUnits               (void) const { return _showUnits; }
     QString         icon                    (void) const { return _icon; }
@@ -103,7 +100,6 @@ signals:
 private slots:
     void _resetRangeInfo        (void);
     void _updateRanges          (void);
-    void _activeVehicleChanged  (Vehicle* activeVehicle);
     void _lookForMissingFact    (void);
 
 private:
@@ -114,7 +110,7 @@ private:
     void _setFactWorker         (void);
 
     FactValueGrid*          _factValueGrid =        nullptr;
-    Vehicle*                _activeVehicle =        nullptr;
+    Vehicle*                _vehicle =              nullptr;
     QmlObjectListModel*     _rowModel =             nullptr;
     Fact*                   _fact =                 nullptr;
     QString                 _factName;
@@ -141,10 +137,8 @@ private:
     QVariantList        _rangeOpacities;                    /// double opacity value
 
     // These are user facing string for the various enums.
-    static const QStringList _rangeTypeNames;
+    QStringList _rangeTypeNames;
 
 };
 
 QML_DECLARE_TYPE(InstrumentValueData)
-
-Q_DECLARE_METATYPE(InstrumentValueData::RangeType)

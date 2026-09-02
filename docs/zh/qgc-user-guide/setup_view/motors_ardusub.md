@@ -22,10 +22,8 @@ If the frame selection does not match your vehicle, first select the correct fra
 To manually set up and test the motors, read and follow the instructions on the page.
 
 :::warning
-Make sure the motors and propellers are clear from obstructions before sliding the switch to arm the vehicle and enable the test!
+在拨动开关启动载具并开启测试前，确保电机和螺旋桨无障碍物！
 :::
-
-![Ardusub Motors Test](../../../assets/setup/motors-sub.jpg)
 
 ## Automatic Direction Detection {#automatic}
 
@@ -40,4 +38,3 @@ Additional output about the process will be shown next to the button as it runs.
 This procedure still requires that the motors are connected to the _correct outputs_ as shown in the frame view!
 :::
 
-![Ardusub Motors Auto-Setup](../../../assets/setup/motors-sub-auto.jpg)

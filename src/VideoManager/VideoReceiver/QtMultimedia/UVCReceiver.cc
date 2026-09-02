@@ -1,33 +1,30 @@
-/****************************************************************************
- *
- * (c) 2009-2024 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
- *
- * QGroundControl is licensed according to the terms in the file
- * COPYING.md in the root of the source code directory.
- *
- ****************************************************************************/
-
 #include "UVCReceiver.h"
+#include "AppMessages.h"
 #include "QGCApplication.h"
 #include "QGCLoggingCategory.h"
+#include "SettingsManager.h"
+#include "VideoSettings.h"
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QPermissions>
-#include <QtQuick/QQuickItem>
-#include <QtMultimedia/QMediaDevices>
-#include <QtMultimedia/QCameraDevice>
 #include <QtMultimedia/QCamera>
+#include <QtMultimedia/QCameraDevice>
 #include <QtMultimedia/QImageCapture>
 #include <QtMultimedia/QMediaCaptureSession>
+#include <QtMultimedia/QMediaDevices>
 #include <QtMultimediaQuick/private/qquickvideooutput_p.h>
+#include <QtQuick/QQuickItem>
 
-QGC_LOGGING_CATEGORY(UVCReceiverLog, "qgc.video.qtmultimedia.uvcreceiver")
+QGC_LOGGING_CATEGORY(UVCReceiverLog, "Video.UVCReceiver")
 
 UVCReceiver::UVCReceiver(QObject *parent)
     : QtMultimediaReceiver(parent)
     , _camera(new QCamera(this))
     , _imageCapture(new QImageCapture(this))
+    , _mediaDevices(new QMediaDevices(this))
 {
+    // qCDebug(UVCReceiverLog) << this;
+
     _captureSession->setCamera(_camera);
     _captureSession->setImageCapture(_imageCapture);
     _captureSession->setVideoSink(_videoSink);
@@ -36,14 +33,17 @@ UVCReceiver::UVCReceiver(QObject *parent)
         adjustAspectRatio();
     });
 
-    _checkPermission();
-
-    qCDebug(UVCReceiverLog) << Q_FUNC_INFO << this;
+    checkPermission();
 }
 
 UVCReceiver::~UVCReceiver()
 {
-    qCDebug(UVCReceiverLog) << Q_FUNC_INFO << this;
+    // qCDebug(UVCReceiverLog) << this;
+}
+
+bool UVCReceiver::enabled()
+{
+    return !QMediaDevices::videoInputs().isEmpty();
 }
 
 void UVCReceiver::adjustAspectRatio()
@@ -59,38 +59,64 @@ void UVCReceiver::adjustAspectRatio()
 
     const QSize resolution = cameraFormat.resolution();
     if (resolution.isValid()) {
-        const qreal aspectRatio = resolution.width() / resolution.height();
-        const qreal height = height * aspectRatio;
-        _videoOutput->setHeight(height * aspectRatio);
+        const qreal aspectRatio = static_cast<qreal>(resolution.width()) / resolution.height();
+        const qreal width = _videoOutput->width();
+        if (width > 0.0) {
+            _videoOutput->setHeight(width / aspectRatio);
+        }
     }
 }
 
 QCameraDevice UVCReceiver::findCameraDevice(const QString &cameraId)
 {
-    // QString videoSource = _videoSettings->videoSource()->rawValue().toString();
     const QList<QCameraDevice> videoInputs = QMediaDevices::videoInputs();
-    for (const QCameraDevice& camera : videoInputs) {
+    for (const QCameraDevice &camera : videoInputs) {
         if (camera.description() == cameraId) {
             return camera;
         }
     }
 
-    return QMediaDevices::defaultVideoInput();
+    return QCameraDevice();
 }
 
-void UVCReceiver::_checkPermission()
+void UVCReceiver::checkPermission()
 {
-    QCameraPermission cameraPermission;
+    const QCameraPermission cameraPermission;
     if (qApp->checkPermission(cameraPermission) == Qt::PermissionStatus::Undetermined) {
-        qApp->requestPermission(cameraPermission, [this](const QPermission &permission) {
+        qApp->requestPermission(cameraPermission, qgcApp(), [](const QPermission &permission) {
             if (permission.status() != Qt::PermissionStatus::Granted) {
-                qgcApp()->showAppMessage(QStringLiteral("Failed to get camera permission"));
+                QGC::showAppMessage(QStringLiteral("Failed to get camera permission"));
             }
         });
     }
 }
 
-bool UVCReceiver::enabled()
+QString UVCReceiver::getSourceId()
 {
-    return (QMediaDevices::videoInputs().count() > 0);
+    const QString videoSource = SettingsManager::instance()->videoSettings()->videoSource()->rawValue().toString();
+    const QCameraDevice cameraDevice = findCameraDevice(videoSource);
+    if (cameraDevice.isNull()) {
+        return QString();
+    }
+
+    const QString videoSourceID = cameraDevice.description();
+    qCDebug(UVCReceiverLog) << "Found USB source:" << videoSourceID << "Name:" << videoSource;
+    return videoSourceID;
+}
+
+bool UVCReceiver::deviceExists(const QString &device)
+{
+    return !findCameraDevice(device).isNull();
+}
+
+QStringList UVCReceiver::getDeviceNameList()
+{
+    QStringList deviceNameList;
+
+    const QList<QCameraDevice> videoInputs = QMediaDevices::videoInputs();
+    for (const QCameraDevice &cameraDevice : videoInputs) {
+        deviceNameList.append(cameraDevice.description());
+    }
+
+    return deviceNameList;
 }

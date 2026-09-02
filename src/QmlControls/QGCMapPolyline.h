@@ -1,12 +1,3 @@
-/****************************************************************************
- *
- * (c) 2009-2024 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
- *
- * QGroundControl is licensed according to the terms in the file
- * COPYING.md in the root of the source code directory.
- *
- ****************************************************************************/
-
 #pragma once
 
 #include <QtCore/QObject>
@@ -23,13 +14,17 @@ public:
     QGCMapPolyline(QObject* parent = nullptr);
     QGCMapPolyline(const QGCMapPolyline& other, QObject* parent = nullptr);
 
+    ~QGCMapPolyline() override;
+
     const QGCMapPolyline& operator=(const QGCMapPolyline& other);
 
     Q_PROPERTY(int                  count       READ count                                  NOTIFY countChanged)
     Q_PROPERTY(QVariantList         path        READ path                                   NOTIFY pathChanged)
+    Q_PROPERTY(QVariantList         dragPath    READ path                                   NOTIFY dragPathChanged)
     Q_PROPERTY(QmlObjectListModel*  pathModel   READ qmlPathModel                           CONSTANT)
     Q_PROPERTY(bool                 dirty       READ dirty          WRITE setDirty          NOTIFY dirtyChanged)
     Q_PROPERTY(bool                 interactive READ interactive    WRITE setInteractive    NOTIFY interactiveChanged)
+    Q_PROPERTY(bool                 vertexDrag  READ vertexDrag     WRITE setVertexDrag     NOTIFY vertexDragChanged)
     Q_PROPERTY(bool                 isValid     READ isValid                                NOTIFY isValidChanged)
     Q_PROPERTY(bool                 empty       READ empty                                  NOTIFY isEmptyChanged)
     Q_PROPERTY(bool                 traceMode   READ traceMode      WRITE setTraceMode      NOTIFY traceModeChanged)
@@ -52,9 +47,9 @@ public:
     /// @return Offset set of vertices
     QList<QGeoCoordinate> offsetPolyline(double distance);
 
-    /// Loads a polyline from a KML file
+    /// Loads a polyline from a KML/SHP file
     /// @return true: success
-    Q_INVOKABLE bool loadKMLFile(const QString& kmlFile);
+    Q_INVOKABLE bool loadKMLOrSHPFile(const QString &file);
 
     Q_INVOKABLE void beginReset (void);
     Q_INVOKABLE void endReset   (void);
@@ -87,6 +82,7 @@ public:
     bool            dirty       (void) const { return _dirty; }
     void            setDirty    (bool dirty);
     bool            interactive (void) const { return _interactive; }
+    bool            vertexDrag  (void) const { return _vertexDrag; }
     QVariantList    path        (void) const { return _polylinePath; }
     bool            isValid     (void) const { return _polylineModel.count() >= 2; }
     bool            empty       (void) const { return _polylineModel.count() == 0; }
@@ -99,6 +95,7 @@ public:
     void setPath        (const QList<QGeoCoordinate>& path);
     void setPath        (const QVariantList& path);
     void setInteractive (bool interactive);
+    void setVertexDrag  (bool vertexDrag);
     void setTraceMode   (bool traceMode);
     void selectVertex   (int index);
 
@@ -107,9 +104,11 @@ public:
 signals:
     void countChanged       (int count);
     void pathChanged        (void);
+    void dragPathChanged    (void);
     void dirtyChanged       (bool dirty);
     void cleared            (void);
     void interactiveChanged (bool interactive);
+    void vertexDragChanged  (bool vertexDrag);
     void isValidChanged     (void);
     void isEmptyChanged     (void);
     void traceModeChanged   (bool traceMode);
@@ -123,14 +122,13 @@ private:
     void            _init                   (void);
     QGeoCoordinate  _coordFromPointF        (const QPointF& point) const;
     QPointF         _pointFFromCoord        (const QGeoCoordinate& coordinate) const;
-    void            _beginResetIfNotActive  (void);
-    void            _endResetIfNotActive    (void);
 
     QVariantList        _polylinePath;
     QmlObjectListModel  _polylineModel;
+    bool                _deferredPathChanged = false;
     bool                _dirty;
     bool                _interactive;
-    bool                _resetActive;
+    bool                _vertexDrag = false;
     bool                _traceMode = false;
     int                 _selectedVertexIndex = -1;
 };

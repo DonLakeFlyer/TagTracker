@@ -7,7 +7,6 @@ These instructions apply to PX4 and to most vehicle types on ArduPilot.
 Vehicle-specific instructions are provided as sub-topics (e.g. [Motors Setup (ArduSub)](../setup_view/motors_ardusub.md)).
 :::
 
-![Motors Test](../../../assets/setup/Motors.png)
 
 ## Test Steps
 
@@ -35,5 +34,5 @@ To test the motors:
 
 ## Additional Information
 
-- [Basic Configuration > Motor Setup](http://docs.px4.io/master/en/config/motors.html) (_PX4 User Guide_) - This contains additional PX4-specific information.
+- [Basic Configuration > Motor Setup](http://docs.px4.io/main/en/config/motors.html) (_PX4 User Guide_) - This contains additional PX4-specific information.
 - [ESCS and Motors](https://ardupilot.org/copter/docs/connect-escs-and-motors.html#motor-order-diagrams) - This is the Motor order diagrams for all frames

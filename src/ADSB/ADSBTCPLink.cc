@@ -1,48 +1,37 @@
-/****************************************************************************
- *
- * (c) 2009-2024 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
- *
- * QGroundControl is licensed according to the terms in the file
- * COPYING.md in the root of the source code directory.
- *
- ****************************************************************************/
-
 #include "ADSBTCPLink.h"
-// #include "DeviceInfo.h"
+// #include "QGCSensors.h"
 #include "QGCLoggingCategory.h"
 
-#include <QtCore/QTimer>
 #include <QtNetwork/QTcpSocket>
 
-QGC_LOGGING_CATEGORY(ADSBTCPLinkLog, "qgc.adsb.adsbtcplink")
+QGC_LOGGING_CATEGORY(ADSBTCPLinkLog, "ADSB.ADSBTCPLink")
 
-ADSBTCPLink::ADSBTCPLink(const QHostAddress &hostAddress, quint16 port, QObject *parent)
+ADSBTCPLink::ADSBTCPLink(const QString &hostAddress, quint16 port, QObject *parent)
     : QObject(parent)
     , _hostAddress(hostAddress)
     , _port(port)
     , _socket(new QTcpSocket(this))
-    , _processTimer(new QTimer(this))
 {
-#ifdef QT_DEBUG
-    (void) connect(_socket, &QTcpSocket::stateChanged, this, [](QTcpSocket::SocketState state) {
-        switch (state) {
-        case QTcpSocket::UnconnectedState:
-            qCDebug(ADSBTCPLinkLog) << "ADSB Socket disconnected";
-            break;
-        case QTcpSocket::SocketState::ConnectingState:
-            qCDebug(ADSBTCPLinkLog) << "ADSB Socket connecting...";
-            break;
-        case QTcpSocket::SocketState::ConnectedState:
-            qCDebug(ADSBTCPLinkLog) << "ADSB Socket connected";
-            break;
-        case QTcpSocket::SocketState::ClosingState:
-            qCDebug(ADSBTCPLinkLog) << "ADSB Socket closing...";
-            break;
-        default:
-            break;
-        }
-    }, Qt::AutoConnection);
-#endif
+    if (ADSBTCPLinkLog().isDebugEnabled()) {
+        (void) connect(_socket, &QTcpSocket::stateChanged, this, [](QTcpSocket::SocketState state) {
+            switch (state) {
+            case QTcpSocket::UnconnectedState:
+                qCDebug(ADSBTCPLinkLog) << "ADSB Socket disconnected";
+                break;
+            case QTcpSocket::SocketState::ConnectingState:
+                qCDebug(ADSBTCPLinkLog) << "ADSB Socket connecting...";
+                break;
+            case QTcpSocket::SocketState::ConnectedState:
+                qCDebug(ADSBTCPLinkLog) << "ADSB Socket connected";
+                break;
+            case QTcpSocket::SocketState::ClosingState:
+                qCDebug(ADSBTCPLinkLog) << "ADSB Socket closing...";
+                break;
+            default:
+                break;
+            }
+        }, Qt::AutoConnection);
+    }
 
     (void) QObject::connect(_socket, &QTcpSocket::errorOccurred, this, [this](QTcpSocket::SocketError error) {
         qCDebug(ADSBTCPLinkLog) << error << _socket->errorString();
@@ -51,11 +40,6 @@ ADSBTCPLink::ADSBTCPLink(const QHostAddress &hostAddress, quint16 port, QObject 
     }, Qt::AutoConnection);
 
     (void) connect(_socket, &QTcpSocket::readyRead, this, &ADSBTCPLink::_readBytes);
-
-    _processTimer->setInterval(_processInterval); // Set an interval for processing lines
-    (void) connect(_processTimer, &QTimer::timeout, this, &ADSBTCPLink::_processLines);
-
-    init();
 
     // qCDebug(ADSBTCPLinkLog) << Q_FUNC_INFO << this;
 }
@@ -67,13 +51,15 @@ ADSBTCPLink::~ADSBTCPLink()
 
 bool ADSBTCPLink::init()
 {
-    // TODO: Check Address Target & Internet Availability
-    // QGCDeviceInfo::isInternetAvailable()
+    /* if (!QGCDeviceInfo::isInternetAvailable()) {
+        return false;
+    } */
 
-    if (_hostAddress.isNull()) {
+    if (_hostAddress.isEmpty()) {
         return false;
     }
 
+    // connectToHost with a hostname resolves DNS asynchronously
     _socket->connectToHost(_hostAddress, _port);
 
     return true;
@@ -83,27 +69,7 @@ void ADSBTCPLink::_readBytes()
 {
     while (_socket && _socket->canReadLine()) {
         const QByteArray bytes = _socket->readLine();
-        (void) _lineBuffer.append(QString::fromLocal8Bit(bytes));
-    }
-
-    // Start or restart the timer to process lines
-    if (!_processTimer->isActive()) {
-        _processTimer->start();
-    }
-}
-
-void ADSBTCPLink::_processLines()
-{
-    int linesProcessed = 0;
-    while (!_lineBuffer.isEmpty() && (linesProcessed < _maxLinesToProcess)) {
-        const QString line = _lineBuffer.takeFirst();
-        _parseLine(line);
-        ++linesProcessed;
-    }
-
-    // Stop the timer if there are no more lines to process
-    if (_lineBuffer.isEmpty()) {
-        _processTimer->stop();
+        _parseLine(QString::fromLocal8Bit(bytes));
     }
 }
 
@@ -209,10 +175,9 @@ void ADSBTCPLink::_parseAndEmitLocation(ADSB::VehicleInfo_t &adsbInfo, const QSt
     }
 
     const double altitude = modeCAltitude * 0.3048;
-    const QGeoCoordinate location(lat, lon);
+    const QGeoCoordinate location(lat, lon, altitude);
 
     adsbInfo.location = location;
-    adsbInfo.altitude = altitude;
     adsbInfo.alert = (alert == 1);
     adsbInfo.availableFlags = ADSB::LocationAvailable | ADSB::AltitudeAvailable | ADSB::AlertAvailable;
 
@@ -225,14 +190,25 @@ void ADSBTCPLink::_parseAndEmitHeading(ADSB::VehicleInfo_t &adsbInfo, const QStr
         return;
     }
 
-    bool headingOk;
+    bool headingOk = false, speedOk = false;
     const double heading = values.at(13).toDouble(&headingOk);
-    if (!headingOk) {
+    const double speedKnots = values.at(12).toDouble(&speedOk);
+    if (!headingOk || !speedOk) {
         return;
     }
 
     adsbInfo.heading = heading;
-    adsbInfo.availableFlags = ADSB::HeadingAvailable;
+    adsbInfo.velocity = speedKnots * 0.514444;
+    adsbInfo.availableFlags = ADSB::HeadingAvailable | ADSB::VelocityAvailable;
+
+    if (values.size() > 16) {
+        bool vertOk = false;
+        const double verticalRate = values.at(16).toDouble(&vertOk);
+        if (vertOk) {
+            adsbInfo.verticalVel = verticalRate * 0.00508;
+            adsbInfo.availableFlags |= ADSB::VerticalVelAvailable;
+        }
+    }
 
     emit adsbVehicleUpdate(adsbInfo);
 }

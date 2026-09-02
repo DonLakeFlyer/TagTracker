@@ -1,45 +1,40 @@
-find_package(Qt6 REQUIRED COMPONENTS Core Network Qml Xml)
+# ============================================================================
+# Camera Module
+# MAVLink camera control and video stream management
+# ============================================================================
 
-qt_add_library(Camera STATIC
-    CameraMetaData.cc
-    CameraMetaData.h
-    MavlinkCameraControl.cc
-    MavlinkCameraControl.h
-    QGCCameraIO.cc
-    QGCCameraIO.h
-    QGCCameraManager.cc
-    QGCCameraManager.h
-    SimulatedCameraControl.cc
-    SimulatedCameraControl.h
-    VehicleCameraControl.cc
-    VehicleCameraControl.h
-)
-
-target_link_libraries(Camera
+target_sources(${CMAKE_PROJECT_NAME}
     PRIVATE
-        Qt6::Network
-        Qt6::Qml
-        Qt6::Xml
-        API
-        Comms
-        FirmwarePlugin
-        Joystick
-        QGC
-        Settings
-        Utilities
-        Vehicle
-        VideoManager
-    PUBLIC
-        Qt6::Core
-        FactSystem
-        MAVLink
-        QmlControls
+        CameraMetaData.cc
+        CameraMetaData.h
+        MavlinkCameraControlInterface.cc
+        MavlinkCameraControlInterface.h
+        QGCCameraIO.cc
+        QGCCameraIO.h
+        QGCCameraManager.cc
+        QGCCameraManager.h
+        QGCVideoStreamInfo.cc
+        QGCVideoStreamInfo.h
+        SimulatedCameraControl.cc
+        SimulatedCameraControl.h
+        VehicleCameraControl.cc
+        VehicleCameraControl.h
 )
 
-target_include_directories(Camera PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
-# qt_add_resources(Camera "Camera_res"
-#     PREFIX "/"
-#     FILES
-#         CameraMetaData.json
-# )
+# ----------------------------------------------------------------------------
+# Camera Metadata Resources
+# ----------------------------------------------------------------------------
+qt_add_resources(${CMAKE_PROJECT_NAME} json_mavlink_camera
+    PREFIX "/json"
+    FILES CameraMetaData.json
+)
+
+qt_add_resources(${CMAKE_PROJECT_NAME} camera_qmlimages
+    PREFIX "/qmlimages"
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}/images"
+    FILES
+        "${CMAKE_CURRENT_SOURCE_DIR}/images/camera_photo.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/images/camera_video.svg"
+)

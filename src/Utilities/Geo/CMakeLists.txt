@@ -1,39 +1,15 @@
-find_package(Qt6 REQUIRED COMPONENTS Core Positioning)
-
-target_sources(Utilities
-    PRIVATE
-        QGCGeo.cc
-        QGCGeo.h
+qt_add_library(QGCGeoMath STATIC
+    QGCGeo.cc
+    QGCGeo.h
 )
-
-target_link_libraries(Utilities
-    PUBLIC
-        Qt6::Core
-        Qt6::Positioning
-)
-
-target_include_directories(Utilities PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-
-#===========================================================================#
-
-if(LINUX AND EXISTS "/usr/share/cmake/geographiclib")
-    list(APPEND CMAKE_MODULE_PATH "/usr/share/cmake/geographiclib")
-endif()
-
-include(CPM)
-# CPMAddPackage(
-#     NAME geographiclib
-#     VERSION 2.5
-#     URL https://sourceforge.net/projects/geographiclib/files/distrib-C%2B%2B/GeographicLib-2.5.tar.gz/download
-#     DOWNLOAD_ONLY
-#     SOURCE_SUBDIR src
-# )
 
 CPMAddPackage(
     NAME geographiclib
-    VERSION 2.5
+    VERSION 2.7
     GITHUB_REPOSITORY geographiclib/geographiclib
-    GIT_TAG r2.5
+    GIT_TAG r2.7
+    # System package installs its config as `GeographicLib`, not `geographiclib`.
+    FIND_PACKAGE_ARGUMENTS "NAMES GeographicLib"
     OPTIONS
         "BUILD_BOTH_LIBS OFF"
         "BUILD_DOCUMENTATION OFF"
@@ -50,8 +26,33 @@ CPMAddPackage(
         "PKGDIR OFF"
         "DOCDIR OFF"
         "EXAMPLEDIR OFF"
+    PATCHES geographiclib.patch
 )
 
-if(TARGET GeographicLib::GeographicLib)
-    target_link_libraries(Utilities PRIVATE GeographicLib::GeographicLib)
+# geographiclib_ADDED is set only when CPM downloads; geographiclib_FOUND when
+# resolved via find_package (QGC_USE_SYSTEM_LIBS). Either is success.
+if(NOT geographiclib_ADDED AND NOT geographiclib_FOUND)
+    message(FATAL_ERROR "QGC: geographiclib (required dependency) was not resolved")
 endif()
+
+# Only the CPM-built static target needs warning suppression; the system import
+# target (GeographicLib::GeographicLib) carries no QGC-controlled warning flags.
+if(TARGET GeographicLib_STATIC)
+    qgc_disable_dependency_warnings(GeographicLib_STATIC)
+endif()
+
+target_link_libraries(QGCGeoMath
+    PUBLIC
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Positioning
+    PRIVATE
+        GeographicLib::GeographicLib
+        QGCLogging
+)
+
+target_include_directories(QGCGeoMath PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE QGCGeoMath)
+
+add_subdirectory(Formats)

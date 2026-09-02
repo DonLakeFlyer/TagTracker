@@ -4,12 +4,8 @@ import QtQuick.Dialogs
 import QtQuick.Layouts
 
 import QGroundControl
-import QGroundControl.ScreenTools
-import QGroundControl.Vehicle
 import QGroundControl.Controls
-import QGroundControl.FactSystem
 import QGroundControl.FactControls
-import QGroundControl.Palette
 import QGroundControl.FlightMap
 
 TransectStyleComplexItemEditor {
@@ -18,10 +14,6 @@ TransectStyleComplexItemEditor {
     transectValuesHeaderName:       qsTr("Transects")
     transectValuesComponent:        _transectValuesComponent
     presetsTransectValuesComponent: _transectValuesComponent
-
-    // The following properties must be available up the hierarchy chain
-    //  property real   availableWidth    ///< Width for control
-    //  property var    missionItem       ///< Mission Item for editor
 
     property real   _margin:        ScreenTools.defaultFontPixelWidth / 2
     property var    _missionItem:   missionItem
@@ -47,7 +39,6 @@ TransectStyleComplexItemEditor {
                 from:           0
                 to:           359
                 stepSize:               1
-                tickmarksEnabled:       false
                 Layout.fillWidth:       true
                 Layout.columnSpan:      2
                 Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 1.5
@@ -75,13 +66,13 @@ TransectStyleComplexItemEditor {
                     {
                         text:       qsTr("Hover and capture image"),
                         fact:       missionItem.hoverAndCapture,
-                        enabled:    missionItem.cameraCalc.distanceMode === QGroundControl.AltitudeModeRelative || missionItem.cameraCalc.distanceMode === QGroundControl.AltitudeModeAbsolute,
+                        enabled:    missionItem.cameraCalc.distanceMode === QGroundControl.AltitudeFrameRelative || missionItem.cameraCalc.distanceMode === QGroundControl.AltitudeFrameAbsolute,
                         visible:    missionItem.hoverAndCaptureAllowed
                     },
                     {
                         text:       qsTr("Refly at 90 deg offset"),
                         fact:       missionItem.refly90Degrees,
-                        enabled:    missionItem.cameraCalc.distanceMode !== QGroundControl.AltitudeModeCalcAboveTerrain,
+                        enabled:    missionItem.cameraCalc.distanceMode !== QGroundControl.AltitudeFrameCalcAboveTerrain,
                         visible:    true
                     },
                     {

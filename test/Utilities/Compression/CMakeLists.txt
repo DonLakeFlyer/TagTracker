@@ -1,25 +1,46 @@
-find_package(Qt6 REQUIRED COMPONENTS Core Test)
+# ============================================================================
+# Compression Utilities Unit Tests
+# Tests for QGCCompression (format detection, ZIP, GZIP, XZ)
+# ============================================================================
 
-target_sources(UtilitiesTest
+target_sources(${CMAKE_PROJECT_NAME}
     PRIVATE
-        DecompressionTest.cc
-        DecompressionTest.h
+        QGCArchiveModelTest.cc
+        QGCArchiveModelTest.h
+        QGCCompressionTest.cc
+        QGCCompressionTest.h
+        QGCStreamingDecompressionTest.cc
+        QGCStreamingDecompressionTest.h
 )
 
-target_link_libraries(UtilitiesTest
-    PRIVATE
-        Qt6::Test
-        Utilities
-    PUBLIC
-        qgcunittest
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+# ----------------------------------------------------------------------------
+# Test Data Resources
+# ----------------------------------------------------------------------------
+
+# Core test files (always included)
+set(_COMPRESSION_TEST_FILES
+    manifest.json.gz
+    manifest.json.xz
+    manifest.json.zip
+    manifest.json.7z
+    manifest.json.zst
 )
 
-target_include_directories(UtilitiesTest PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+# Optional format test files
+if(QGC_ENABLE_BZIP2)
+    list(APPEND _COMPRESSION_TEST_FILES manifest.json.bz2)
+endif()
+if(QGC_ENABLE_LZ4)
+    list(APPEND _COMPRESSION_TEST_FILES manifest.json.lz4)
+endif()
 
-qt_add_resources(UtilitiesTest "UtilitiesTest_CompressionTest_res"
-    PREFIX "/"
-    FILES
-        manifest.json.gz
-        manifest.json.xz
-        manifest.json.zip
+qt_add_resources(${CMAKE_PROJECT_NAME} "UtilitiesTest_CompressionTest_res"
+    PREFIX "/unittest"
+    FILES ${_COMPRESSION_TEST_FILES}
 )
+
+add_qgc_test(QGCArchiveModelTest LABELS Unit Utilities)
+add_qgc_test(QGCCompressionTest LABELS Unit Utilities RESOURCE_LOCK TempFiles)
+add_qgc_test(QGCStreamingDecompressionTest LABELS Unit Utilities)

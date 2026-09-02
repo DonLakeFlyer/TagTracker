@@ -1,20 +1,14 @@
-/****************************************************************************
- *
- * (c) 2009-2024 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
- *
- * QGroundControl is licensed according to the terms in the file
- * COPYING.md in the root of the source code directory.
- *
- ****************************************************************************/
-
 #include "Bootloader.h"
 #include "QGCLoggingCategory.h"
 #include "FirmwareImage.h"
-#include "QGC.h"
+#include "QGCMath.h"
 
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QFile>
 #include <QtCore/QThread>
+
+QGC_LOGGING_CATEGORY(FirmwareUpgradeLog, "VehicleSetup.FirmwareUpgrade")
+QGC_LOGGING_CATEGORY(FirmwareUpgradeVerboseLog, "VehicleSetup.FirmwareUpgrade:verbose")
 
 /// This class manages interactions with the bootloader
 Bootloader::Bootloader(bool sikRadio, QObject *parent)
@@ -175,8 +169,16 @@ bool Bootloader::initFlashSequence(void)
 
 bool Bootloader::erase(void)
 {
+    uint32_t timeout = _eraseTimeout;
+
+    // If flash size is bigger then 2MB we need to increase timeout
+    if(_boardFlashSize > 2000 * 1024) {
+        // Increase timeout for each 1MB by 4 seconds
+        timeout += (_boardFlashSize / 1e6) * 4000;
+    }
+
     // Erase is slow, need larger timeout
-    if (!_sendCommand(PROTO_CHIP_ERASE, _eraseTimeout)) {
+    if (!_sendCommand(PROTO_CHIP_ERASE, timeout)) {
         _errorString = tr("Erase failed: %1").arg(_errorString);
         return false;
     }
@@ -437,7 +439,7 @@ bool Bootloader::_ihxProgram(const FirmwareImage* image)
         }
 
         if (failed) {
-            _errorString = tr("Unable to set flash start address: 0x%1").arg(flashAddress, 8, 16, QLatin1Char('0'));
+            _errorString = tr("Unable to set flash start address: 0x%2").arg(flashAddress, 8, 16, QLatin1Char('0'));
             return false;
         }
 
@@ -609,7 +611,7 @@ bool Bootloader::_ihxVerifyBytes(const FirmwareImage* image)
         }
 
         if (failed) {
-            _errorString = tr("Unable to set read start address: 0x%1").arg(readAddress, 8, 16, QLatin1Char('0'));
+            _errorString = tr("Unable to set read start address: 0x%2").arg(readAddress, 8, 16, QLatin1Char('0'));
             return false;
         }
 
@@ -672,7 +674,7 @@ bool Bootloader::_verifyCRC(void)
 {
     uint8_t buf[2] = { PROTO_GET_CRC, PROTO_EOC };
 
-    quint32 flashCRC;
+    quint32 flashCRC = 0;
 
     bool failed = true;
     if (_write(buf, 2)) {

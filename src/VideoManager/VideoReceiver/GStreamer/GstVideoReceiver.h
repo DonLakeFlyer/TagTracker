@@ -1,173 +1,164 @@
-/****************************************************************************
- *
- * (c) 2009-2024 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
- *
- * QGroundControl is licensed according to the terms in the file
- * COPYING.md in the root of the source code directory.
- *
- ****************************************************************************/
-
-/**
- * @file
- *   @brief QGC Video Receiver
- *   @author Gus Grubba <gus@auterion.com>
- */
-
 #pragma once
 
-#include <QtCore/QLoggingCategory>
-#include <QtCore/QTimer>
-#include <QtCore/QThread>
-#include <QtCore/QWaitCondition>
+#include <atomic>
+
 #include <QtCore/QMutex>
 #include <QtCore/QQueue>
+#include <QtCore/QThread>
+#include <QtCore/QTimer>
+#include <QtCore/QWaitCondition>
+
+#include <glib.h>
+#include <gst/gstelement.h>
+#include <gst/gstpad.h>
 
 #include "VideoReceiver.h"
 
-#include <gst/gst.h>
+typedef std::function<void()> Task;
 
-Q_DECLARE_LOGGING_CATEGORY(VideoReceiverLog)
+/*===========================================================================*/
 
-class Worker : public QThread
+class GstVideoWorker : public QThread
 {
     Q_OBJECT
 
 public:
-    bool needDispatch() {
-        return QThread::currentThread() != this;
-    }
-
-    void dispatch(std::function<void()> t) {
-        QMutexLocker lock(&_taskQueueSync);
-        _taskQueue.enqueue(t);
-        _taskQueueUpdate.wakeOne();
-    }
-
-    void shutdown() {
-        if (needDispatch()) {
-            dispatch([this](){
-                _shutdown = true;
-            });
-            QThread::wait();
-        } else {
-            QThread::terminate();
-        }
-    }
-
-protected:
-    void run() {
-        while(!_shutdown) {
-            _taskQueueSync.lock();
-
-            while (_taskQueue.isEmpty()) {
-                _taskQueueUpdate.wait(&_taskQueueSync);
-            }
-
-            Task t = _taskQueue.dequeue();
-
-            _taskQueueSync.unlock();
-
-            t();
-        }
-    }
+    explicit GstVideoWorker(QObject *parent = nullptr);
+    ~GstVideoWorker();
+    bool needDispatch() const;
+    void dispatch(Task task);
+    void shutdown();
 
 private:
-    typedef std::function<void()> Task;
-    QWaitCondition      _taskQueueUpdate;
-    QMutex              _taskQueueSync;
-    QQueue<Task>        _taskQueue;
-    bool                _shutdown = false;
+    void run() final;
+
+    QWaitCondition _taskQueueUpdate;
+    QMutex _taskQueueSync;
+    QQueue<Task> _taskQueue;
+    bool _shutdown = false;
 };
+
+/*===========================================================================*/
+
+typedef struct _GstElement GstElement;
+
+class GStreamerTest;
 
 class GstVideoReceiver : public VideoReceiver
 {
     Q_OBJECT
+    Q_PROPERTY(QString decoderName       READ decoderName       NOTIFY decoderStatsChanged)
+    Q_PROPERTY(quint64 processedFrames   READ processedFrames   NOTIFY decoderStatsChanged)
+    Q_PROPERTY(quint64 droppedFrames     READ droppedFrames     NOTIFY decoderStatsChanged)
+    Q_PROPERTY(qint64  currentJitterNs   READ currentJitterNs   NOTIFY decoderStatsChanged)
+    Q_PROPERTY(double  qosProportion     READ qosProportion     NOTIFY decoderStatsChanged)
+    Q_PROPERTY(int     qosQuality        READ qosQuality        NOTIFY decoderStatsChanged)
 
 public:
-    explicit GstVideoReceiver(QObject* parent = nullptr);
-    ~GstVideoReceiver(void);
+    explicit GstVideoReceiver(QObject *parent = nullptr);
+    ~GstVideoReceiver();
+
+    QString decoderName()     const { QMutexLocker locker(&_decoderNameMutex); return _decoderName; }
+    quint64 processedFrames() const { return _processedFrames.load(std::memory_order_relaxed); }
+    quint64 droppedFrames()   const { return _droppedFrames.load(std::memory_order_relaxed); }
+    qint64  currentJitterNs() const { return _currentJitterNs.load(std::memory_order_relaxed); }
+    double  qosProportion()   const { return _qosProportion.load(std::memory_order_relaxed); }
+    int     qosQuality()      const { return _qosQuality.load(std::memory_order_relaxed); }
 
 public slots:
-    virtual void start(const QString& uri, unsigned timeout, int buffer = 0);
-    virtual void stop(void);
-    virtual void startDecoding(void* sink);
-    virtual void stopDecoding(void);
-    virtual void startRecording(const QString& videoFile, FILE_FORMAT format);
-    virtual void stopRecording(void);
-    virtual void takeScreenshot(const QString& imageFile);
+    void start(uint32_t timeout) override;
+    void stop() override;
+    void startDecoding(void *sink) override;
+    void stopDecoding() override;
+    void startRecording(const QString &videoFile, FILE_FORMAT format) override;
+    void stopRecording() override;
+    void takeScreenshot(const QString &imageFile) override;
 
-protected slots:
-    virtual void _watchdog(void);
-    virtual void _handleEOS(void);
+    /// Dump the current pipeline graph to GST_DEBUG_DUMP_DOT_DIR (if set) plus
+    /// CacheLocation/qgc-pipeline-dot for field-bug-report bundles. No-op when
+    /// the pipeline isn't running. Callable from QML for a debug menu.
+    Q_INVOKABLE void dumpPipelineGraph(const QString &tag = QStringLiteral("manual"));
 
-protected:
-    virtual GstElement* _makeSource(const QString& uri);
-    virtual GstElement* _makeDecoder(GstCaps* caps = nullptr, GstElement* videoSink = nullptr);
-    virtual GstElement* _makeFileSink(const QString& videoFile, FILE_FORMAT format);
+signals:
+    void decoderStatsChanged();
 
-    virtual void _onNewSourcePad(GstPad* pad);
-    virtual void _onNewDecoderPad(GstPad* pad);
-    virtual bool _addDecoder(GstElement* src);
-    virtual bool _addVideoSink(GstPad* pad);
-    virtual void _noteTeeFrame(void);
-    virtual void _noteVideoSinkFrame(void);
-    virtual void _noteEndOfStream(void);
-    virtual bool _unlinkBranch(GstElement* from);
-    virtual void _shutdownDecodingBranch (void);
-    virtual void _shutdownRecordingBranch(void);
+private slots:
+    void _watchdog();
+    void _handleEOS();
 
-    bool _needDispatch(void);
-    void _dispatchSignal(std::function<void()> emitter);
+private:
+    friend class GStreamerTest;
 
-    static gboolean _onBusMessage(GstBus* bus, GstMessage* message, gpointer user_data);
-    static void _onNewPad(GstElement* element, GstPad* pad, gpointer data);
-    static void _wrapWithGhostPad(GstElement* element, GstPad* pad, gpointer data);
-    static void _linkPad(GstElement* element, GstPad* pad, gpointer data);
-    static gboolean _padProbe(GstElement* element, GstPad* pad, gpointer user_data);
-    static gboolean _filterParserCaps(GstElement* bin, GstPad* pad, GstElement* element, GstQuery* query, gpointer data);
-    static GstPadProbeReturn _teeProbe(GstPad* pad, GstPadProbeInfo* info, gpointer user_data);
-    static GstPadProbeReturn _videoSinkProbe(GstPad* pad, GstPadProbeInfo* info, gpointer user_data);
-    static GstPadProbeReturn _eosProbe(GstPad* pad, GstPadProbeInfo* info, gpointer user_data);
-    static GstPadProbeReturn _keyframeWatch(GstPad* pad, GstPadProbeInfo* info, gpointer user_data);
+    GstElement *_makeDecoder();
+    static GstElement* _makeFileSink(const QString& videoFile, FILE_FORMAT format, const GstCaps* inputCaps);
 
-    bool                _streaming;
-    bool                _decoding;
-    bool                _recording;
-    bool                _removingDecoder;
-    bool                _removingRecorder;
-    GstElement*         _source;
-    GstElement*         _tee;
-    GstElement*         _decoderValve;
-    GstElement*         _recorderValve;
-    GstElement*         _decoder;
-    GstElement*         _videoSink;
-    GstElement*         _fileSink;
-    GstElement*         _pipeline;
+    void _onNewSourcePad(GstPad *pad);
+    void _onNewDecoderPad(GstPad *pad);
+    bool _addDecoder(GstElement *src);
+    void _ensureVideoSinkInPipeline();
+    bool _addVideoSink(GstPad *pad);
+    void _noteTeeFrame();
+    void _noteVideoSinkFrame();
+    void _noteEndOfStream();
+    /// -Unlink the branch from the src pad
+    /// -Send an EOS event at the beginning of that branch
+    bool _unlinkBranch(GstElement *from);
+    void _shutdownDecodingBranch();
+    void _shutdownRecordingBranch();
+    void _logDecodebin3SelectedCodec(GstElement *decodebin3);
 
-    qint64              _lastSourceFrameTime;
-    qint64              _lastVideoFrameTime;
-    bool                _resetVideoSink;
-    gulong              _videoSinkProbeId = 0;
+    bool _needDispatch();
 
-    gulong              _teeProbeId = 0;
+    /// Stop the pipeline and queue a delayed restart with exponential backoff.
+    /// `reason` is logged so reconnect storms are diagnosable. No-op when
+    /// autoReconnect() is disabled.
+    void _scheduleReconnect(const char *reason);
 
-    QTimer              _watchdogTimer;
+    /// Returns a strong ref to _pipeline (caller must gst_object_unref) or nullptr if torn down.
+    /// Bus sync-message callbacks run on the streaming thread concurrent with stop() on the
+    /// worker thread, so direct dereference of _pipeline races with gst_clear_object(&_pipeline).
+    GstElement *_acquirePipelineRef() const;
 
-    //-- RTSP UDP reconnect timeout
-    uint64_t            _udpReconnect_us;
+    static gboolean _onBusMessage(GstBus *bus, GstMessage *message, gpointer user_data);
+    static void _onNewPad(GstElement *element, GstPad *pad, gpointer data);
+    static GstPadProbeReturn _teeProbe(GstPad *pad, GstPadProbeInfo *info, gpointer user_data);
+    static GstPadProbeReturn _videoSinkProbe(GstPad *pad, GstPadProbeInfo *info, gpointer user_data);
+    static GstPadProbeReturn _eosProbe(GstPad *pad, GstPadProbeInfo *info, gpointer user_data);
+    static GstPadProbeReturn _keyframeWatch(GstPad *pad, GstPadProbeInfo *info, gpointer user_data);
 
-    QString             _uri;
-    unsigned            _timeout;
-    int                 _buffer;
+    GstElement *_decoder = nullptr;
+    GstElement *_decoderValve = nullptr;
+    GstElement *_fileSink = nullptr;
+    GstElement *_pipeline = nullptr;
+    mutable QMutex _pipelineMutex;  // serializes _pipeline mutation (worker) vs read in _onBusMessage (streaming thread)
+    GstElement *_recorderValve = nullptr;
+    GstElement *_source = nullptr;
+    GstElement *_tee = nullptr;
+    GstElement *_videoSink = nullptr;
+    GstVideoWorker *_worker = nullptr;
+    std::atomic<int> _reconnectAttempts = 0;     ///< Written on the streaming thread (_noteTeeFrame) and GUI thread (reconnect lambda); atomic.
+    std::atomic<quint64> _reconnectEpoch = 0;    ///< Bumped on every stop() — pending singleShot lambdas check this before firing, replacing an explicit cancel/pending-flag pair.
+    std::atomic<quint64> _sourceFrameCount =
+        0;  ///< Tee-probe frame tally (streaming thread); drives the source-side flow heartbeat log.
+    gulong _teeProbeId = 0;
+    gulong _videoSinkProbeId = 0;
+    gulong _eosProbeId = 0;
+    GstPad *_eosProbePad = nullptr;  // ref-held: probe install pad, kept so removal targets the right pad regardless of _decoder lifecycle
+    gulong _keyframeWatchId = 0;
+    bool _recordingStopRequested = false;
 
-    Worker              _slotHandler;
-    uint32_t            _signalDepth;
+    mutable QMutex _decoderNameMutex;  // QString refcount isn't thread-safe across reader/writer threads
+    QString _decoderName;
+    std::atomic<quint64> _processedFrames{0};   // written on streaming thread (QOS), read on GUI
+    std::atomic<quint64> _droppedFrames{0};
+    std::atomic<qint64>  _currentJitterNs{0};
+    std::atomic<double>  _qosProportion{1.0};
+    std::atomic<int>     _qosQuality{1000000};
+    std::atomic<bool>    _qosStatsDirty{false};  // set per QOS message (streaming thread), drained by _watchdog's 1 Hz emit
 
-    bool                _endOfStream;
-
-    static const char*  _kFileMux[FILE_FORMAT_MAX - FILE_FORMAT_MIN];
+    static constexpr const char *_kFileMux[FILE_FORMAT_MAX + 1] = {
+        "matroskamux",
+        "qtmux",
+        "mp4mux"
+    };
 };
-
-void* createVideoSink(void* widget);
-
-void initializeVideoReceiver(int argc, char* argv[], int debuglevel);

@@ -1,27 +1,37 @@
-find_package(Qt6 REQUIRED COMPONENTS Core Test)
+# ============================================================================
+# Component Information Unit Tests
+# Tests for vehicle component metadata caching and translation
+# ============================================================================
 
-target_sources(VehicleTest
+target_sources(${CMAKE_PROJECT_NAME}
     PRIVATE
         ComponentInformationCacheTest.cc
         ComponentInformationCacheTest.h
+        ComponentInformationManagerTest.cc
+        ComponentInformationManagerTest.h
         ComponentInformationTranslationTest.cc
         ComponentInformationTranslationTest.h
+        JsonSchemaValidatorTest.cc
+        JsonSchemaValidatorTest.h
+        RequestMetaDataTypeStateMachineTest.cc
+        RequestMetaDataTypeStateMachineTest.h
 )
 
-target_link_libraries(VehicleTest
-    PRIVATE
-        Qt6::Test
-        Utilities
-    PUBLIC
-        Qt6::Core
-        qgcunittest
-)
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
-qt_add_resources(VehicleTest
-    "VehicleTest_ComponentInformation_res"
+# ----------------------------------------------------------------------------
+# Test Data Resources
+# ----------------------------------------------------------------------------
+qt_add_resources(${CMAKE_PROJECT_NAME} "VehicleTest_ComponentInformation_res"
+    PREFIX "/unittest"
     FILES
         TranslationTest.json
         TranslationTest_de_DE.ts
+        actuators.example.json
 )
 
-target_include_directories(VehicleTest PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+add_qgc_test(ComponentInformationCacheTest LABELS Integration Vehicle RESOURCE_LOCK TempFiles)
+add_qgc_test(ComponentInformationTranslationTest LABELS Unit Vehicle)
+add_qgc_test(JsonSchemaValidatorTest LABELS Unit Vehicle)
+add_qgc_test(ComponentInformationManagerTest LABELS Integration Vehicle)
+add_qgc_test(RequestMetaDataTypeStateMachineTest LABELS Integration Vehicle)

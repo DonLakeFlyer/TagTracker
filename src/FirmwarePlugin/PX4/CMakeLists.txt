@@ -1,56 +1,44 @@
-find_package(Qt6 REQUIRED COMPONENTS Core)
+if(NOT QGC_DISABLE_PX4_PLUGIN_FACTORY)
+    target_sources(${CMAKE_PROJECT_NAME}
+        PRIVATE
+            PX4FirmwarePluginFactory.cc
+            PX4FirmwarePluginFactory.h
+    )
+endif()
 
-# set(PX4_RESOURCES)
-# qt_add_resources(PX4_RESOURCES PX4Resources.qrc)
-
-qt_add_library(PX4FirmwarePlugin STATIC
-    px4_custom_mode.h
-    PX4FirmwarePlugin.cc
-    PX4FirmwarePlugin.h
-    # PX4FirmwarePluginFactory.cc
-    # PX4FirmwarePluginFactory.h
-    PX4ParameterMetaData.cc
-    PX4ParameterMetaData.h
-    # ${PX4_RESOURCES}
-)
-
-target_link_libraries(PX4FirmwarePlugin
+target_sources(${CMAKE_PROJECT_NAME}
     PRIVATE
-        AutoPilotPlugins
-        MissionManager
-        PX4AutoPilotPlugin
-        QGC
-        Settings
-        Utilities
-        Vehicle
-    PUBLIC
-        Qt6::Core
-        FactSystem
-        FirmwarePlugin
-        MAVLink
+        px4_custom_mode.h
+        PX4FirmwarePlugin.cc
+        PX4FirmwarePlugin.h
+        PX4ParameterMetaData.cc
+        PX4ParameterMetaData.h
 )
 
-target_include_directories(PX4FirmwarePlugin PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+qgc_add_json_resources(json_firmaware_plugin_px4 NO_RECURSE PATTERN "PX4-MavCmdInfo*.json")
 
-# file(GLOB QML_SOURCES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/*.qml)
-# # file(GLOB QML_RESOURCES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/res/*/*.*)
-# qt_add_qml_module(PX4FirmwarePlugin
-#     URI QGroundControl.PX4FirmwarePlugin
-#     VERSION 1.0
-#     # RESOURCES ${QML_RESOURCES}
-#     QML_FILES ${QML_SOURCES}
-#     OUTPUT_TARGETS PX4FirmwarePlugin_targets
-#     IMPORT_PATH ${QT_QML_OUTPUT_DIRECTORY}
-#     IMPORTS
-#         QtQuick
-#         QtQuick.Controls
-#         QtQuick.Layouts
+set_source_files_properties(V1.4.OfflineEditing.params PROPERTIES QT_RESOURCE_ALIAS PX4.OfflineEditing.params)
 
-#         QGroundControl
-#         QGroundControl.Controls
-#         QGroundControl.MultiVehicleManager
-#         QGroundControl.ScreenTools
-#         QGroundControl.Palette
-#         QGroundControl.FactSystem
-#         QGroundControl.FactControls
-# )
+qt_add_resources(${CMAKE_PROJECT_NAME} firmaware_plugin_px4_resource
+    PREFIX "/FirmwarePlugin/PX4"
+    FILES
+        PX4ParameterFactMetaData.json
+        V1.4.OfflineEditing.params
+)
+
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+qt_add_library(PX4FirmwareModule STATIC)
+
+qt_add_qml_module(PX4FirmwareModule
+    URI QGroundControl.FirmwarePlugin.PX4
+    VERSION 1.0
+    RESOURCE_PREFIX /qml
+    QML_FILES
+        PX4BatteryIndicator.qml
+        PX4FlightModeIndicator.qml
+        PX4MainStatusIndicator.qml
+    NO_PLUGIN
+)
+
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE PX4FirmwareModule)

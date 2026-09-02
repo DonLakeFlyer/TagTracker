@@ -1,76 +1,34 @@
-/****************************************************************************
- *
- * (c) 2009-2024 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
- *
- * QGroundControl is licensed according to the terms in the file
- * COPYING.md in the root of the source code directory.
- *
- ****************************************************************************/
-
-
-/// @file
-///     @author Don Gagne <don@thegagnes.com>
-
 #include "APMSafetyComponent.h"
 #include "Vehicle.h"
 #include "QGCMAVLink.h"
 
-APMSafetyComponent::APMSafetyComponent(Vehicle* vehicle, AutoPilotPlugin* autopilot, QObject* parent)
+APMSafetyComponent::APMSafetyComponent(Vehicle *vehicle, AutoPilotPlugin *autopilot, QObject *parent)
     : VehicleComponent(vehicle, autopilot, AutoPilotPlugin::KnownSafetyVehicleComponent, parent)
-    , _name(tr("Safety"))
 {
+
 }
 
-QString APMSafetyComponent::name(void) const
+QString APMSafetyComponent::vehicleConfigJson() const
 {
-    return _name;
+    return QStringLiteral(":/qml/QGroundControl/AutoPilotPlugins/APM/VehicleConfig/APMSafety.VehicleConfig.json");
 }
 
-QString APMSafetyComponent::description(void) const
+QString APMSafetyComponent::description() const
 {
     switch (_vehicle->vehicleType()) {
     case MAV_TYPE_SUBMARINE:
-        return tr("Safety Setup is used to setup failsafe actions, leak detection, and arming checks.");
-        break;
+        return tr("Configure Return to Launch, geofence, and arming checks.");
     case MAV_TYPE_GROUND_ROVER:
+        return tr("Configure Return to Launch, geofence, and arming checks.");
     case MAV_TYPE_FIXED_WING:
-    case MAV_TYPE_QUADROTOR:
-    case MAV_TYPE_COAXIAL:
-    case MAV_TYPE_HELICOPTER:
-    case MAV_TYPE_HEXAROTOR:
-    case MAV_TYPE_OCTOROTOR:
-    case MAV_TYPE_TRICOPTER:
+        return tr("Configure Return to Launch, geofence, and arming checks.");
     default:
-        return tr("Safety Setup is used to setup triggers for Return to Land as well as the settings for Return to Land itself.");
-        break;
+        return tr("Configure Return to Launch, geofence, and arming checks.");
     }
 }
 
-QString APMSafetyComponent::iconResource(void) const
+QUrl APMSafetyComponent::setupSource() const
 {
-    return QStringLiteral("/qmlimages/SafetyComponentIcon.png");
-}
-
-bool APMSafetyComponent::requiresSetup(void) const
-{
-    return false;
-}
-
-bool APMSafetyComponent::setupComplete(void) const
-{
-    // FIXME: What aboout invalid settings?
-    return true;
-}
-
-QStringList APMSafetyComponent::setupCompleteChangedTriggerList(void) const
-{
-    return QStringList();
-}
-
-QUrl APMSafetyComponent::setupSource(void) const
-{
-    QString qmlFile;
-
     switch (_vehicle->vehicleType()) {
     case MAV_TYPE_FIXED_WING:
     case MAV_TYPE_QUADROTOR:
@@ -80,23 +38,16 @@ QUrl APMSafetyComponent::setupSource(void) const
     case MAV_TYPE_OCTOROTOR:
     case MAV_TYPE_TRICOPTER:
     case MAV_TYPE_GROUND_ROVER:
-        qmlFile = QStringLiteral("qrc:/qml/APMSafetyComponent.qml");
-        break;
+        return QUrl::fromUserInput(QStringLiteral("qrc:/qml/QGroundControl/AutoPilotPlugins/APM/APMSafetyComponent.qml"));
     case MAV_TYPE_SUBMARINE:
-        qmlFile = QStringLiteral("qrc:/qml/APMSafetyComponentSub.qml");
-        break;
+        return QUrl::fromUserInput(QStringLiteral("qrc:/qml/QGroundControl/AutoPilotPlugins/APM/APMSafetyComponentSub.qml"));
     default:
-        qmlFile = QStringLiteral("qrc:/qml/APMNotSupported.qml");
-        break;
+        return QUrl::fromUserInput(QStringLiteral("qrc:/qml/QGroundControl/AutoPilotPlugins/APM/APMNotSupported.qml"));
     }
-
-    return QUrl::fromUserInput(qmlFile);
 }
 
-QUrl APMSafetyComponent::summaryQmlSource(void) const
+QUrl APMSafetyComponent::summaryQmlSource() const
 {
-    QString qmlFile;
-
     switch (_vehicle->vehicleType()) {
     case MAV_TYPE_FIXED_WING:
     case MAV_TYPE_QUADROTOR:
@@ -106,15 +57,10 @@ QUrl APMSafetyComponent::summaryQmlSource(void) const
     case MAV_TYPE_OCTOROTOR:
     case MAV_TYPE_TRICOPTER:
     case MAV_TYPE_GROUND_ROVER:
-        qmlFile = QStringLiteral("qrc:/qml/APMSafetyComponentSummary.qml");
-        break;
+        return QUrl::fromUserInput(QStringLiteral("qrc:/qml/QGroundControl/AutoPilotPlugins/APM/APMSafetyComponentSummary.qml"));
     case MAV_TYPE_SUBMARINE:
-        qmlFile = QStringLiteral("qrc:/qml/APMSafetyComponentSummarySub.qml");
-        break;
+        return QUrl::fromUserInput(QStringLiteral("qrc:/qml/QGroundControl/AutoPilotPlugins/APM/APMSafetyComponentSummarySub.qml"));
     default:
-        qmlFile = QStringLiteral("qrc:/qml/APMNotSupported.qml");
-        break;
+        return QUrl::fromUserInput(QStringLiteral("qrc:/qml/QGroundControl/AutoPilotPlugins/APM/APMNotSupported.qml"));
     }
-
-    return QUrl::fromUserInput(qmlFile);
 }

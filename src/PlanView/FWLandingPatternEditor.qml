@@ -1,24 +1,11 @@
-/****************************************************************************
- *
- * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
- *
- * QGroundControl is licensed according to the terms in the file
- * COPYING.md in the root of the source code directory.
- *
- ****************************************************************************/
-
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Dialogs
 import QtQuick.Layouts
 
 import QGroundControl
-import QGroundControl.ScreenTools
-import QGroundControl.Vehicle
 import QGroundControl.Controls
-import QGroundControl.FactSystem
 import QGroundControl.FactControls
-import QGroundControl.Palette
 
 // Editor for Fixed Wing Landing Pattern complex mission item
 Rectangle {
@@ -28,20 +15,18 @@ Rectangle {
     color:      qgcPal.windowShadeDark
     radius:     _radius
 
-    // The following properties must be available up the hierarchy chain
-    //property real   availableWidth    ///< Width for control
-    //property var    missionItem       ///< Mission Item for editor
+    required property var missionItem
+    required property real availableWidth
 
-    property var    _masterControler:           masterController
+    property var    _masterControler:           missionItem.masterController
     property var    _missionController:         _masterControler.missionController
     property var    _missionVehicle:            _masterControler.controllerVehicle
     property real   _margin:                    ScreenTools.defaultFontPixelWidth / 2
     property real   _spacer:                    ScreenTools.defaultFontPixelWidth / 2
     property string _setToVehicleHeadingStr:    qsTr("Set to vehicle heading")
     property string _setToVehicleLocationStr:   qsTr("Set to vehicle location")
-    property bool   _showCameraSection:         !_missionVehicle.apmFirmware
-    property int    _altitudeMode:              missionItem.altitudesAreRelative ? QGroundControl.AltitudeModeRelative : QGroundControl.AltitudeModeAbsolute
-    property real   _previousLoiterRadius:      0
+    property int    _altitudeFrame:              missionItem.altitudesAreRelative ? QGroundControl.AltitudeFrameRelative : QGroundControl.AltitudeFrameAbsolute
+
 
     Column {
         id:                 editorColumn
@@ -69,22 +54,6 @@ Rectangle {
             FactCheckBox {
                 text:       qsTr("Use loiter to altitude")
                 fact:       missionItem.useLoiterToAlt
-
-                // When not using loiter to altitude, set radius to 0 to set the
-                // glide slope heading correctly
-                onCheckedChanged: {
-                    if (checked) {
-                        // Restore the previous loiter radius or set the default value
-                        if (_previousLoiterRadius > 0) {
-                            missionItem.loiterRadius.rawValue = _previousLoiterRadius
-                        } else {
-                            missionItem.loiterRadius.rawValue = missionItem.loiterRadius.defaultValue
-                        }
-                    } else {
-                        _previousLoiterRadius = missionItem.loiterRadius.rawValue
-                        missionItem.loiterRadius.rawValue = 0
-                    }
-                }
             }
 
             GridLayout {
@@ -97,7 +66,7 @@ Rectangle {
                 AltitudeFactTextField {
                     Layout.fillWidth:   true
                     fact:               missionItem.finalApproachAltitude
-                    altitudeMode:       _altitudeMode
+                    altitudeFrame:       _altitudeFrame
                 }
 
                 FactCheckBox {
@@ -171,7 +140,7 @@ Rectangle {
                 AltitudeFactTextField {
                     Layout.fillWidth:   true
                     fact:               missionItem.landingAltitude
-                    altitudeMode:       _altitudeMode
+                    altitudeFrame:       _altitudeFrame
                 }
 
                 QGCRadioButton {
@@ -226,14 +195,13 @@ Rectangle {
             anchors.left:   parent.left
             anchors.right:  parent.right
             text:           qsTr("Camera")
-            visible:        _showCameraSection
         }
 
         Column {
             anchors.left:       parent.left
             anchors.right:      parent.right
             spacing:            _margin
-            visible:            _showCameraSection && cameraSection.checked
+            visible:            cameraSection.checked
 
             Item { width: 1; height: _spacer }
 
@@ -334,7 +302,7 @@ Rectangle {
         ColumnLayout {
             anchors.left:   parent.left
             anchors.right:  parent.right
-            spacing:        ScreenTools.defaultFontPixelHeight
+            spacing:        ScreenTools.defaultFontPixelHeight / 2
             visible:        !landingCoordColumn.visible
 
             onVisibleChanged: {
@@ -347,6 +315,12 @@ Rectangle {
                 Layout.fillWidth:   true
                 wrapMode:           Text.WordWrap
                 text:               qsTr("Drag the loiter point to adjust landing direction for wind and obstacles.")
+            }
+
+            FactCheckBox {
+                text:       qsTr("Loiter clockwise")
+                fact:       missionItem.loiterClockwise
+                visible:    missionItem.useLoiterToAlt.rawValue
             }
 
             QGCButton {

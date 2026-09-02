@@ -1,45 +1,34 @@
-/****************************************************************************
- *
- * (c) 2009-2024 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
- *
- * QGroundControl is licensed according to the terms in the file
- * COPYING.md in the root of the source code directory.
- *
- ****************************************************************************/
-
 #pragma once
-
-#include "MAVLinkLib.h"
 
 #include <QtCore/QMap>
 #include <QtCore/QObject>
-#include <QtCore/QLoggingCategory>
 
-Q_DECLARE_LOGGING_CATEGORY(SysStatusSensorInfoLog)
+#include "MAVLinkLib.h"
 
-/// Class which represents sensor info from the SYS_STATUS mavlink message
+/// \brief Class which represents sensor info from the SYS_STATUS mavlink message
+///
 class SysStatusSensorInfo : public QObject
 {
     Q_OBJECT
-
-public:
-    SysStatusSensorInfo(QObject* parent = nullptr);
-
     Q_PROPERTY(QStringList sensorNames  READ sensorNames    NOTIFY sensorInfoChanged)
     Q_PROPERTY(QStringList sensorStatus READ sensorStatus   NOTIFY sensorInfoChanged)
 
-    void        update      (const mavlink_sys_status_t& sysStatus);
-    QStringList sensorNames (void) const;
-    QStringList sensorStatus(void) const;
+public:
+    explicit SysStatusSensorInfo(QObject *parent = nullptr);
+    ~SysStatusSensorInfo();
+
+    void update(const mavlink_sys_status_t &sysStatus);
+    QStringList sensorNames() const;
+    QStringList sensorStatus() const;
 
 signals:
-    void sensorInfoChanged(void);
+    void sensorInfoChanged();
 
 private:
-    typedef struct {
-        bool enabled;
-        bool healthy;
-    } SensorInfo_t;
+    struct SensorInfo {
+        bool enabled = false;
+        bool healthy = false;
+    };
 
-    QMap<MAV_SYS_STATUS_SENSOR, SensorInfo_t> _sensorInfoMap;
+    QMap<MAV_SYS_STATUS_SENSOR, SensorInfo> _sensorInfoMap;
 };

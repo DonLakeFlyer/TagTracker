@@ -1,24 +1,11 @@
-/****************************************************************************
- *
- * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
- *
- * QGroundControl is licensed according to the terms in the file
- * COPYING.md in the root of the source code directory.
- *
- ****************************************************************************/
-
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Dialogs
 import QtQuick.Layouts
 
 import QGroundControl
-import QGroundControl.ScreenTools
-import QGroundControl.Vehicle
 import QGroundControl.Controls
-import QGroundControl.FactSystem
 import QGroundControl.FactControls
-import QGroundControl.Palette
 
 // Editor for Fixed Wing Landing Pattern complex mission item
 Rectangle {
@@ -28,19 +15,17 @@ Rectangle {
     color:      qgcPal.windowShadeDark
     radius:     _radius
 
-    // The following properties must be available up the hierarchy chain
-    //property real   availableWidth    ///< Width for control
-    //property var    missionItem       ///< Mission Item for editor
+    required property var missionItem
+    required property real availableWidth
 
-    property var    _masterControler:           masterController
+    property var    _masterControler:           missionItem.masterController
     property var    _missionController:         _masterControler.missionController
     property var    _missionVehicle:            _masterControler.controllerVehicle
     property real   _margin:                    ScreenTools.defaultFontPixelWidth / 2
     property real   _spacer:                    ScreenTools.defaultFontPixelWidth / 2
     property string _setToVehicleHeadingStr:    qsTr("Set to vehicle heading")
     property string _setToVehicleLocationStr:   qsTr("Set to vehicle location")
-    property bool   _showCameraSection:         !_missionVehicle.apmFirmware
-    property int    _altitudeMode:              missionItem.altitudesAreRelative ? QGroundControl.AltitudeModeRelative : QGroundControl.AltitudeModeAbsolute
+    property int    _altitudeFrame:              missionItem.altitudesAreRelative ? QGroundControl.AltitudeFrameRelative : QGroundControl.AltitudeFrameAbsolute
 
 
     Column {
@@ -81,7 +66,7 @@ Rectangle {
                 AltitudeFactTextField {
                     Layout.fillWidth:   true
                     fact:               missionItem.finalApproachAltitude
-                    altitudeMode:       _altitudeMode
+                    altitudeFrame:       _altitudeFrame
                 }
 
                 QGCLabel {
@@ -143,7 +128,7 @@ Rectangle {
                 AltitudeFactTextField {
                     Layout.fillWidth:   true
                     fact:               missionItem.landingAltitude
-                    altitudeMode:       _altitudeMode
+                    altitudeFrame:       _altitudeFrame
                 }
 
                 QGCLabel { text: qsTr("Landing Dist") }
@@ -177,14 +162,13 @@ Rectangle {
             anchors.left:   parent.left
             anchors.right:  parent.right
             text:           qsTr("Camera")
-            visible:        _showCameraSection
         }
 
         Column {
             anchors.left:       parent.left
             anchors.right:      parent.right
             spacing:            _margin
-            visible:            _showCameraSection && cameraSection.checked
+            visible:            cameraSection.checked
 
             Item { width: 1; height: _spacer }
 

@@ -1,12 +1,3 @@
-/****************************************************************************
- *
- * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
- *
- * QGroundControl is licensed according to the terms in the file
- * COPYING.md in the root of the source code directory.
- *
- ****************************************************************************/
-
 import QtQuick
 import QtQuick.Controls
 import QtLocation
@@ -14,8 +5,6 @@ import QtPositioning
 import QtQuick.Layouts
 
 import QGroundControl
-import QGroundControl.ScreenTools
-import QGroundControl.Palette
 import QGroundControl.Controls
 import QGroundControl.FlightMap
 
@@ -36,7 +25,7 @@ Item {
     property var    _loiterPointObject
     property var    _landingPointObject
     property bool   _useLoiterToAlt:            _missionItem.useLoiterToAlt.rawValue
-    property real   _landingAreaBearing:            _missionItem.landingCoordinate.azimuthTo(_useLoiterToAlt ? _missionItem.loiterTangentCoordinate : _missionItem.finalApproachCoordinate)
+    property real   _landingAreaBearing:        _missionItem.landingCoordinate.azimuthTo(_missionItem.slopeStartCoordinate)
 
     function hideItemVisuals() {
         objMgr.destroyObjects()
@@ -81,7 +70,7 @@ Item {
 
     function _setFlightPath() {
         if (_useLoiterToAlt) {
-            _flightPath = [ _missionItem.loiterTangentCoordinate, _missionItem.landingCoordinate ]
+            _flightPath = [ _missionItem.slopeStartCoordinate, _missionItem.landingCoordinate ]
         } else {
             _flightPath = [ _missionItem.finalApproachCoordinate, _missionItem.landingCoordinate ]
         }
@@ -146,7 +135,7 @@ Item {
         }
 
         onLandingCoordinateChanged:         _setFlightPath()
-        onLoiterTangentCoordinateChanged:   _setFlightPath()
+        onSlopeStartCoordinateChanged:      _setFlightPath()
         onFinalApproachCoordinateChanged:   _setFlightPath()
     }
 

@@ -1,16 +1,15 @@
 # PX4 비행 모드 설정
 
-_비행 모드_ 섹션에서는 RC 송신기의 특정 스위치/스위치 위치에 의해 트리거되는 비행 모드 및 기타 작업을 설정할 수 있습니다.
+The _Flight Modes_ section allows you to configure which [flight modes](http://docs.px4.io/main/en/getting_started/flight_modes.html) and other actions are triggered by particular switches/switch positions on your RC transmitter.
 
 ::: info
 In order to set up flight modes you must already have
 
 - 비행 모드를 설정하려면 비행 모드를 설정하기 위해 [무전기를 구성](../setup_view/radio.md)해야 합니다.
-- - [RC 송신기 설정](../setup_view/FlightModes.md#transmitter-setup)(비행 모드 & 송신기 설정)
+- [Setup the RC transmitter](flight_modes.md#transmitter-setup) (Flight Modes > Transmitter Setup)
+  :::
 
 이 섹션에 액세스하려면, 상단 툴바에서 **기어** 아이콘(차량 설정)을 선택한 다음 사이드바에서 **비행 모드**를 선택하세요.
-
-![비행 모드 단일 채널](../../../assets/setup/flight_modes/px4_single_channel.jpg)
 
 ## 비행 모드 설정
 
@@ -23,15 +22,14 @@ In order to set up flight modes you must already have
 
 2. 상단 툴바에서 **기어** 아이콘(차량 설정)을 선택한 다음 사이드바에서 **비행 모드**를 선택합니다.
 
-   ![비행 모드 단일 채널](../../../assets/setup/flight_modes/px4_single_channel.jpg)
-
 3. _비행 모드 설정_ 설정
 
    - 송신기 **모드 채널**을 선택합니다(위의 채널 5로 표시됨).
    - 채널에 인코딩된 스위치 위치에 대해 최대 6개의 **비행 모드**를 선택합니다.
 
-     > **참고** 위치 모드, 리턴 모드 및 미션 모드가 [권장됩니다](https://docs.px4.io/master/en/config/flight_mode.html#what-flight-modes-and-switches-should-i-set).
-     > :::
+     ::: info
+     Position mode, return mode and mission mode [are recommended](https://docs.px4.io/main/en/config/flight_mode.html#what-flight-modes-and-switches-should-i-set).
+     :::
 
 4. _스위치 설정_ 설정
 
@@ -45,4 +43,4 @@ In order to set up flight modes you must already have
 
 ## See Also
 
-- [PX4 비행 모드 ](https://docs.px4.io/en/flight_modes/)
+- [PX4 Flight Modes](https://docs.px4.io/main/en/flight_modes/)

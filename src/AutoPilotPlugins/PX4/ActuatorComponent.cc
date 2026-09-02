@@ -1,22 +1,15 @@
-/****************************************************************************
- *
- * (c) 2009-2024 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
- *
- * QGroundControl is licensed according to the terms in the file
- * COPYING.md in the root of the source code directory.
- *
- ****************************************************************************/
-
 #include "ActuatorComponent.h"
+#include "MAVLinkLib.h"
 #include "QGCApplication.h"
 #include "GeometryImage.h"
 #include "Actuators/Actuators.h"
+#include "Vehicle.h"
 
 #include <QtQml/QQmlApplicationEngine>
 
 static bool imageProviderAdded{false};
 
-ActuatorComponent::ActuatorComponent(Vehicle* vehicle, AutoPilotPlugin* autopilot, QObject* parent) 
+ActuatorComponent::ActuatorComponent(Vehicle* vehicle, AutoPilotPlugin* autopilot, QObject* parent)
     : VehicleComponent(vehicle, autopilot, AutoPilotPlugin::UnknownVehicleComponent, parent)
     , _name(tr("Actuators"))
     , _actuators(*vehicle->actuators())
@@ -62,7 +55,7 @@ QStringList ActuatorComponent::setupCompleteChangedTriggerList(void) const
 
 QUrl ActuatorComponent::setupSource(void) const
 {
-    return QUrl::fromUserInput(QStringLiteral("qrc:/qml/ActuatorComponent.qml"));
+    return QUrl::fromUserInput(QStringLiteral("qrc:/qml/QGroundControl/AutoPilotPlugins/PX4/ActuatorComponent.qml"));
 }
 
 QUrl ActuatorComponent::summaryQmlSource(void) const

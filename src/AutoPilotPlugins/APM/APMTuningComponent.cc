@@ -1,77 +1,29 @@
-/****************************************************************************
- *
- * (c) 2009-2024 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
- *
- * QGroundControl is licensed according to the terms in the file
- * COPYING.md in the root of the source code directory.
- *
- ****************************************************************************/
-
-
 #include "APMTuningComponent.h"
 #include "Vehicle.h"
 
-APMTuningComponent::APMTuningComponent(Vehicle* vehicle, AutoPilotPlugin* autopilot, QObject* parent)
+APMTuningComponent::APMTuningComponent(Vehicle *vehicle, AutoPilotPlugin *autopilot, QObject *parent)
     : VehicleComponent(vehicle, autopilot, AutoPilotPlugin::UnknownVehicleComponent, parent)
-    , _name(tr("Tuning"))
 {
+
 }
 
-QString APMTuningComponent::name(void) const
+QString APMTuningComponent::vehicleConfigJson() const
 {
-    return _name;
+    return QStringLiteral(":/qml/QGroundControl/AutoPilotPlugins/APM/VehicleConfig/APMTuningCopter.VehicleConfig.json");
 }
 
-QString APMTuningComponent::description(void) const
+QUrl APMTuningComponent::setupSource() const
 {
-    return tr("Tuning Setup is used to tune the flight characteristics of the Vehicle.");
-}
-
-QString APMTuningComponent::iconResource(void) const
-{
-    return QStringLiteral("/qmlimages/TuningComponentIcon.png");
-}
-
-bool APMTuningComponent::requiresSetup(void) const
-{
-    return false;
-}
-
-bool APMTuningComponent::setupComplete(void) const
-{
-    return true;
-}
-
-QStringList APMTuningComponent::setupCompleteChangedTriggerList(void) const
-{
-    return QStringList();
-}
-
-QUrl APMTuningComponent::setupSource(void) const
-{
-    QString qmlFile;
-
     switch (_vehicle->vehicleType()) {
-        case MAV_TYPE_QUADROTOR:
-        case MAV_TYPE_COAXIAL:
-        case MAV_TYPE_HELICOPTER:
-        case MAV_TYPE_HEXAROTOR:
-        case MAV_TYPE_OCTOROTOR:
-        case MAV_TYPE_TRICOPTER:
-            qmlFile = QStringLiteral("qrc:/qml/APMTuningComponentCopter.qml");
-            break;
-        case MAV_TYPE_SUBMARINE:
-            qmlFile = QStringLiteral("qrc:/qml/APMTuningComponentSub.qml");
-            break;
-        default:
-            // No tuning panel
-            break;
+    case MAV_TYPE_QUADROTOR:
+    case MAV_TYPE_COAXIAL:
+    case MAV_TYPE_HELICOPTER:
+    case MAV_TYPE_HEXAROTOR:
+    case MAV_TYPE_OCTOROTOR:
+    case MAV_TYPE_TRICOPTER:
+        // Generated from APMTuningCopter.VehicleConfig.json
+        return QUrl::fromUserInput("qrc:/qml/QGroundControl/AutoPilotPlugins/APM/APMTuningCopterComponent.qml");
+    default:
+        return QUrl::fromUserInput(QString());
     }
-
-    return QUrl::fromUserInput(qmlFile);
-}
-
-QUrl APMTuningComponent::summaryQmlSource(void) const
-{
-    return QUrl();
 }

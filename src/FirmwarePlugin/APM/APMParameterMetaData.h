@@ -1,89 +1,32 @@
-/****************************************************************************
- *
- * (c) 2009-2024 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
- *
- * QGroundControl is licensed according to the terms in the file
- * COPYING.md in the root of the source code directory.
- *
- ****************************************************************************/
-
-
 #pragma once
 
-#include <QtCore/QObject>
-#include <QtCore/QMap>
-#include <QtCore/QXmlStreamReader>
-#include <QtCore/QLoggingCategory>
+#include <QtCore/QHash>
+#include <QtCore/QJsonObject>
+#include "ParameterMetaData.h"
 
-#include "MAVLinkLib.h"
-#include "FactMetaData.h"
-
-Q_DECLARE_LOGGING_CATEGORY(APMParameterMetaDataLog)
-Q_DECLARE_LOGGING_CATEGORY(APMParameterMetaDataVerboseLog)
-
-class APMFactMetaDataRaw : public QObject
+class APMParameterMetaData : public ParameterMetaData
 {
-    Q_OBJECT
 public:
-    APMFactMetaDataRaw(QObject *parent = nullptr)
-        : QObject(parent), rebootRequired(false)
-    { }
+    explicit APMParameterMetaData(QObject *parent = nullptr);
+    ~APMParameterMetaData() override;
 
-    QString name;
-    QString category;
-    QString group;
-    QString shortDescription;
-    QString longDescription;
-    QString min;
-    QString max;
-    QString incrementSize;
-    QString units;
-    bool    rebootRequired;
-    bool    readOnly;
-    QList<QPair<QString, QString> > values;
-    QList<QPair<QString, QString> > bitmask;
-};
-
-
-/// Collection of Parameter Facts for PX4 AutoPilot
-
-typedef QMap<QString, APMFactMetaDataRaw*> ParameterNametoFactMetaDataMap;
-
-class APMParameterMetaData : public QObject
-{
-    Q_OBJECT
-    
-public:
-    APMParameterMetaData(void);
-
-    FactMetaData* getMetaDataForFact(const QString& name, MAV_TYPE vehicleType, FactMetaData::ValueType_t type);
-    void loadParameterFactMetaDataFile(const QString& metaDataFile);
-
-    static void getParameterMetaDataVersionInfo(const QString& metaDataFile, int& majorVersion, int& minorVersion);
+protected:
+    void parseParameterJson(const QJsonObject &json) override;
+    FactMetaData *_lookupMetaData(const QString &name, FactMetaData::ValueType_t type) override;
+    FactMetaData *_createDefaultMetaData(const QString &name, FactMetaData::ValueType_t type) override;
+    void _postProcessMetaData(const QString &name, FactMetaData *metaData) override;
 
 private:
-    enum {
-        XmlStateNone,
-        XmlstateParamFileFound,
-        XmlStateFoundVehicles,
-        XmlStateFoundLibraries,
-        XmlStateFoundParameters,
-        XmlStateFoundVersion,
-        XmlStateFoundGroup,
-        XmlStateFoundParameter,
-        XmlStateDone
-    };    
+    struct RawParamData {
+        QString group;
+        QJsonObject fields;
+    };
 
-    QVariant _stringToTypedVariant(const QString& string, FactMetaData::ValueType_t type, bool* convertOk);
-    bool skipXMLBlock(QXmlStreamReader& xml, const QString& blockName);
-    bool parseParameterAttributes(QXmlStreamReader& xml, APMFactMetaDataRaw *rawMetaData);
-    void correctGroupMemberships(ParameterNametoFactMetaDataMap& parameterToFactMetaDataMap, QMap<QString,QStringList>& groupMembers);
-    QString mavTypeToString(MAV_TYPE vehicleTypeEnum);
-    QString _groupFromParameterName(const QString& name);
+    void _correctGroupMemberships();
+    static QString _groupFromParameterName(const QString &name);
+    static QList<ValueDescPair> _sortedNumericPairs(const QJsonObject &obj, const QString &paramName);
+    static void _applyEnumValues(FactMetaData *metaData, const QJsonObject &valuesObj);
+    static void _applyBitmask(FactMetaData *metaData, const QJsonObject &bitmaskObj);
 
-    bool                                            _parameterMetaDataLoaded        = false;    ///< true: parameter meta data already loaded
-    // FIXME: metadata is vehicle type specific now
-    QMap<QString, ParameterNametoFactMetaDataMap>   _vehicleTypeToParametersMap;                ///< Maps from a vehicle type to paramametertoFactMeta map>
-
-    static constexpr const char* kInvalidConverstion = "Internal Error: No support for string parameters";
+    QHash<QString, RawParamData> _rawParams;
 };

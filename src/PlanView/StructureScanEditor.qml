@@ -4,11 +4,8 @@ import QtQuick.Dialogs
 import QtQuick.Layouts
 
 import QGroundControl
-import QGroundControl.ScreenTools
-import QGroundControl.Vehicle
 import QGroundControl.Controls
 import QGroundControl.FactControls
-import QGroundControl.Palette
 import QGroundControl.FlightMap
 
 // Editor for Survery mission items
@@ -19,9 +16,8 @@ Rectangle {
     color:      qgcPal.windowShadeDark
     radius:     _radius
 
-    // The following properties must be available up the hierarchy chain
-    //property real   availableWidth    ///< Width for control
-    //property var    missionItem       ///< Mission Item for editor
+    required property var missionItem
+    required property real availableWidth
 
     property real   _margin:                    ScreenTools.defaultFontPixelWidth / 2
     property real   _fieldWidth:                ScreenTools.defaultFontPixelWidth * 10.5
@@ -143,14 +139,14 @@ Rectangle {
                         QGCLabel { text: qsTr("Scan Bottom Alt") }
                         AltitudeFactTextField {
                             fact:               missionItem.scanBottomAlt
-                            altitudeMode:       QGroundControl.AltitudeModeRelative
+                            altitudeFrame:       QGroundControl.AltitudeFrameRelative
                             Layout.fillWidth:   true
                         }
 
                         QGCLabel { text: qsTr("Entrance/Exit Alt") }
                         AltitudeFactTextField {
                             fact:               missionItem.entranceAlt
-                            altitudeMode:       QGroundControl.AltitudeModeRelative
+                            altitudeFrame:       QGroundControl.AltitudeFrameRelative
                             Layout.fillWidth:   true
                         }
 
@@ -194,10 +190,10 @@ Rectangle {
                     QGCLabel { text: missionItem.cameraCalc.adjustedFootprintFrontal.valueString + " " + QGroundControl.unitsConversion.appSettingsHorizontalDistanceUnitsString }
 
                     QGCLabel { text: qsTr("Top Layer Alt") }
-                    QGCLabel { text: QGroundControl.unitsConversion.metersToAppSettingsVerticalDistanceUnits(missionItem.topFlightAlt).toFixed(1) + " " + QGroundControl.unitsConversion.appSettingsHorizontalDistanceUnitsString }
+                    QGCLabel { text: QGroundControl.unitsConversion.metersToAppSettingsVerticalDistanceUnitsString(missionItem.topFlightAlt) }
 
                     QGCLabel { text: qsTr("Bottom Layer Alt") }
-                    QGCLabel { text: QGroundControl.unitsConversion.metersToAppSettingsVerticalDistanceUnits(missionItem.bottomFlightAlt).toFixed(1) + " " + QGroundControl.unitsConversion.appSettingsHorizontalDistanceUnitsString }
+                    QGCLabel { text: QGroundControl.unitsConversion.metersToAppSettingsVerticalDistanceUnitsString(missionItem.bottomFlightAlt) }
 
                     QGCLabel { text: qsTr("Photo Count") }
                     QGCLabel { text: missionItem.cameraShots }

@@ -1,9 +1,13 @@
-find_package(Qt6 REQUIRED COMPONENTS Core Positioning Qml Test)
+# ============================================================================
+# Mission Manager Unit Tests
+# Tests for mission planning, waypoints, and flight plan management
+# ============================================================================
 
-qt_add_library(MissionManagerTest
-    STATIC
+target_sources(${CMAKE_PROJECT_NAME}
+    PRIVATE
         CameraCalcTest.cc CameraCalcTest.h
         CameraSectionTest.cc CameraSectionTest.h
+        CameraSpecTest.cc CameraSpecTest.h
         CorridorScanComplexItemTest.cc CorridorScanComplexItemTest.h
         FWLandingPatternTest.cc FWLandingPatternTest.h
         LandingComplexItemTest.cc LandingComplexItemTest.h
@@ -11,12 +15,14 @@ qt_add_library(MissionManagerTest
         MissionCommandTreeTest.cc MissionCommandTreeTest.h
         MissionControllerManagerTest.cc MissionControllerManagerTest.h
         MissionControllerTest.cc MissionControllerTest.h
+        MissionControllerTreeTest.cc MissionControllerTreeTest.h
         MissionItemTest.cc MissionItemTest.h
         MissionManagerTest.cc MissionManagerTest.h
         MissionSettingsTest.cc MissionSettingsTest.h
         PlanMasterControllerTest.cc PlanMasterControllerTest.h
         QGCMapPolygonTest.cc QGCMapPolygonTest.h
         QGCMapPolylineTest.cc QGCMapPolylineTest.h
+        RallyPointTest.cc RallyPointTest.h
         SectionTest.cc SectionTest.h
         SimpleMissionItemTest.cc SimpleMissionItemTest.h
         SpeedSectionTest.cc SpeedSectionTest.h
@@ -27,30 +33,69 @@ qt_add_library(MissionManagerTest
         VisualMissionItemTest.cc VisualMissionItemTest.h
 )
 
-target_link_libraries(MissionManagerTest
-    PRIVATE
-        Qt6::Test
-        API
-        FirmwarePlugin
-        Settings
-        TerrainTest
-        Utilities
-        Vehicle
-    PUBLIC
-        Qt6::Positioning
-        FactSystem
-        MAVLink
-        MissionManager
-        qgcunittest
-        QmlControls
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+# ----------------------------------------------------------------------------
+# Test Data Resources
+# ----------------------------------------------------------------------------
+qt_add_resources(${CMAKE_PROJECT_NAME} "MissionManagerTest_res"
+    PREFIX "/unittest"
+    FILES
+        MissionPlanner.waypoints
+        MissionPlanner.waypoints.txt
+        PolygonAreaTest.kml
+        PolygonBadCoordinatesNode.kml
+        PolygonBadXml.kml
+        PolygonGood.kml
+        PolygonMissingNode.kml
+        SectionTest.plan
+        UT-MavCmdInfoCommon.json
+        UT-MavCmdInfoFixedWing.json
+        UT-MavCmdInfoMultiRotor.json
+        UT-MavCmdInfoRover.json
+        UT-MavCmdInfoSub.json
+        UT-MavCmdInfoVTOL.json
 )
 
-target_include_directories(MissionManagerTest PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-
-qt_add_qml_module(MissionManagerTest
-    URI missionmanagertest
-    VERSION 1.0
-    QML_FILES
+qt_add_resources(${CMAKE_PROJECT_NAME} "MissionManagerTest_res1"
+    PREFIX "/qml"
+    FILES
         MissionCommandTreeEditorTestWindow.qml
-    IMPORT_PATH ${QT_QML_OUTPUT_DIRECTORY}
 )
+
+# TODO: Enable QML module for mission manager tests
+# qt_add_library(MissionManagerTestModule STATIC)
+#
+# qt_add_qml_module(MissionManagerTestModule
+#     URI QGroundControl.Test.MissionManager
+#     VERSION 1.0
+#     RESOURCE_PREFIX /unittest
+#     QML_FILES
+#         MissionCommandTreeEditorTestWindow.qml
+#     NO_PLUGIN
+# )
+#
+# target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE MissionManagerTestModule)
+
+add_qgc_test(CameraCalcTest LABELS Unit MissionManager)
+add_qgc_test(CameraSectionTest LABELS Unit MissionManager)
+add_qgc_test(CameraSpecTest LABELS Unit MissionManager)
+add_qgc_test(CorridorScanComplexItemTest LABELS Unit MissionManager RESOURCE_LOCK PlanViewSettings)
+add_qgc_test(FWLandingPatternTest LABELS Unit MissionManager)
+add_qgc_test(LandingComplexItemTest LABELS Unit MissionManager)
+add_qgc_test(MissionCommandTreeEditorTest LABELS Integration MissionManager TIMEOUT ${QGC_TEST_TIMEOUT_EXTENDED})
+add_qgc_test(MissionCommandTreeTest LABELS Unit MissionManager)
+add_qgc_test(MissionControllerTest LABELS Integration MissionManager)
+add_qgc_test(MissionControllerTreeTest LABELS Integration MissionManager)
+add_qgc_test(MissionItemTest LABELS Unit MissionManager)
+add_qgc_test(MissionManagerTest LABELS Integration MissionManager)
+add_qgc_test(MissionSettingsTest LABELS Unit MissionManager)
+add_qgc_test(PlanMasterControllerTest LABELS Integration MissionManager)
+add_qgc_test(QGCMapPolygonTest LABELS Unit MissionManager)
+add_qgc_test(QGCMapPolylineTest LABELS Unit MissionManager)
+add_qgc_test(RallyPointTest LABELS Unit MissionManager)
+add_qgc_test(SimpleMissionItemTest LABELS Unit MissionManager)
+add_qgc_test(SpeedSectionTest LABELS Unit MissionManager)
+add_qgc_test(StructureScanComplexItemTest LABELS Unit MissionManager RESOURCE_LOCK PlanViewSettings)
+add_qgc_test(SurveyComplexItemTest LABELS Unit MissionManager RESOURCE_LOCK PlanViewSettings)
+add_qgc_test(TransectStyleComplexItemTest LABELS Unit MissionManager RESOURCE_LOCK PlanViewSettings)

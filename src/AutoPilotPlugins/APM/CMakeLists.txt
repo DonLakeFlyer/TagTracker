@@ -1,87 +1,218 @@
-find_package(Qt6 REQUIRED COMPONENTS Core Quick)
+# ============================================================================
+# APM AutoPilot Plugin
+# ArduPilot-specific vehicle configuration and setup
+# ============================================================================
 
-qt_add_library(APMAutoPilotPlugin STATIC
-    APMAirframeComponent.cc
-    APMAirframeComponent.h
-    APMAirframeComponentController.cc
-    APMAirframeComponentController.h
-    APMAutoPilotPlugin.cc
-    APMAutoPilotPlugin.h
-    APMCameraComponent.cc
-    APMCameraComponent.h
-    APMFlightModesComponent.cc
-    APMFlightModesComponent.h
-    APMFlightModesComponentController.cc
-    APMFlightModesComponentController.h
-    APMFollowComponent.cc
-    APMFollowComponent.h
-    APMFollowComponentController.cc
-    APMFollowComponentController.h
-    APMHeliComponent.cc
-    APMHeliComponent.h
-    APMLightsComponent.cc
-    APMLightsComponent.h
-    APMMotorComponent.cc
-    APMMotorComponent.h
-    APMPowerComponent.cc
-    APMPowerComponent.h
-    APMRadioComponent.cc
-    APMRadioComponent.h
-    APMRemoteSupportComponent.cc
-    APMRemoteSupportComponent.h
-    APMSafetyComponent.cc
-    APMSafetyComponent.h
-    APMSensorsComponent.cc
-    APMSensorsComponent.h
-    APMSensorsComponentController.cc
-    APMSensorsComponentController.h
-    APMSubFrameComponent.cc
-    APMSubFrameComponent.h
-    APMSubMotorComponentController.cc
-    APMSubMotorComponentController.h
-    APMTuningComponent.cc
-    APMTuningComponent.h
-)
-
-target_link_libraries(APMAutoPilotPlugin
+target_sources(${CMAKE_PROJECT_NAME}
     PRIVATE
-        APMFirmwarePlugin
-        FactSystem
-        QGC
-        Settings
-        Utilities
-        Vehicle
-    PUBLIC
-        Qt6::Core
-        Qt6::Quick
-        AutoPilotPlugins
-        FactControls
-        MAVLink
+        APMAirframeComponent.cc
+        APMAirframeComponent.h
+        APMAirframeComponentController.cc
+        APMAirframeComponentController.h
+        APMAirspeedComponent.cc
+        APMAirspeedComponent.h
+        APMAutoPilotPlugin.cc
+        APMESCComponent.cc
+        APMESCComponent.h
+        APMAutoPilotPlugin.h
+        APMFailsafesComponent.cc
+        APMFailsafesComponent.h
+        APMFlightModesComponent.cc
+        APMFlightModesComponent.h
+        APMFlightModesComponentController.cc
+        APMFlightModesComponentController.h
+        APMFollowComponent.cc
+        APMFollowComponent.h
+        APMFollowComponentController.cc
+        APMFollowComponentController.h
+        APMGimbalComponent.cc
+        APMGimbalComponent.h
+        APMHeliComponent.cc
+        APMHeliComponent.h
+        APMLightsComponent.cc
+        APMLightsComponent.h
+        APMLoggingComponent.cc
+        APMLoggingComponent.h
+        APMMotorComponent.cc
+        APMMotorComponent.h
+        APMServoComponent.cc
+        APMServoComponent.h
+        APMPowerComponent.cc
+        APMPowerComponent.h
+        APMRadioComponent.cc
+        APMRadioComponent.h
+        APMRemoteSupportComponent.cc
+        APMRemoteSupportComponent.h
+        APMFlightSafetyComponent.cc
+        APMFlightSafetyComponent.h
+        APMSensorsComponent.cc
+        APMSensorsComponent.h
+        APMSensorsComponentController.cc
+        APMSensorsComponentController.h
+        APMSubFrameComponent.cc
+        APMSubFrameComponent.h
+        APMSubMotorComponentController.cc
+        APMSubMotorComponentController.h
+        APMTuningComponent.cc
+        APMTuningComponent.h
+        APMAdvancedTuningCopterComponent.cc
+        APMAdvancedTuningCopterComponent.h
 )
 
-target_include_directories(APMAutoPilotPlugin PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
-# file(GLOB QML_SOURCES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/*.qml)
-# file(GLOB QML_RESOURCES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/Images/*.*)
-# qt_add_qml_module(APMAutoPilotPlugin
-#     URI QGroundControl.APMAutoPilotPlugin
-#     VERSION 1.0
-#     QML_FILES ${QML_SOURCES}
-#     RESOURCES ${QML_RESOURCES}
-#     OUTPUT_TARGETS APMAutoPilotPlugin_targets
-#     IMPORT_PATH ${QT_QML_OUTPUT_DIRECTORY}
-#     IMPORTS
-#         QtQuick
-#         QtQuick.Controls
-#         QtQuick.Dialogs
-#         QtQuick.Layouts
+# ----------------------------------------------------------------------------
+# Code-generation: produce QML config pages from VehicleConfig.json definitions
+# ----------------------------------------------------------------------------
 
-#         QGroundControl
-#         QGroundControl.FactSystem
-#         QGroundControl.FactControls
-#         QGroundControl.Controls
-#         QGroundControl.ScreenTools
-#         QGroundControl.Controllers
-#         QGroundControl.Palette
-#         QGroundControl.Vehicle
-# )
+set(APM_CONFIG_QML_GENERATOR_DIR "${CMAKE_SOURCE_DIR}/tools/generators/config_qml")
+set(APM_CONFIG_PAGES_DIR         "${CMAKE_CURRENT_SOURCE_DIR}/VehicleConfig")
+set(APM_CONFIG_QML_GEN_DIR       "${CMAKE_CURRENT_BINARY_DIR}/generated")
+
+# Generator source files (changes here trigger regeneration)
+file(GLOB _apm_config_generator_sources CONFIGURE_DEPENDS
+    "${APM_CONFIG_QML_GENERATOR_DIR}/*.py"
+    "${APM_CONFIG_QML_GENERATOR_DIR}/templates/*.j2"
+    "${CMAKE_SOURCE_DIR}/tools/generators/common/*.py"
+    "${CMAKE_SOURCE_DIR}/tools/generators/*.py"
+)
+
+# JSON inputs
+file(GLOB _apm_config_page_definitions CONFIGURE_DEPENDS "${APM_CONFIG_PAGES_DIR}/*.VehicleConfig.json")
+
+# Generated QML outputs (must match what generate_pages.py produces)
+set(_apm_config_generated_qml_names
+    APMFailsafesComponent.qml
+    APMLoggingComponent.qml
+    APMPowerComponent.qml
+    APMFlightSafetyComponent.qml
+    APMTuningCopterComponent.qml
+)
+
+qgc_add_qml_codegen(GenerateConfigQmlAPM
+    GENERATE_AT_CONFIGURE
+    GENERATOR_MODULE tools.generators.config_qml.generate_pages
+    OUTPUT_DIR       "${APM_CONFIG_QML_GEN_DIR}"
+    QML_NAMES        ${_apm_config_generated_qml_names}
+    EXTRA_ARGS       --pages-dir "${APM_CONFIG_PAGES_DIR}"
+    DEPENDS          ${_apm_config_generator_sources} ${_apm_config_page_definitions}
+    COMMENT          "Generating APM QML config pages from VehicleConfig.json definitions"
+)
+set(_apm_config_generated_qml ${GenerateConfigQmlAPM_OUTPUTS})
+
+# ----------------------------------------------------------------------------
+# APM QML Module
+# ----------------------------------------------------------------------------
+qt_add_library(AutoPilotPluginsAPMModule STATIC)
+
+# Ensure generated files exist before the module is built
+add_dependencies(AutoPilotPluginsAPMModule GenerateConfigQmlAPM)
+
+qt_add_qml_module(AutoPilotPluginsAPMModule
+    URI QGroundControl.AutoPilotPlugins.APM
+    VERSION 1.0
+    RESOURCE_PREFIX /qml
+    QML_FILES
+        # Generated from VehicleConfig.json definitions (output in build tree)
+        ${_apm_config_generated_qml}
+
+        # Hand-coded pages and components
+        APMAirframeComponent.qml
+        APMAirframeComponentSummary.qml
+        APMAirspeedComponent.qml
+        APMAirspeedComponentSummary.qml
+        APMBatteryParams.qml
+        APMCalcAmpsPerVoltDialog.qml
+        APMCalcVoltageDividerDialog.qml
+        APMESCComponent.qml
+        APMESCComponentSummary.qml
+        APMFailsafesComponentSummary.qml
+        APMFailsafesComponentSummarySub.qml
+        APMFlightModesComponent.qml
+        APMFlightModesComponentSummary.qml
+        APMFollowComponent.qml
+        APMFollowComponentSummary.qml
+        APMGimbalComponent.qml
+        APMGimbalInstance.qml
+        APMGimbalParams.qml
+        APMHeliComponent.qml
+        APMLightsComponent.qml
+        APMLightsComponentSummary.qml
+        APMMotorComponent.qml
+        APMServoComponent.qml
+        APMNotSupported.qml
+        APMPowerComponentSummary.qml
+        APMRadioComponentSummary.qml
+        APMRemoteSupportComponent.qml
+        APMFlightSafetyComponentSub.qml
+        APMFlightSafetyComponentSummary.qml
+        APMFlightSafetyComponentSummarySub.qml
+        APMSensorsComponent.qml
+        APMSensorsComponentSummary.qml
+        APMSensorIdDecoder.qml
+        APMSensorParams.qml
+        APMSubFrameComponent.qml
+        APMSubFrameComponentSummary.qml
+        APMSubMotorComponent.qml
+        APMAutoTuneChannelSelector.qml
+        APMAdvancedTuningCopterComponent.qml
+    RESOURCES
+        VehicleConfig/APMFailsafes.VehicleConfig.json
+        VehicleConfig/APMLogging.VehicleConfig.json
+        VehicleConfig/APMPower.VehicleConfig.json
+        VehicleConfig/APMFlightSafety.VehicleConfig.json
+        VehicleConfig/APMTuningCopter.VehicleConfig.json
+    NO_PLUGIN
+)
+
+# ----------------------------------------------------------------------------
+# APM Component Metadata
+# ----------------------------------------------------------------------------
+qt_add_resources(${CMAKE_PROJECT_NAME} autopilot_plugin_apm_resource
+    PREFIX "/json"
+    FILES APMFollowComponent.FactMetaData.json
+)
+
+qt_add_resources(${CMAKE_PROJECT_NAME} autopilot_plugin_apm_images
+    PREFIX "/res"
+    BASE "${CMAKE_SOURCE_DIR}/resources"
+    FILES
+        "${CMAKE_SOURCE_DIR}/resources/helicoptericon.svg"
+)
+
+# Sub frame images: registered under URL /qmlimages/Frames/<NiceName>.png with
+# on-disk filenames mapped via QT_RESOURCE_ALIAS.
+set_source_files_properties("${CMAKE_SOURCE_DIR}/src/AutoPilotPlugins/APM/Images/bluerov-frame.png"
+    PROPERTIES QT_RESOURCE_ALIAS "BlueROV1.png")
+set_source_files_properties("${CMAKE_SOURCE_DIR}/src/AutoPilotPlugins/APM/Images/simple3-frame.png"
+    PROPERTIES QT_RESOURCE_ALIAS "SimpleROV-3.png")
+set_source_files_properties("${CMAKE_SOURCE_DIR}/src/AutoPilotPlugins/APM/Images/simple4-frame.png"
+    PROPERTIES QT_RESOURCE_ALIAS "SimpleROV-4.png")
+set_source_files_properties("${CMAKE_SOURCE_DIR}/src/AutoPilotPlugins/APM/Images/simple5-frame.png"
+    PROPERTIES QT_RESOURCE_ALIAS "SimpleROV-5.png")
+set_source_files_properties("${CMAKE_SOURCE_DIR}/src/AutoPilotPlugins/APM/Images/vectored-frame.png"
+    PROPERTIES QT_RESOURCE_ALIAS "Vectored.png")
+set_source_files_properties("${CMAKE_SOURCE_DIR}/src/AutoPilotPlugins/APM/Images/vectored6dof-frame.png"
+    PROPERTIES QT_RESOURCE_ALIAS "Vectored6DOF.png")
+
+qt_add_resources(${CMAKE_PROJECT_NAME} autopilot_plugin_apm_frames
+    PREFIX "/qmlimages/Frames"
+    BASE "${CMAKE_SOURCE_DIR}/src/AutoPilotPlugins/APM/Images"
+    FILES
+        "${CMAKE_SOURCE_DIR}/src/AutoPilotPlugins/APM/Images/bluerov-frame.png"
+        "${CMAKE_SOURCE_DIR}/src/AutoPilotPlugins/APM/Images/simple3-frame.png"
+        "${CMAKE_SOURCE_DIR}/src/AutoPilotPlugins/APM/Images/simple4-frame.png"
+        "${CMAKE_SOURCE_DIR}/src/AutoPilotPlugins/APM/Images/simple5-frame.png"
+        "${CMAKE_SOURCE_DIR}/src/AutoPilotPlugins/APM/Images/vectored-frame.png"
+        "${CMAKE_SOURCE_DIR}/src/AutoPilotPlugins/APM/Images/vectored6dof-frame.png"
+)
+
+qt_add_resources(${CMAKE_PROJECT_NAME} autopilot_plugin_apm_qmlimages
+    PREFIX "/qmlimages"
+    BASE "${CMAKE_SOURCE_DIR}/src/AutoPilotPlugins/APM/Images"
+    FILES
+        "${CMAKE_SOURCE_DIR}/src/AutoPilotPlugins/APM/Images/ForwardingSupportIcon.svg"
+        "${CMAKE_SOURCE_DIR}/src/AutoPilotPlugins/APM/Images/ForwardingSupportIconGreen.svg"
+        "${CMAKE_SOURCE_DIR}/src/AutoPilotPlugins/APM/Images/LightsComponentIcon.png"
+        "${CMAKE_SOURCE_DIR}/src/AutoPilotPlugins/APM/Images/SubFrameComponentIcon.png"
+)

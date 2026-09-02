@@ -1,43 +1,39 @@
-# Parameters
+# 参数
 
-The _Parameters_ screen allows you to find and modify any of the parameters associated with the vehicle.
+_参数_ 屏幕（Screen）允许您找到并修改与载具相关的任何参数。
 
-![Parameters Screen](../../../assets/setup/parameters_px4.jpg)
-
-:::info
-PX4 Pro and ArduPilot use different parameter sets, but they are both managed as described in this section.
+:::tip Having trouble?
+If parameters fail to download, see [Parameter Download Failures](../troubleshooting/parameter_download.md).
 :::
 
-## Finding a Parameter
+:::info
+PX4 Pro 和 ArduPilot 使用不同的参数集，但它们都是按照本节描述的方式管理的。
+:::
 
-The parameters are organized in groups. Select a group of parameters to view by clicking on the buttons to the left (in the image above the _Battery Calibration_ group is selected).
+## 查找参数
 
-You can also _search_ for a parameter by entering a term in the _Search_ field. This will show you a list of all parameter names and descriptions that contain the entered substring (press **Clear** to reset the search).
+参数按组编排。 Select a group of parameters to view by clicking on the buttons to the left.
 
-![Parameters Search](../../../assets/setup/parameters_search.jpg)
+您也可以在 _搜索_ 字段中输入一个词来搜索参数。 这将向您显示包含输入子字符串的所有参数名称和描述列表(按 **清除** 重置搜索)。
 
 ## Changing a Parameter
 
 To change the value of a parameter click on the parameter row in a group or search list. This will open a side dialog in which you can update the value (this dialog also provides additional detailed information about the parameter - including whether a reboot is required for the change to take effect).
 
-![Changing a parameter value](../../../assets/setup/parameters_changing.png)
-
 :::info
-When you click **Save** the parameter is automatically and silently uploaded to the connected vehicle. Depending on the parameter, you may then need to reboot the flight controller for the change to take effect.
+当您点击 **保存** 时，参数会自动静默地上传到连接的载具。 对于不同的参数，你可能需要重启飞控才能使改变的参数生效。
 :::
 
-## Tools
+## 工具
 
-You can select additional options from the **Tools** menu on the top right hand side of the screen.
+您可以从屏幕右上侧的 **工具** 菜单中选择其他选项。
 
-![Tools menu](../../../assets/setup/parameters_tools_menu.png)
+**刷新** <br>重新请求所有参数值以刷新。
 
-**Refresh** <br />Refresh the parameter values by re-requesting all of them from the vehicle.
+**重置所有参数为默认值** <br>重置所有参数为原始默认值。
 
-**Reset all to defaults** <br />Reset all parameters to their original default values.
+**从文件中载入/保存到文件** <br>从现有文件中载入参数或将当前参数设置保存到文件。
 
-**Load from file / Save to file** <br />Load parameters from an existing file or save your current parameter settings to a file.
+**清除遥控器（RC）与参数关联** <br> 这将清除遥控器（RC）控制与参数之间的所有关联。 更多信息见：[无线电配置 > 参数调谐通道](../setup_view/radio.md#param-tuning-channels-px4)。
 
-**Clear RC to Param** <br />This clears all associations between RC transmitter controls and parameters. For more information see: [Radio Setup > Param Tuning Channels](../setup_view/radio.md#param-tuning-channels-px4).
-
-**Reboot Vehicle** <br />Reboot the vehicle (required after changing some parameters).
+**重启载具** <br>重启载具(更改一些参数后需要)。

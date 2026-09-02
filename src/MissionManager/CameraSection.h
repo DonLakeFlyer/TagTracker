@@ -1,12 +1,3 @@
-/****************************************************************************
- *
- * (c) 2009-2024 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
- *
- * QGroundControl is licensed according to the terms in the file
- * COPYING.md in the root of the source code directory.
- *
- ****************************************************************************/
-
 #pragma once
 
 #include "Section.h"
@@ -63,11 +54,9 @@ public:
     void setSpecifyGimbal       (bool specifyGimbal);
     void setSpecifyCameraMode   (bool specifyCameraMode);
 
-    ///< Signals specifiedGimbalYawChanged
     ///< @return The gimbal yaw specified by this item, NaN if not specified
     double specifiedGimbalYaw(void) const;
 
-    ///< Signals specifiedGimbalPitchChanged
     ///< @return The gimbal pitch specified by this item, NaN if not specified
     double specifiedGimbalPitch(void) const;
 
@@ -123,6 +112,7 @@ private:
     Fact    _cameraPhotoIntervalDistanceFact;
     Fact    _cameraPhotoIntervalTimeFact;
     Fact    _cameraModeFact;
+    int     _takePhotoSequence;
     bool    _dirty;
 
     static QMap<QString, FactMetaData*> _metaDataMap;

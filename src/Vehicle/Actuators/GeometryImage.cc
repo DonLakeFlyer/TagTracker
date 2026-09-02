@@ -1,12 +1,3 @@
-/****************************************************************************
- *
- * (c) 2009-2024 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
- *
- * QGroundControl is licensed according to the terms in the file
- * COPYING.md in the root of the source code directory.
- *
- ****************************************************************************/
-
 #include "GeometryImage.h"
 
 #include <QtCore/QDir>
@@ -122,12 +113,12 @@ void VehicleGeometryImageProvider::drawAxisIndicator(QPainter& p, const QPointF&
     p.setFont(font);
 
     auto drawArrow = [&](const QPointF& start, const QPointF& end) {
-        float lineLength = QLineF{start, end}.length();
+        float arrowLineLength = QLineF{start, end}.length();
         p.save();
         p.translate(end);
         float angle = atan2f(end.y()-start.y(), end.x()-start.x());
         p.rotate(angle * (180.f / M_PI) + 90.f);
-        p.drawLine(QPointF{0, arrowHeight/2}, QPointF{0, lineLength});
+        p.drawLine(QPointF{0, arrowHeight/2}, QPointF{0, arrowLineLength});
         QPointF arrow[3] = {
             QPointF{0.f - arrowWidth/2.f, arrowHeight},
             QPointF{0.f, 0.f},
@@ -164,6 +155,10 @@ void VehicleGeometryImageProvider::drawAxisIndicator(QPainter& p, const QPointF&
 
 QPixmap VehicleGeometryImageProvider::requestPixmap([[maybe_unused]] const QString& id, QSize* size, const QSize& requestedSize)
 {
+    // For some reason even though we specify a sourceSize.width/height for the image the requestSize comes through at twice that size.
+    // Because of that we need to remember the requested size and use it later to scale click positions.
+
+    _imageSize = requestedSize;
     int width = requestedSize.width();
     int height = requestedSize.height();
     if (size)
@@ -255,9 +250,9 @@ QPixmap VehicleGeometryImageProvider::requestPixmap([[maybe_unused]] const QStri
     const QColor rotorHighlightColor{ frameArrowColor };
     const QColor fontColor{ _palette.text() };
 
-    auto iterateMotors = [scale, offsetX, offsetY](const QList<ActuatorGeometry> &actuators,
+    auto iterateMotors = [scale, offsetX, offsetY](const QList<ActuatorGeometry> &actuatorsList,
             std::function<void(const ActuatorGeometry&, QPointF)> draw) {
-                for (const auto& actuator : actuators) {
+                for (const auto& actuator : actuatorsList) {
                     if (actuator.type == ActuatorGeometry::Type::Motor) {
                         QPointF pos{
                             offsetX + actuator.position.y()*scale,
@@ -339,8 +334,8 @@ QPixmap VehicleGeometryImageProvider::requestPixmap([[maybe_unused]] const QStri
 
         // spin direction arrows
         int angle = 50;// angle for the whole arc
-        float arrowWidth = frameWidth;
-        float arrowHeight = frameWidth * 1.25f;
+        float spinArrowWidth = frameWidth;
+        float spinArrowHeight = frameWidth * 1.25f;
         float arrowPosition = rotorDiameter / 2.f;
         p.setPen(QPen{arrowColor, 2.5f});
         p.setBrush(arrowColor);
@@ -362,12 +357,12 @@ QPixmap VehicleGeometryImageProvider::requestPixmap([[maybe_unused]] const QStri
             }
             QRectF arrowRect{-arrowPosition, -arrowPosition, arrowPosition * 2.f, arrowPosition * 2.f};
             p.drawArc(arrowRect, 0, -ySign * 16 * angle);
-            QPointF arrow[3] = {
-                QPointF{arrowPosition - arrowWidth/2.f, ySign*arrowHeight/2.f},
-                QPointF{arrowPosition,                  -ySign*arrowHeight/2.f},
-                QPointF{arrowPosition + arrowWidth/2.f, ySign*arrowHeight/2.f},
+            QPointF spinArrow[3] = {
+                QPointF{arrowPosition - spinArrowWidth/2.f, ySign*spinArrowHeight/2.f},
+                QPointF{arrowPosition,                  -ySign*spinArrowHeight/2.f},
+                QPointF{arrowPosition + spinArrowWidth/2.f, ySign*spinArrowHeight/2.f},
             };
-            p.drawConvexPolygon(arrow, sizeof(arrow) / sizeof(arrow[0]));
+            p.drawConvexPolygon(spinArrow, sizeof(spinArrow) / sizeof(spinArrow[0]));
             p.restore();
         }
     };
@@ -394,13 +389,22 @@ VehicleGeometryImageProvider* VehicleGeometryImageProvider::instance()
     return instance;
 }
 
-int VehicleGeometryImageProvider::getHighlightedMotorIndexAtPos(const QPointF &position)
+int VehicleGeometryImageProvider::getHighlightedMotorIndexAtPos(const QSizeF& displaySize, const QPointF &position)
 {
+    // We have to scale the click position to take into account displaySize versus imageSize scaling
+    if (_imageSize.isEmpty()) {
+        qWarning() << "Image size is not set, cannot scale position";
+        return -1;
+    }
+    float scaleX = static_cast<float>(displaySize.width()) / _imageSize.width();
+    float scaleY = static_cast<float>(displaySize.height()) / _imageSize.height();
+    QPointF scaledPosition = QPointF{position.x() / scaleX, position.y() / scaleY};
+
     int foundIdx = -1;
     for (int i = 0; i < _actuatorImagePositions.size(); ++i) {
         if (_actuatorImagePositions[i].type == ActuatorGeometry::Type::Motor) {
             float radius = _actuatorImagePositions[i].radius;
-            if (QLineF{_actuatorImagePositions[i].position, position}.length() < radius) {
+            if (QLineF{_actuatorImagePositions[i].position, scaledPosition}.length() < radius) {
                 // in case of multiple matches (overlaps), be safe and do not return any match
                 if (foundIdx != -1) {
                     return -1;

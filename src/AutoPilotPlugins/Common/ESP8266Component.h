@@ -1,12 +1,3 @@
-/****************************************************************************
- *
- * (c) 2009-2024 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
- *
- * QGroundControl is licensed according to the terms in the file
- * COPYING.md in the root of the source code directory.
- *
- ****************************************************************************/
-
 #pragma once
 
 #include "VehicleComponent.h"
@@ -24,8 +15,8 @@ public:
     QString iconResource() const final { return QStringLiteral("/qmlimages/wifi.svg"); }
     bool requiresSetup() const final { return false; }
     bool setupComplete() const final { return true; }
-    QUrl setupSource() const final { return QUrl::fromUserInput("qrc:/qml/ESP8266Component.qml"); }
-    QUrl summaryQmlSource() const final { return QUrl::fromUserInput("qrc:/qml/ESP8266ComponentSummary.qml"); }
+    QUrl setupSource() const final { return QUrl::fromUserInput("qrc:/qml/QGroundControl/AutoPilotPlugins/Common/ESP8266Component.qml"); }
+    QUrl summaryQmlSource() const final { return QUrl::fromUserInput("qrc:/qml/QGroundControl/AutoPilotPlugins/Common/ESP8266ComponentSummary.qml"); }
 
 private:
     const QString _name;

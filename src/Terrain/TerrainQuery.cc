@@ -1,12 +1,3 @@
-/****************************************************************************
- *
- * (c) 2009-2024 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
- *
- * QGroundControl is licensed according to the terms in the file
- * COPYING.md in the root of the source code directory.
- *
- ****************************************************************************/
-
 #include "TerrainQuery.h"
 #include "TerrainQueryInterface.h"
 #include "TerrainTileManager.h"
@@ -14,8 +5,8 @@
 
 #include <QtCore/QTimer>
 
-QGC_LOGGING_CATEGORY(TerrainQueryLog, "qgc.terrain.terrainquery")
-QGC_LOGGING_CATEGORY(TerrainQueryVerboseLog, "qgc.terrain.terrainquery.verbose")
+QGC_LOGGING_CATEGORY(TerrainQueryLog, "Terrain.TerrainQuery")
+QGC_LOGGING_CATEGORY(TerrainQueryVerboseLog, "Terrain.TerrainQuery:verbose")
 
 Q_GLOBAL_STATIC(TerrainAtCoordinateBatchManager, _terrainAtCoordinateBatchManager)
 
@@ -24,7 +15,7 @@ TerrainAtCoordinateBatchManager::TerrainAtCoordinateBatchManager(QObject *parent
     , _batchTimer(new QTimer(this))
     , _terrainQuery(new TerrainOfflineQuery(this))
 {
-    // qCDebug(TerrainQueryLog) << Q_FUNC_INFO << this;
+    qCDebug(TerrainQueryLog) << this;
 
     _batchTimer->setSingleShot(true);
     _batchTimer->setInterval(_batchTimeout);
@@ -35,7 +26,7 @@ TerrainAtCoordinateBatchManager::TerrainAtCoordinateBatchManager(QObject *parent
 
 TerrainAtCoordinateBatchManager::~TerrainAtCoordinateBatchManager()
 {
-    // qCDebug(TerrainQueryLog) << Q_FUNC_INFO << this;
+    qCDebug(TerrainQueryLog) << this;
 }
 
 TerrainAtCoordinateBatchManager *TerrainAtCoordinateBatchManager::instance()
@@ -49,7 +40,6 @@ void TerrainAtCoordinateBatchManager::addQuery(TerrainAtCoordinateQuery *terrain
         return;
     }
 
-    (void) connect(terrainAtCoordinateQuery, &TerrainAtCoordinateQuery::destroyed, this, &TerrainAtCoordinateBatchManager::_queryObjectDestroyed);
     const QueuedRequestInfo_t queuedRequestInfo = {
         terrainAtCoordinateQuery,
         coordinates
@@ -80,23 +70,19 @@ void TerrainAtCoordinateBatchManager::_sendNextBatch()
 
     // Convert coordinates to point strings for json query
     QList<QGeoCoordinate> coords;
-    int requestQueueAdded = 0;
     while (!_requestQueue.isEmpty()) {
         const QueuedRequestInfo_t requestInfo = _requestQueue.dequeue();
         const SentRequestInfo_t sentRequestInfo = {
             requestInfo.terrainAtCoordinateQuery,
-            false,
             requestInfo.coordinates.count()
         };
         (void) _sentRequests.append(sentRequestInfo);
         coords += requestInfo.coordinates;
-        requestQueueAdded++;
         if (coords.count() > 50) {
             break;
         }
     }
 
-    (void) _requestQueue.append(_requestQueue.mid(requestQueueAdded));
     qCDebug(TerrainQueryLog) << Q_FUNC_INFO << "requesting next batch _state:_requestQueue.count:_sentRequests.count" << _stateToString(_state) << _requestQueue.count() << _sentRequests.count();
 
     _state = TerrainQuery::State::Downloading;
@@ -108,36 +94,12 @@ void TerrainAtCoordinateBatchManager::_batchFailed()
     const QList<double> noHeights;
 
     for (const SentRequestInfo_t &sentRequestInfo: _sentRequests) {
-        if (!sentRequestInfo.queryObjectDestroyed) {
-            (void) disconnect(sentRequestInfo.terrainAtCoordinateQuery, &TerrainAtCoordinateQuery::destroyed, this, &TerrainAtCoordinateBatchManager::_queryObjectDestroyed);
+        if (!sentRequestInfo.terrainAtCoordinateQuery.isNull()) {
             sentRequestInfo.terrainAtCoordinateQuery->signalTerrainData(false, noHeights);
         }
     }
 
     _sentRequests.clear();
-}
-
-void TerrainAtCoordinateBatchManager::_queryObjectDestroyed(QObject *terrainAtCoordinateQuery)
-{
-    qCDebug(TerrainQueryLog) << Q_FUNC_INFO << "TerrainAtCoordinateQuery" << terrainAtCoordinateQuery;
-
-    int i = 0;
-    while (i < _requestQueue.count()) {
-        const QueuedRequestInfo_t &requestInfo = _requestQueue[i];
-        if (requestInfo.terrainAtCoordinateQuery == terrainAtCoordinateQuery) {
-            qCDebug(TerrainQueryLog) << "Removing deleted provider from _requestQueue index:terrainAtCoordinateQuery" << i << requestInfo.terrainAtCoordinateQuery;
-            (void) _requestQueue.removeAt(i);
-        } else {
-            i++;
-        }
-    }
-
-    for (SentRequestInfo_t &sentRequestInfo : _sentRequests) {
-        if (sentRequestInfo.terrainAtCoordinateQuery == terrainAtCoordinateQuery) {
-            qCDebug(TerrainQueryLog) << "Zombieing deleted provider from _sentRequests index:terrainAtCoordinateQuery" << sentRequestInfo.terrainAtCoordinateQuery;
-            sentRequestInfo.queryObjectDestroyed = true;
-        }
-    }
 }
 
 QString TerrainAtCoordinateBatchManager::_stateToString(TerrainQuery::State state)
@@ -167,14 +129,11 @@ void TerrainAtCoordinateBatchManager::_coordinateHeights(bool success, const QLi
 
     int currentIndex = 0;
     for (const SentRequestInfo_t &sentRequestInfo: _sentRequests) {
-        if (sentRequestInfo.queryObjectDestroyed) {
-            continue;
+        if (!sentRequestInfo.terrainAtCoordinateQuery.isNull()) {
+            qCDebug(TerrainQueryVerboseLog) << Q_FUNC_INFO << "returned TerrainCoordinateQuery:count" << sentRequestInfo.terrainAtCoordinateQuery << sentRequestInfo.cCoord;
+            const QList<double> requestAltitudes = heights.mid(currentIndex, sentRequestInfo.cCoord);
+            sentRequestInfo.terrainAtCoordinateQuery->signalTerrainData(true, requestAltitudes);
         }
-
-        qCDebug(TerrainQueryVerboseLog) << Q_FUNC_INFO << "returned TerrainCoordinateQuery:count" << sentRequestInfo.terrainAtCoordinateQuery << sentRequestInfo.cCoord;
-        (void) disconnect(sentRequestInfo.terrainAtCoordinateQuery, &TerrainAtCoordinateQuery::destroyed, this, &TerrainAtCoordinateBatchManager::_queryObjectDestroyed);
-        const QList<double> requestAltitudes = heights.mid(currentIndex, sentRequestInfo.cCoord);
-        sentRequestInfo.terrainAtCoordinateQuery->signalTerrainData(true, requestAltitudes);
         currentIndex += sentRequestInfo.cCoord;
     }
     _sentRequests.clear();
@@ -190,12 +149,12 @@ TerrainAtCoordinateQuery::TerrainAtCoordinateQuery(bool autoDelete, QObject *par
     : QObject(parent)
     , _autoDelete(autoDelete)
 {
-    // qCDebug(TerrainQueryLog) << Q_FUNC_INFO << this;
+    qCDebug(TerrainQueryLog) << this;
 }
 
 TerrainAtCoordinateQuery::~TerrainAtCoordinateQuery()
 {
-    // qCDebug(TerrainQueryLog) << Q_FUNC_INFO << this;
+    qCDebug(TerrainQueryLog) << this;
 }
 
 void TerrainAtCoordinateQuery::requestData(const QList<QGeoCoordinate> &coordinates)
@@ -223,18 +182,19 @@ void TerrainAtCoordinateQuery::signalTerrainData(bool success, const QList<doubl
 /*===========================================================================*/
 
 TerrainPathQuery::TerrainPathQuery(bool autoDelete, QObject *parent)
-   : QObject(parent)
-   , _autoDelete(autoDelete)
-   , _terrainQuery(new TerrainOfflineQuery(this))
+    : QObject(parent)
+    , _autoDelete(autoDelete)
+    , _terrainQuery(new TerrainOfflineQuery(this))
 {
-    // qCDebug(TerrainQueryLog) << Q_FUNC_INFO << this;
+    qCDebug(TerrainQueryLog) << this;
 
+    qRegisterMetaType<TerrainPathQuery::PathHeightInfo_t>();
     (void) connect(_terrainQuery, &TerrainQueryInterface::pathHeightsReceived, this, &TerrainPathQuery::_pathHeights);
 }
 
 TerrainPathQuery::~TerrainPathQuery()
 {
-    // qCDebug(TerrainQueryLog) << Q_FUNC_INFO << this;
+    qCDebug(TerrainQueryLog) << this;
 }
 
 void TerrainPathQuery::requestData(const QGeoCoordinate &fromCoord, const QGeoCoordinate &toCoord)
@@ -256,19 +216,55 @@ void TerrainPathQuery::_pathHeights(bool success, double distanceBetween, double
 
 /*===========================================================================*/
 
+TerrainAreaQuery::TerrainAreaQuery(bool autoDelete, QObject *parent)
+    : QObject(parent)
+    , _autoDelete(autoDelete)
+    , _terrainQuery(new TerrainOfflineQuery(this))
+{
+    qCDebug(TerrainQueryLog) << this;
+
+    qRegisterMetaType<TerrainAreaQuery::CarpetHeightInfo_t>();
+    (void) connect(_terrainQuery, &TerrainQueryInterface::carpetHeightsReceived, this, &TerrainAreaQuery::_carpetHeights);
+}
+
+TerrainAreaQuery::~TerrainAreaQuery()
+{
+    qCDebug(TerrainQueryLog) << this;
+}
+
+void TerrainAreaQuery::requestData(const QGeoCoordinate &swCoord, const QGeoCoordinate &neCoord)
+{
+    _terrainQuery->requestCarpetHeights(swCoord, neCoord, false /* statsOnly */);
+}
+
+void TerrainAreaQuery::_carpetHeights(bool success, double minHeight, double maxHeight, const QList<QList<double>> &carpet)
+{
+    CarpetHeightInfo_t carpetHeightInfo;
+    carpetHeightInfo.minHeight = minHeight;
+    carpetHeightInfo.maxHeight = maxHeight;
+    carpetHeightInfo.carpet = carpet;
+    emit terrainDataReceived(success, carpetHeightInfo);
+    if (_autoDelete) {
+        deleteLater();
+    }
+}
+
+/*===========================================================================*/
+
 TerrainPolyPathQuery::TerrainPolyPathQuery(bool autoDelete, QObject *parent)
     : QObject(parent)
     , _autoDelete(autoDelete)
     , _pathQuery(new TerrainPathQuery(false, this))
 {
-    // qCDebug(TerrainQueryLog) << Q_FUNC_INFO << this;
+    qCDebug(TerrainQueryLog) << this;
 
+    qRegisterMetaType<QList<TerrainPathQuery::PathHeightInfo_t>>();
     (void) connect(_pathQuery, &TerrainPathQuery::terrainDataReceived, this, &TerrainPolyPathQuery::_terrainDataReceived);
 }
 
 TerrainPolyPathQuery::~TerrainPolyPathQuery()
 {
-    // qCDebug(TerrainQueryLog) << Q_FUNC_INFO << this;
+    qCDebug(TerrainQueryLog) << this;
 }
 
 void TerrainPolyPathQuery::requestData(const QVariantList &polyPath)
@@ -285,6 +281,15 @@ void TerrainPolyPathQuery::requestData(const QVariantList &polyPath)
 void TerrainPolyPathQuery::requestData(const QList<QGeoCoordinate> &polyPath)
 {
     qCDebug(TerrainQueryLog) << Q_FUNC_INFO << "count" << polyPath.count();
+
+    if (polyPath.count() < 2) {
+        qCWarning(TerrainQueryLog) << Q_FUNC_INFO << "polyPath requires at least 2 coordinates";
+        emit terrainDataReceived(false, _rgPathHeightInfo);
+        if (_autoDelete) {
+            deleteLater();
+        }
+        return;
+    }
 
     _rgCoords = polyPath;
     _curIndex = 0;

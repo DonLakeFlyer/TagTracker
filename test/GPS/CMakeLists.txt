@@ -1,17 +1,59 @@
-find_package(Qt6 REQUIRED COMPONENTS Core Positioning Test)
+# ============================================================================
+# GPS Unit Tests
+# Tests for GPS/GNSS positioning and RTK corrections
+# ============================================================================
 
-qt_add_library(GpsTest
-    STATIC
-        GpsTest.cc
-        GpsTest.h
-)
-
-target_link_libraries(GpsTest
+target_sources(${CMAKE_PROJECT_NAME}
     PRIVATE
-        Qt6::Test
-        GPS
-    PUBLIC
-        qgcunittest
+        GpsTestHelpers.h
+        MockNTRIPTransport.h
+        NTRIPManagerTest.cc
+        NTRIPManagerTest.h
+        NTRIPSourceTableTest.cc
+        NTRIPSourceTableTest.h
+        NTRIPHttpTransportTest.cc
+        NTRIPHttpTransportTest.h
+        NTRIPConnectionStatsTest.cc
+        NTRIPConnectionStatsTest.h
+        NTRIPGgaProviderTest.cc
+        NTRIPGgaProviderTest.h
+        NTRIPSourceTableControllerTest.cc
+        NTRIPSourceTableControllerTest.h
+        UdpForwarderTest.cc
+        UdpForwarderTest.h
+        RTCMParserTest.cc
+        RTCMParserTest.h
+        RTCMMavlinkTest.cc
+        RTCMMavlinkTest.h
+        RTCMUdpInputTest.cc
+        RTCMUdpInputTest.h
 )
 
-target_include_directories(GpsTest PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+add_qgc_test(RTCMParserTest LABELS Unit)
+add_qgc_test(RTCMMavlinkTest LABELS Unit)
+add_qgc_test(RTCMUdpInputTest LABELS Unit)
+add_qgc_test(NTRIPManagerTest LABELS Unit)
+add_qgc_test(NTRIPHttpTransportTest LABELS Unit)
+add_qgc_test(NTRIPSourceTableTest LABELS Unit)
+add_qgc_test(NTRIPConnectionStatsTest LABELS Unit)
+add_qgc_test(NTRIPGgaProviderTest LABELS Unit)
+add_qgc_test(NTRIPSourceTableControllerTest LABELS Unit)
+add_qgc_test(UdpForwarderTest LABELS Unit)
+
+# GPSDriver facade test exercises the px4 bridge — only built when the Driver layer is.
+if(NOT QGC_NO_SERIAL_LINK)
+    target_sources(${CMAKE_PROJECT_NAME}
+        PRIVATE
+            GPSDriverTest.cc
+            GPSDriverTest.h
+            GPSRtkTest.cc
+            GPSRtkTest.h
+            SerialGPSTransportTest.cc
+            SerialGPSTransportTest.h
+    )
+    add_qgc_test(GPSDriverTest LABELS Unit)
+    add_qgc_test(GPSRtkTest LABELS Unit)
+    add_qgc_test(SerialGPSTransportTest LABELS Unit)
+endif()

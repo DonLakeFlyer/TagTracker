@@ -1,58 +1,52 @@
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Positioning Qml)
+# ============================================================================
+# Vehicle Module
+# Core vehicle state management and MAVLink communication
+# ============================================================================
 
-qt_add_library(Vehicle STATIC
-    Autotune.cpp
-    Autotune.h
-    FTPManager.cc
-    FTPManager.h
-    InitialConnectStateMachine.cc
-    InitialConnectStateMachine.h
-    MAVLinkLogManager.cc
-    MAVLinkLogManager.h
-    MultiVehicleManager.cc
-    MultiVehicleManager.h
-    RemoteIDManager.cc
-    RemoteIDManager.h
-    StandardModes.cc
-    StandardModes.h
-    TerrainProtocolHandler.cc
-    TerrainProtocolHandler.h
-    TrajectoryPoints.cc
-    TrajectoryPoints.h
-    Vehicle.cc
-    Vehicle.h
-    VehicleLinkManager.cc
-    VehicleLinkManager.h
-    VehicleObjectAvoidance.cc
-    VehicleObjectAvoidance.h
-)
-
-target_link_libraries(Vehicle
+target_sources(${CMAKE_PROJECT_NAME}
     PRIVATE
-        Qt6::Qml
-        ADSB
-        API
-        AutoPilotPlugins
-        Camera
-        Joystick
-        MockLink
-        PositionManager
-        UTMSP
-        VideoManager
-    PUBLIC
-        Qt6::Core
-        Qt6::Gui
-        Qt6::Positioning
-        Comms
-        FactSystem
-        FirmwarePlugin
-        Gimbal
-        MAVLink
-        MissionManager
-        Utilities
+        Autotune.cpp
+        Autotune.h
+        FTPController.cc
+        FTPController.h
+        FTPManager.cc
+        FTPManager.h
+        InitialConnectStateMachine.cc
+        InitialConnectStateMachine.h
+        MavCommandQueue.cc
+        MavCommandQueue.h
+        MAVLinkLogManager.cc
+        MAVLinkLogManager.h
+        MessageIntervalManager.cc
+        MessageIntervalManager.h
+        MultiVehicleManager.cc
+        MultiVehicleManager.h
+        RemoteIDManager.cc
+        RemoteIDManager.h
+        RequestMessageCoordinator.cc
+        RequestMessageCoordinator.h
+        StandardModes.cc
+        StandardModes.h
+        TerrainProtocolHandler.cc
+        TerrainProtocolHandler.h
+        TerrainQueryCoordinator.cc
+        TerrainQueryCoordinator.h
+        TrajectoryPoints.cc
+        TrajectoryPoints.h
+        Vehicle.cc
+        Vehicle.h
+        VehicleLinkManager.cc
+        VehicleLinkManager.h
+        VehicleObjectAvoidance.cc
+        VehicleObjectAvoidance.h
+        VehicleSigningController.cc
+        VehicleSigningController.h
+        VehicleSupports.cc
+        VehicleSupports.h
+        VehicleTypes.h
 )
 
-target_include_directories(Vehicle PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_subdirectory(Actuators)
 add_subdirectory(ComponentInformation)

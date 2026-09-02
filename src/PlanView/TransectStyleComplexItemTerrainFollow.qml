@@ -3,9 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 import QGroundControl
-import QGroundControl.ScreenTools
 import QGroundControl.Controls
-import QGroundControl.FactSystem
 import QGroundControl.FactControls
 
 ColumnLayout {
@@ -20,23 +18,29 @@ ColumnLayout {
 
         onClicked: {
             var removeModes = []
-            var updateFunction = function(altMode){ missionItem.cameraCalc.distanceMode = altMode }
-            removeModes.push(QGroundControl.AltitudeModeMixed)
-            if (!missionItem.masterController.controllerVehicle.supportsTerrainFrame) {
-                removeModes.push(QGroundControl.AltitudeModeTerrainFrame)
+            var updateFunction = function(altFrame){ missionItem.cameraCalc.distanceMode = altFrame }
+            removeModes.push(QGroundControl.AltitudeFrameMixed)
+            if (!missionItem.masterController.controllerVehicle.supports.terrainFrame) {
+                removeModes.push(QGroundControl.AltitudeFrameTerrain)
             }
-            if (!QGroundControl.corePlugin.options.showMissionAbsoluteAltitude || !_missionItem.cameraCalc.isManualCamera) {
-                removeModes.push(QGroundControl.AltitudeModeAbsolute)
+            if (!QGroundControl.corePlugin.options.showMissionAbsoluteAltitude || !missionItem.cameraCalc.isManualCamera) {
+                removeModes.push(QGroundControl.AltitudeFrameAbsolute)
             }
-            altModeDialogComponent.createObject(mainWindow, { rgRemoveModes: removeModes, updateAltModeFn: updateFunction }).open()
+            altFrameDialogFactory.open({ currentAltFrame: missionItem.cameraCalc.distanceMode, rgRemoveModes: removeModes, updateAltFrameFn: updateFunction })
         }
 
-        Component { id: altModeDialogComponent; AltModeDialog { } }
+        QGCPopupDialogFactory {
+            id: altFrameDialogFactory
+
+            dialogComponent: altFrameDialogComponent
+        }
+
+        Component { id: altFrameDialogComponent; AltFrameDialog { } }
 
         RowLayout {
             spacing: ScreenTools.defaultFontPixelWidth / 2
 
-            QGCLabel { text: QGroundControl.altitudeModeShortDescription(missionItem.cameraCalc.distanceMode) }
+            QGCLabel { text: QGroundControl.altitudeFrameShortDescription(missionItem.cameraCalc.distanceMode) }
             QGCColoredImage {
                 height:     ScreenTools.defaultFontPixelHeight / 2
                 width:      height
@@ -51,7 +55,7 @@ ColumnLayout {
         columnSpacing:      _margin
         rowSpacing:         _margin
         columns:            2
-        enabled:            missionItem.cameraCalc.distanceMode === QGroundControl.AltitudeModeCalcAboveTerrain
+        enabled:            missionItem.cameraCalc.distanceMode === QGroundControl.AltitudeFrameCalcAboveTerrain
 
         QGCLabel { text: qsTr("Tolerance") }
         FactTextField {

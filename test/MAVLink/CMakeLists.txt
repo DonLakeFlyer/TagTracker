@@ -1,18 +1,31 @@
-find_package(Qt6 REQUIRED COMPONENTS Core)
+# ============================================================================
+# MAVLink Unit Tests
+# Tests for MAVLink protocol, status text handling, and message signing
+# ============================================================================
 
-qt_add_library(MAVLinkTest STATIC
-    StatusTextHandlerTest.cc
-    StatusTextHandlerTest.h
-    SigningTest.cc
-    SigningTest.h
-)
-
-target_link_libraries(MAVLinkTest
+target_sources(${CMAKE_PROJECT_NAME}
     PRIVATE
-        Qt6::Test
-        MAVLink
-    PUBLIC
-        qgcunittest
+        HealthAndArmingCheckReportTest.cc
+        HealthAndArmingCheckReportTest.h
+        ImageProtocolManagerTest.cc
+        ImageProtocolManagerTest.h
+        MAVLinkStreamConfigTest.cc
+        MAVLinkStreamConfigTest.h
+        QGCMAVLinkTest.cc
+        QGCMAVLinkTest.h
+        StatusTextHandlerTest.cc
+        StatusTextHandlerTest.h
+        SysStatusSensorInfoTest.cc
+        SysStatusSensorInfoTest.h
 )
 
-target_include_directories(MAVLinkTest PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+add_subdirectory(Signing)
+
+add_qgc_test(HealthAndArmingCheckReportTest LABELS Unit MAVLink)
+add_qgc_test(ImageProtocolManagerTest LABELS Unit MAVLink)
+add_qgc_test(MAVLinkStreamConfigTest LABELS Unit MAVLink)
+add_qgc_test(QGCMAVLinkTest LABELS Unit MAVLink)
+add_qgc_test(StatusTextHandlerTest LABELS Unit MAVLink)
+add_qgc_test(SysStatusSensorInfoTest LABELS Unit MAVLink)

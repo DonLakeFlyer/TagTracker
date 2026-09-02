@@ -1,25 +1,21 @@
-find_package(Qt6 REQUIRED COMPONENTS Core Test)
+# ============================================================================
+# ADSB Unit Tests
+# Tests for ADS-B traffic detection and collision avoidance
+# ============================================================================
 
-qt_add_library(ADSBTest
-    STATIC
+target_sources(${CMAKE_PROJECT_NAME}
+    PRIVATE
         ADSBTest.cc
         ADSBTest.h
 )
 
-target_link_libraries(ADSBTest
-    PRIVATE
-        Qt6::Core
-        Qt6::Test
-        ADSB
-        QmlControls
-    PUBLIC
-        qgcunittest
-)
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
-target_include_directories(ADSBTest PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+# TODO: Enable ADSB simulator test resources
+# qt_add_resources(${CMAKE_PROJECT_NAME} "ADSBTest_res"
+#     PREFIX "/unittest"
+#     FILES
+#         ADSB_Simulator.py
+# )
 
-qt_add_resources(ADSBTest "ADSBTest_res"
-    PREFIX "/"
-    FILES
-        ADSB_Simulator.py
-)
+add_qgc_test(ADSBTest LABELS Unit)

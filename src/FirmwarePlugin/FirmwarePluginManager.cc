@@ -1,26 +1,13 @@
-/****************************************************************************
- *
- * (c) 2009-2024 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
- *
- * QGroundControl is licensed according to the terms in the file
- * COPYING.md in the root of the source code directory.
- *
- ****************************************************************************/
-
-
-/// @file
-///     @author Don Gagne <don@thegagnes.com>
-
 #include "FirmwarePluginManager.h"
 #include "FirmwarePlugin.h"
 #include "FirmwarePluginFactory.h"
 #include "QGCLoggingCategory.h"
 
-#include <QtCore/qapplicationstatic.h>
+#include <QtCore/QGlobalStatic>
 
-QGC_LOGGING_CATEGORY(FirmwarePluginManagerLog, "qgc.firmwareplugin.firmwarepluginmanager");
+QGC_LOGGING_CATEGORY(FirmwarePluginManagerLog, "FirmwarePlugin.FirmwarePluginManager");
 
-Q_APPLICATION_STATIC(FirmwarePluginManager, _firmwarePluginManagerInstance);
+Q_GLOBAL_STATIC(FirmwarePluginManager, _firmwarePluginManagerInstance);
 
 FirmwarePluginManager::FirmwarePluginManager(QObject *parent)
     : QObject(parent)
@@ -31,8 +18,6 @@ FirmwarePluginManager::FirmwarePluginManager(QObject *parent)
 FirmwarePluginManager::~FirmwarePluginManager()
 {
     // qCDebug(FirmwarePluginManagerLog) << Q_FUNC_INFO << this;
-
-    delete _genericFirmwarePlugin;
 }
 
 FirmwarePluginManager *FirmwarePluginManager::instance()
@@ -51,6 +36,22 @@ QList<QGCMAVLink::FirmwareClass_t> FirmwarePluginManager::supportedFirmwareClass
     }
 
     return _supportedFirmwareClasses;
+}
+
+bool FirmwarePluginManager::firmwareClassSupported(QGCMAVLink::FirmwareClass_t firmwareClass)
+{
+    return supportedFirmwareClasses().contains(firmwareClass);
+}
+
+bool FirmwarePluginManager::singleFirmwareSupport()
+{
+    return supportedFirmwareClasses().count() == 1;
+}
+
+bool FirmwarePluginManager::singleVehicleSupport()
+{
+    const QList<QGCMAVLink::FirmwareClass_t> firmwareClasses = supportedFirmwareClasses();
+    return (firmwareClasses.count() == 1) && (supportedVehicleClasses(firmwareClasses[0]).count() == 1);
 }
 
 QList<QGCMAVLink::VehicleClass_t> FirmwarePluginManager::supportedVehicleClasses(QGCMAVLink::FirmwareClass_t firmwareClass)
@@ -81,9 +82,8 @@ FirmwarePlugin *FirmwarePluginManager::firmwarePluginForAutopilot(MAV_AUTOPILOT 
     }
 
     if (!plugin) {
-        // Default plugin fallback
         if (!_genericFirmwarePlugin) {
-            _genericFirmwarePlugin = new FirmwarePlugin();
+            _genericFirmwarePlugin = new FirmwarePlugin(this);
         }
         plugin = _genericFirmwarePlugin;
     }
@@ -95,7 +95,6 @@ FirmwarePluginFactory *FirmwarePluginManager::_findPluginFactory(QGCMAVLink::Fir
 {
     const QList<FirmwarePluginFactory*> factoryList = FirmwarePluginFactoryRegister::instance()->pluginFactories();
 
-    // Find the plugin which supports this vehicle
     for (FirmwarePluginFactory *factory: factoryList) {
         if (factory->supportedFirmwareClasses().contains(firmwareClass)) {
             return factory;

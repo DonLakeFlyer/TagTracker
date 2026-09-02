@@ -3,10 +3,8 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 import QGroundControl
-import QGroundControl.ScreenTools
 import QGroundControl.Controls
 import QGroundControl.FactControls
-import QGroundControl.Palette
 
 // Camera calculator "Grid" section for mission item editors
 Column {
@@ -89,7 +87,7 @@ Column {
 
             AltitudeFactTextField {
                 fact:                       cameraCalc.distanceToSurface
-                altitudeMode:               cameraCalc.distanceMode
+                altitudeFrame:               cameraCalc.distanceMode
                 enabled:                    fixedDistanceRadio.checked
                 Layout.fillWidth:           true
             }
@@ -122,7 +120,7 @@ Column {
         QGCLabel { text: distanceToSurfaceLabel }
         AltitudeFactTextField {
             fact:                       cameraCalc.distanceToSurface
-            altitudeMode:               cameraCalc.distanceMode
+            altitudeFrame:               cameraCalc.distanceMode
             Layout.fillWidth:           true
         }
 

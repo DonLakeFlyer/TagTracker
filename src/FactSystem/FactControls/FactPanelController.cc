@@ -1,12 +1,3 @@
-/****************************************************************************
- *
- * (c) 2009-2024 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
- *
- * QGroundControl is licensed according to the terms in the file
- * COPYING.md in the root of the source code directory.
- *
- ****************************************************************************/
-
 #include "FactPanelController.h"
 #include "AutoPilotPlugin.h"
 #include "MultiVehicleManager.h"
@@ -17,7 +8,7 @@
 
 #include <QtQml/QQmlEngine>
 
-QGC_LOGGING_CATEGORY(FactPanelControllerLog, "qgc.factsystem.factcontrols.factpanelcontroller")
+QGC_LOGGING_CATEGORY(FactPanelControllerLog, "FactSystem.FactPanelController")
 
 FactPanelController::FactPanelController(QObject *parent)
     : QObject(parent)
@@ -25,9 +16,7 @@ FactPanelController::FactPanelController(QObject *parent)
 {
     // qCDebug(FactPanelControllerLog) << Q_FUNC_INFO << this;
 
-    if (_vehicle) {
-        _autopilot = _vehicle->autopilotPlugin();
-    } else {
+    if (!_vehicle) {
         _vehicle = MultiVehicleManager::instance()->offlineEditingVehicle();
     }
 
@@ -48,7 +37,7 @@ void FactPanelController::_reportMissingParameter(int componentId, const QString
     }
 
     qgcApp()->reportMissingParameter(componentId, name);
-    qCWarning(FactPanelControllerLog) << "Missing parameter:" << QStringLiteral("%1:%2").arg(componentId).arg(name);
+    qCWarning(FactPanelControllerLog) << "Missing parameter:" << componentId << name;
 }
 
 bool FactPanelController::_allParametersExists(int componentId, const QStringList &names) const

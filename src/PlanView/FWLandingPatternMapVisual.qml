@@ -1,12 +1,3 @@
-/****************************************************************************
- *
- * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
- *
- * QGroundControl is licensed according to the terms in the file
- * COPYING.md in the root of the source code directory.
- *
- ****************************************************************************/
-
 import QtQuick
 import QtQuick.Controls
 import QtLocation
@@ -14,8 +5,6 @@ import QtPositioning
 import QtQuick.Layouts
 
 import QGroundControl
-import QGroundControl.ScreenTools
-import QGroundControl.Palette
 import QGroundControl.Controls
 import QGroundControl.FlightMap
 
@@ -24,6 +13,7 @@ Item {
     id: _root
 
     property var map        ///< Map control to place item in
+    property var vehicle    ///< Vehicle associated with this item
     property bool interactive: true
 
     signal clicked(int sequenceNumber)
@@ -42,12 +32,12 @@ Item {
     property real   _landingAltitudeMeters:         _missionItem.landingAltitude.rawValue
     property real   _finalApproachAltitudeMeters:   _missionItem.finalApproachAltitude.rawValue
     property bool   _useLoiterToAlt:                _missionItem.useLoiterToAlt.rawValue
-    property real   _landingAreaBearing:            _missionItem.landingCoordinate.azimuthTo(_useLoiterToAlt ? _missionItem.loiterTangentCoordinate : _missionItem.finalApproachCoordinate)
+    property real   _landingAreaBearing:            _missionItem.landingCoordinate.azimuthTo(_missionItem.slopeStartCoordinate)
 
     function _calcGlideSlopeHeights() {
         var adjacent
         if (_useLoiterToAlt) {
-            adjacent = _missionItem.landingCoordinate.distanceTo(_missionItem.loiterTangentCoordinate)
+            adjacent = _missionItem.landingCoordinate.distanceTo(_missionItem.slopeStartCoordinate)
         } else {
             adjacent = _missionItem.landingCoordinate.distanceTo(_missionItem.finalApproachCoordinate)
         }
@@ -105,7 +95,7 @@ Item {
 
     function _setFlightPath() {
         if (_useLoiterToAlt) {
-            _flightPath = [ _missionItem.loiterTangentCoordinate, _missionItem.landingCoordinate ]
+            _flightPath = [ _missionItem.slopeStartCoordinate, _missionItem.landingCoordinate ]
         } else {
             _flightPath = [ _missionItem.finalApproachCoordinate, _missionItem.landingCoordinate ]
         }
@@ -176,7 +166,7 @@ Item {
             _setFlightPath()
         }
 
-        onLoiterTangentCoordinateChanged: {
+        onSlopeStartCoordinateChanged: {
             _calcGlideSlopeHeights()
             _setFlightPath()
         }
@@ -245,7 +235,7 @@ Item {
             itemCoordinate: _missionItem.landingCoordinate
             visible:        _root.interactive
 
-            onItemCoordinateChanged: _missionItem.moveLandingPosition(itemCoordinate)
+            onItemCoordinateChanged: _missionItem.coordinate = itemCoordinate
         }
     }
 
@@ -399,7 +389,7 @@ Item {
             Connections {
                 target:                             _missionItem
                 onLandingCoordinateChanged:         recalc()
-                onLoiterTangentCoordinateChanged:   recalc()
+                onSlopeStartCoordinateChanged:      recalc()
                 onFinalApproachCoordinateChanged:   recalc()
             }
         }
@@ -432,7 +422,7 @@ Item {
             Connections {
                 target:                             _missionItem
                 onLandingCoordinateChanged:         recalc()
-                onLoiterTangentCoordinateChanged:   recalc()
+                onSlopeStartCoordinateChanged:      recalc()
                 onFinalApproachCoordinateChanged:   recalc()
             }
         }
@@ -456,7 +446,7 @@ Item {
                 path = [ ]
                 addCoordinate(_missionItem.landingCoordinate.atDistanceAndAzimuth(hypotenuse, _landingAreaBearing - angleDegrees))
                 addCoordinate(_missionItem.landingCoordinate.atDistanceAndAzimuth(hypotenuse, _landingAreaBearing + angleDegrees))
-                addCoordinate(_useLoiterToAlt ? _missionItem.loiterTangentCoordinate : _missionItem.finalApproachCoordinate)
+                addCoordinate(_useLoiterToAlt ? _missionItem.slopeStartCoordinate : _missionItem.finalApproachCoordinate)
             }
 
             Component.onCompleted: recalc()
@@ -464,7 +454,7 @@ Item {
             Connections {
                 target:                             _missionItem
                 onLandingCoordinateChanged:         recalc()
-                onLoiterTangentCoordinateChanged:   recalc()
+                onSlopeStartCoordinateChanged:      recalc()
                 onFinalApproachCoordinateChanged:   recalc()
             }
 
@@ -486,7 +476,7 @@ Item {
 
             sourceItem: HeightIndicator {
                 map:        _root.map
-                heightText: Math.floor(QGroundControl.unitsConversion.metersToAppSettingsVerticalDistanceUnits(_transitionAltitudeMeters)) +
+                heightText: Math.floor(QGroundControl.unitsConversion.metersToAppSettingsVerticalDistanceUnits(_transitionAltitudeMeters)) + " " +
                             QGroundControl.unitsConversion.appSettingsVerticalDistanceUnitsString + "<sup>*</sup>"
             }
 
@@ -501,7 +491,7 @@ Item {
             Connections {
                 target:                             _missionItem
                 onLandingCoordinateChanged:         recalc()
-                onLoiterTangentCoordinateChanged:   recalc()
+                onSlopeStartCoordinateChanged:      recalc()
                 onFinalApproachCoordinateChanged:   recalc()
             }
         }
@@ -518,13 +508,13 @@ Item {
 
             sourceItem: HeightIndicator {
                 map:        _root.map
-                heightText: Math.floor(QGroundControl.unitsConversion.metersToAppSettingsVerticalDistanceUnits(_midSlopeAltitudeMeters)) +
+                heightText: Math.floor(QGroundControl.unitsConversion.metersToAppSettingsVerticalDistanceUnits(_midSlopeAltitudeMeters)) + " " +
                             QGroundControl.unitsConversion.appSettingsVerticalDistanceUnitsString + "<sup>*</sup>"
             }
 
             function recalc() {
                 var transitionCoordinate = _missionItem.landingCoordinate.atDistanceAndAzimuth(_landingLengthMeters / 2, _landingAreaBearing)
-                var halfDistance = transitionCoordinate.distanceTo(_useLoiterToAlt ? _missionItem.loiterTangentCoordinate : _missionItem.finalApproachCoordinate) / 2
+                var halfDistance = transitionCoordinate.distanceTo(_useLoiterToAlt ? _missionItem.slopeStartCoordinate : _missionItem.finalApproachCoordinate) / 2
                 var centeredCoordinate = transitionCoordinate.atDistanceAndAzimuth(halfDistance, _landingAreaBearing)
                 var angleIncrement = _landingAreaBearing > 180 ? -90 : 90
                 coordinate = centeredCoordinate.atDistanceAndAzimuth(_landingWidthMeters / 2, _landingAreaBearing + angleIncrement)
@@ -535,7 +525,7 @@ Item {
             Connections {
                 target:                             _missionItem
                 onLandingCoordinateChanged:         recalc()
-                onLoiterTangentCoordinateChanged:   recalc()
+                onSlopeStartCoordinateChanged:      recalc()
                 onFinalApproachCoordinateChanged:   recalc()
             }
 
@@ -554,11 +544,11 @@ Item {
             anchorPoint.y:  0
             z:              QGroundControl.zOrderMapItems
             visible:        _missionItem.isCurrentItem
-            coordinate:     _useLoiterToAlt ? _missionItem.loiterTangentCoordinate : _missionItem.finalApproachCoordinate
+            coordinate:     _missionItem.slopeStartCoordinate
 
             sourceItem: HeightIndicator {
                 map:        _root.map
-                heightText: _missionItem.finalApproachAltitude.value.toFixed(1) + QGroundControl.unitsConversion.appSettingsHorizontalDistanceUnitsString
+                heightText: _missionItem.finalApproachAltitude.value.toFixed(1) + " " + _missionItem.finalApproachAltitude.units
             }
         }
     }

@@ -1,10 +1,16 @@
-find_package(Qt6 REQUIRED COMPONENTS Core)
+# ============================================================================
+# Video Receiver Subsystem
+# Video streaming backends (GStreamer and Qt Multimedia)
+# ============================================================================
 
-target_sources(VideoManager PRIVATE VideoReceiver.h)
+target_sources(${CMAKE_PROJECT_NAME}
+    PRIVATE
+        VideoReceiver.h
+        VideoBackend.cc
+        VideoBackend.h
+)
 
-target_link_libraries(VideoManager PUBLIC Qt6::Core)
-
-target_include_directories(VideoManager PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_subdirectory(GStreamer)
 add_subdirectory(QtMultimedia)

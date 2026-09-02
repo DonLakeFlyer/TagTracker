@@ -7,7 +7,7 @@ Flying with a Joystick (or [virtual thumb-sticks](../settings_view/virtual_joyst
 :::
 
 :::info
-Joystick and Gamepad support is enabled using the cross-platform [SDL2](http://www.libsdl.org/index.php) library.
+Joystick and Gamepad support is enabled using the cross-platform [SDL2](https://github.com/libsdl-org/SDL/tree/SDL2) library.
 Compatibility with a particular controller depends on SDL (all buttons that are exposed by that API are displayed through the _QGroundControl_ UI).
 A [number of common joysticks and gamepads](#supported-joysticks) are known to work.
 :::
@@ -18,7 +18,7 @@ The joystick is _enabled_ as the last step of the calibration process.
 
 ## Enabling PX4 Joystick Support
 
-To enable Joystick support in PX4 you need to set the parameter [`COM_RC_IN_MODE`](https://docs.px4.io/en/main/advanced_config/parameter_reference.html#COM_RC_IN_MODE) to `1` - _Joystick_.
+若要在 PX4 中启用操纵杆支持，您需要将参数 [`COM_RC_IN_MODE`](https://docs.px4.io/en/main/advanced_config/parameter_reference.html#COM_RC_IN_MODE) 设置为 `1` - _操纵杆_。
 If this parameter is `0` then _Joystick_ will not be offered as a setup option.
 
 This is enabled by default for PX4 SITL builds (see the [Parameters](../setup_view/parameters.md) topic for information on how to find and set a particular parameter).
@@ -38,20 +38,19 @@ To configure a joystick:
 3. Select the **Gear** icon (Vehicle Setup) in the top toolbar and then **Joystick** in the sidebar.
    The screen below will appear.
 
-   ![Joystick setup - PlayStation](../../../assets/setup/joystick_sony_playstation.jpg)
-
 4. Make sure your joystick is selected in the **Active joystick** dropdown.
 
 5. Go to the **Calibrate** Tab, press the **Start** button and then follow the on-screen instructions to calibrate/move the sticks.
 
-   ![Joystick setup - Calibration](../../../assets/setup/joystick_calibration.jpg)
-
    The joystick is _enabled_ as the last step of the calibration process.
+
+   ::: warning
+   On some controllers the calibration process does not work because of incorrect channel mappings. You can follow [supported joysticks section](#supported-joysticks) for more information.
+   :::
 
 6. Test the buttons and sticks work as intended by pressing them, and viewing the result in the Axis/Button monitor in the **General** tab.
 
 7. Select the flight modes/vehicle functions activated by each joystick button.
-   ![Joystick setup - Buttons](../../../assets/setup/joystick_buttons.jpg)
 
 ## Advanced Options
 
@@ -59,8 +58,6 @@ Some additional Options are available at the **Advanced** tab.
 These options may be useful for specific, unsual setups, for increasing sensibility, and for handling noisy joysticks.
 
 ### Throttle Options
-
-![Joystick setup - Throttle Modes](../../../assets/setup/joystick_throttle_modes.jpg)
 
 - **Center stick is zero throttle**: Centered or lowered stick sends 0 in [MANUAL_CONTROL **z**](https://mavlink.io/en/messages/common.html#MANUAL_CONTROL), raised stick sends 1000.
   - **Spring loaded throttle smoothing**: In this mode you control not the throttle itself, but the rate at which it increases/decreases.
@@ -74,11 +71,7 @@ These options may be useful for specific, unsual setups, for increasing sensibil
 
 The expo slider allows you to make the sticks less sensitive in the center, allowing finer control in this zone.
 
-![Joystick setup - Expo](../../../assets/setup/joystick_throttle_expo.jpg)
-
 The slider adjusts the curvature of the exponential curve.
-
-![Joystick setup - Expo Curve](../../../assets/setup/joystick_throttle_expo_curve.jpg)
 
 The higher the Expo value, the flatter the curve is at the center, and steeper it is at the edges.
 
@@ -86,8 +79,6 @@ The higher the Expo value, the flatter the curve is at the center, and steeper i
 
 The advanced settings are not recommended for everyday users.
 They can cause unpredicted results if used incorrectly.
-
-![Joystick setup - Advanced Settings](../../../assets/setup/joystick_advanced.jpg)
 
 The following settings are available:
 
@@ -113,12 +104,8 @@ The following settings are available:
     In this figure, point B would command full pitch forward and full roll right, but the joystick is not able to reach point B because the retainer is circular.
     This means that you will not be able to achieve full roll and pitch deflection simultaneously.
 
-    ![](../../../assets/setup/joystick_circle_correction.jpg)
-
   - **Enabled:** The joystick values are adjusted in software to ensure full range of commands.
     The usable area of travel and resolution is decreased, however, because the area highlighted grey in the figure is no longer used.
-
-    ![Circle correction enabled](../../../assets/setup/joystick_circle_correction2.jpg)
 
 - **Deadbands:** Deadbands allow input changes to be ignored when the sticks are near their neutral positions.
   This helps to avoid noise or small oscillations on sensitive sticks which may be interpreted as commands, or small offsets when sticks do not re-center well.
@@ -145,11 +132,11 @@ To make the controller work wirelessly under Linux the [jstest-gtk](https://jste
 
 The steps are:
 
-1. Install _jstest-gtk_:
+1. 安装 _jst-gtk_：
    ```
    Install _jstest-gtk_: `sudo apt install jstest-gtk`
    ```
-2. Install _ds4drv_:
+2. 安装 _ds4drv_:：
    ```
    Install _ds4drv_: `sudo pip install ds4drv`
    ```
@@ -172,6 +159,23 @@ The Taranis does not allow you to use button options (to be precise, you can set
 The Taranis is an open system that is openly being worked on.
 It is possible that at time of writing there is a firmware or configuration that allows it to work effectively as a joystick.
 :::
+
+### TBS Tango 2
+
+The TBS Tango 2 can also be used as a joystick controlled via QGroundControl. In order to make it work, you need to remap the channels by using the following commands:
+
+```bash
+export SDL_GAMECONTROLLERCONFIG="03002de7d80400001057000011010000,Team-BlackSheep TBS Joystick,a:b0,b:b1,x:b3,y:b4,back:b10,guide:b12,start:b11,leftstick:b13,rightstick:b14,leftshoulder:b6,rightshoulder:b7,leftx:a0,lefty:a1,rightx:a2,righty:a3,lefttrigger:a4,righttrigger:a5,crc:e72d,platform:Linux"
+./QGroundControl-x86_64.AppImage
+```
+
+For another radio, the first command above can be found by using the [jstest software tool](http://github.com/meleu/jstest-sdl) and run:
+
+```bash
+jstest-sdl -l
+```
+
+**Take care of the channels remapping you need to do between a2, a3 and other if needed**
 
 ### Logitech Gamepad F310
 

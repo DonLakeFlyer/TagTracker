@@ -6,8 +6,7 @@ import QtQuick.Layouts
 import QGroundControl
 import QGroundControl.Controls
 import QGroundControl.FactControls
-import QGroundControl.FactSystem
-import QGroundControl.ScreenTools
+import QGroundControl.AutoPilotPlugins.PX4
 
 SetupPage {
     id:             actuatorPage
@@ -152,20 +151,24 @@ SetupPage {
 
                 // actuator image
                 Image {
+                    id:                     actuatorImage
+                    source:                 "image://actuators/geometry"+refreshFlag
+                    sourceSize.width:       imageSize
+                    sourceSize.height:      imageSize
+                    Layout.preferredWidth:  imageSize
+                    Layout.preferredHeight: imageSize
+                    Layout.alignment:       Qt.AlignHCenter
+                    visible:                actuators.isMultirotor
+                    cache:                  false
+
                     property var refreshFlag:         actuators.imageRefreshFlag
                     readonly property real imageSize: 9 * ScreenTools.defaultFontPixelHeight
 
-                    id:                actuatorImage
-                    source:            "image://actuators/geometry"+refreshFlag
-                    sourceSize.width:  Math.max(parent.width, imageSize)
-                    sourceSize.height: imageSize
-                    visible:           actuators.isMultirotor
-                    cache:             false
                     MouseArea {
                         anchors.fill:  parent
                         onClicked: (mouse) => {
                             if (mouse.button == Qt.LeftButton) {
-                                actuators.imageClicked(mouse.x, mouse.y);
+                                actuators.imageClicked(Qt.size(width, height), mouse.x, mouse.y);
                             }
                         }
                     }
@@ -248,7 +251,7 @@ SetupPage {
                                 ActuatorSlider {
                                     channel:       actuators.actuatorTest.allMotorsActuator
                                     rightPadding:  ScreenTools.defaultFontPixelWidth * 3
-                                    onActuatorValueChanged: {
+                                    onActuatorValueChanged: (value, sliderValue) => {
                                         stopTimer();
                                         for (var channelIdx=0; channelIdx<sliderRepeater.count; channelIdx++) {
                                             var channelSlider = sliderRepeater.itemAt(channelIdx);
@@ -301,8 +304,8 @@ SetupPage {
                                                     text:           object.label
                                                     onTriggered:    object.trigger()
                                                 }
-                                                onObjectAdded:      actionMenu.insertItem(index, object)
-                                                onObjectRemoved:    actionMenu.removeItem(object)
+                                                onObjectAdded:      (index, object) => actionMenu.insertItem(index, object)
+                                                onObjectRemoved:    (index, object) => actionMenu.removeItem(object)
                                             }
                                         }
                                     }
@@ -386,7 +389,6 @@ SetupPage {
                                     onButtonClicked: function (button, role) {
                                         switch (button) {
                                         case MessageDialog.Yes:
-                                            console.log(actuators.motorAssignmentActive)
                                             actuators.startMotorAssignment()
                                             break;
                                         }

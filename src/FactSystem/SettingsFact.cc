@@ -1,31 +1,24 @@
-/****************************************************************************
- *
- * (c) 2009-2024 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
- *
- * QGroundControl is licensed according to the terms in the file
- * COPYING.md in the root of the source code directory.
- *
- ****************************************************************************/
-
-
 #include "SettingsFact.h"
-#include "QGCApplication.h"
+#include "AppMessages.h"
 #include "QGCCorePlugin.h"
+#include "QGCLoggingCategory.h"
+#include "SettingsManager.h"
 
 #include <QtCore/QSettings>
-#include <QtQml/QQmlEngine>
 
-SettingsFact::SettingsFact(QObject* parent)
+QGC_LOGGING_CATEGORY(SettingsFactLog, "FactSystem.SettingsFact")
+
+SettingsFact::SettingsFact(QObject *parent)
     : Fact(parent)
-{    
-    QQmlEngine::setObjectOwnership(this, QQmlEngine::CppOwnership);
+{
+    // qCDebug(SettingsFactLog) << Q_FUNC_INFO << this;
 }
 
-SettingsFact::SettingsFact(QString settingsGroup, FactMetaData* metaData, QObject* parent)
-    : Fact          (0, metaData->name(), metaData->type(), parent)
+SettingsFact::SettingsFact(const QString &settingsGroup, FactMetaData *metaData, QObject *parent)
+    : Fact(0, metaData->name(), metaData->type(), parent)
     , _settingsGroup(settingsGroup)
-    , _visible      (true)
 {
+    // qCDebug(SettingsFactLog) << Q_FUNC_INFO << this;
     QSettings settings;
 
     if (!_settingsGroup.isEmpty()) {
@@ -33,47 +26,56 @@ SettingsFact::SettingsFact(QString settingsGroup, FactMetaData* metaData, QObjec
     }
 
     // Allow core plugin a chance to override the default value
-    _visible = QGCCorePlugin::instance()->adjustSettingMetaData(settingsGroup, *metaData);
+    SettingsManager::adjustSettingMetaData(settingsGroup, *metaData, _userVisible);
     setMetaData(metaData);
 
     if (metaData->defaultValueAvailable()) {
-        QVariant rawDefaultValue = metaData->rawDefaultValue();
-        if (qgcApp()->runningUnitTests()) {
+        const QVariant rawDefaultValue = metaData->rawDefaultValue();
+        QVariant resolvedValue;
+
+        if (QGC::runningUnitTests()) {
             // Don't use saved settings
-            _rawValue = rawDefaultValue;
+            resolvedValue = rawDefaultValue;
+        } else if (_userVisible) {
+            QVariant typedValue;
+            QString errorString;
+            (void) metaData->convertAndValidateRaw(settings.value(_name, rawDefaultValue), true /* conertOnly */, typedValue, errorString);
+            resolvedValue = typedValue;
         } else {
-            if (_visible) {
-                QVariant typedValue;
-                QString errorString;
-                metaData->convertAndValidateRaw(settings.value(_name, rawDefaultValue), true /* conertOnly */, typedValue, errorString);
-                _rawValue = typedValue;
-            } else {
-                // Setting is not visible, force to default value always
-                settings.setValue(_name, rawDefaultValue);
-                _rawValue = rawDefaultValue;
-            }
+            // Setting is not visible, force to default value always
+            // Note that we specifically do not save this back to QSettings such that a Settings Override file change is not a permanent change
+            resolvedValue = rawDefaultValue;
         }
+
+        QMutexLocker<QRecursiveMutex> locker(&_rawValueMutex);
+        _rawValue = resolvedValue;
     }
 
-    connect(this, &Fact::rawValueChanged, this, &SettingsFact::_rawValueChanged);
+    (void) connect(this, &Fact::rawValueChanged, this, &SettingsFact::_rawValueChanged);
 }
 
-SettingsFact::SettingsFact(const SettingsFact& other, QObject* parent)
+SettingsFact::SettingsFact(const SettingsFact &other, QObject *parent)
     : Fact(other, parent)
 {
+    // qCDebug(SettingsFactLog) << Q_FUNC_INFO << this;
     *this = other;
 }
 
-const SettingsFact& SettingsFact::operator=(const SettingsFact& other)
+SettingsFact::~SettingsFact()
+{
+    // qCDebug(SettingsFactLog) << Q_FUNC_INFO << this;
+}
+
+const SettingsFact &SettingsFact::operator=(const SettingsFact &other)
 {
     Fact::operator=(other);
-    
+
     _settingsGroup = other._settingsGroup;
 
     return *this;
 }
 
-void SettingsFact::_rawValueChanged(QVariant value)
+void SettingsFact::_rawValueChanged(const QVariant &value)
 {
     QSettings settings;
 

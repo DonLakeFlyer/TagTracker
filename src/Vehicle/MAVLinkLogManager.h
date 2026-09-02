@@ -1,22 +1,9 @@
-/****************************************************************************
- *
- * (c) 2009-2024 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
- *
- * QGroundControl is licensed according to the terms in the file
- * COPYING.md in the root of the source code directory.
- *
- ****************************************************************************/
-
-
 #pragma once
 
 #include <QtCore/QFile>
-#include <QtCore/QLoggingCategory>
 #include <QtCore/QObject>
 #include <QtNetwork/QHttpPart>
 #include <QtQmlIntegration/QtQmlIntegration>
-
-Q_DECLARE_LOGGING_CATEGORY(MAVLinkLogManagerLog)
 
 class QmlObjectListModel;
 class QNetworkAccessManager;
@@ -107,7 +94,6 @@ private:
 };
 
 /*===========================================================================*/
-
 
 class MAVLinkLogManager : public QObject
 {
@@ -203,7 +189,7 @@ private slots:
     void _uploadProgress(qint64 bytesSent, qint64 bytesTotal);
     void _mavlinkLogData(Vehicle *vehicle, uint8_t target_system, uint8_t target_component, uint16_t sequence, uint8_t first_message, const QByteArray &data, bool acked);
     void _armedChanged(bool armed);
-    void _mavCommandResult(int vehicleId, int component, int command, int result, bool noReponseFromVehicle);
+    void _mavCommandResult(int vehicleId, int component, int command, int result, int failureCode);
 
 private:
     bool _sendLog(const QString &logFile);

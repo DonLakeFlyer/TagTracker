@@ -1,16 +1,14 @@
-find_package(Qt6 REQUIRED COMPONENTS Core Test)
+# ============================================================================
+# Audio Utilities Unit Tests
+# Tests for audio output and speech synthesis
+# ============================================================================
 
-target_sources(UtilitiesTest
+target_sources(${CMAKE_PROJECT_NAME}
     PRIVATE
         AudioOutputTest.cc
         AudioOutputTest.h
 )
 
-target_link_libraries(UtilitiesTest
-    PRIVATE
-        Qt6::Test
-    PUBLIC
-        qgcunittest
-)
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
-target_include_directories(UtilitiesTest PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+add_qgc_test(AudioOutputTest LABELS Unit Utilities)

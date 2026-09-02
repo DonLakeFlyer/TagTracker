@@ -1,6 +1,9 @@
-find_package(Qt6 REQUIRED COMPONENTS Core Gui)
+# ============================================================================
+# Actuators Subsystem
+# Motor, servo, and actuator configuration and testing
+# ============================================================================
 
-target_sources(Vehicle
+target_sources(${CMAKE_PROJECT_NAME}
     PRIVATE
         ActuatorActions.cc
         ActuatorActions.h
@@ -20,16 +23,4 @@ target_sources(Vehicle
         MotorAssignment.h
 )
 
-target_link_libraries(Vehicle
-    PRIVATE
-        QGC
-        Utilities
-    PUBLIC
-        Qt6::Core
-        Qt6::Gui
-        FactSystem
-        MAVLink
-        QmlControls
-)
-
-target_include_directories(Vehicle PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
