@@ -16,6 +16,7 @@
 #include <QtQml/QQmlAbstractUrlInterceptor>
 
 class CustomState;
+class CustomStateMachine;
 class QState;
 class QQmlApplicationEngine;
 
@@ -44,20 +45,28 @@ public:
     Q_PROPERTY(bool                 controllerLostHeartbeat MEMBER  _controllerLostHeartbeat    NOTIFY controllerLostHeartbeatChanged)
     Q_PROPERTY(int                  controllerStatus        MEMBER  _controllerStatus           NOTIFY controllerStatusChanged)
     Q_PROPERTY(float                controllerCPUTemp       MEMBER  _controllerCPUTemp          NOTIFY controllerCPUTempChanged)
+    Q_PROPERTY(uint                 controllerProtocolVersion READ controllerProtocolVersion    NOTIFY protocolCompatibilityChanged)
+    Q_PROPERTY(bool                 protocolCompatible      READ protocolCompatible             NOTIFY protocolCompatibilityChanged)
     Q_PROPERTY(QmlObjectListModel*  detectorList            READ    detectorList                CONSTANT)
     Q_PROPERTY(TagDatabase*         tagDatabase             READ    tagDatabase                 CONSTANT)
     Q_PROPERTY(double               maxSNR                  MEMBER  _maxSNR                     NOTIFY maxSNRChanged)
     Q_PROPERTY(double               minSNR                  MEMBER  _minSNR                     NOTIFY minSNRChanged)
     Q_PROPERTY(bool                 activeRotation          MEMBER  _activeRotation             NOTIFY activeRotationChanged)
+    Q_PROPERTY(bool                 rotationInProgress      READ    rotationInProgress          NOTIFY rotationInProgressChanged)
     Q_PROPERTY(QmlObjectListModel*  rotationInfoList        READ    rotationInfoList          CONSTANT)
 
     CustomSettings*     customSettings  () { return _customSettings; }
     DetectorList *      detectorList() { return DetectorList::instance(); }
     QString             holdFlightMode();
     int                 maxWaitMSecsForKGroup();
+    uint32_t            controllerProtocolVersion() const { return _controllerProtocolVersion; }
+    bool                protocolCompatible() const;
+    // True from the moment a rotation state machine starts until it finishes or is stopped
+    bool                rotationInProgress() const { return _rotationInProgress; }
+    const CollectionStatus_t& lastCollectionStatus() const { return _lastCollectionStatus; }
 
     CSVLogManager&          csvLogManager() { return _csvLogManager; }
-    void                    rotationIsStarting();
+    void                    rotationIsStarting(uint32_t collectionId = 0);
     void                    rotationIsEnding();
     QmlObjectListModel*     rotationInfoList() { return &_rotationInfoList; }
 
@@ -92,30 +101,43 @@ signals:
     void controllerLostHeartbeatChanged ();
     void controllerStatusChanged        ();
     void controllerCPUTempChanged       ();
+    void protocolCompatibilityChanged   ();
     void maxSNRChanged                  (double maxSNR);
     void minSNRChanged                  (double minSNR);
     void activeRotationChanged          (bool activeRotation);
+    void rotationInProgressChanged      (bool rotationInProgress);
     void detectorHeartbeatReceived      (int oneBasedRateIndex);
     void pythonDetectorResultReceived   (uint32_t tagId);  // confirmed, low-confidence, or no-pulse in Python mode
+    void collectionStatusReceived       (uint32_t collectionId, uint32_t sliceId, uint32_t status, uint32_t errorCode);
 
 private slots:
     void _controllerHeartbeatFailed(void);
     void _stopDetectionOnDisarmed(bool armed);
     bool _validateAtLeastOneTagSelected();
+    bool _validatePythonCollectionAllowed();
 
 private:
     void    _handleTunnelPulse          (Vehicle* vehicle, const mavlink_tunnel_t& tunnel);
     void    _handleTunnelHeartbeat      (const mavlink_tunnel_t& tunnel);
     void    _handleBearingResult        (const mavlink_tunnel_t& tunnel);
+    void    _handleCollectionStatus     (const mavlink_tunnel_t& tunnel);
     void    _say                        (QString text);
     bool    _useSNRForPulseStrength     (void) { return _customSettings->useSNRForPulseStrength()->rawValue().toBool(); }
     void    _captureScreen              (void);
     void    _setActiveRotation          (bool active);
+    void    _startRotationMachine       (CustomStateMachine* stateMachine);
+    void    _setRotationInProgress      (bool inProgress);
     void    _sendStopDetectionDirect    (void);
+    void    _sendCollectionCancel       (void);
 
     bool                    _activeRotation     = false;
+    bool                    _rotationInProgress = false;
+    uint32_t                _activeCollectionId = 0;
+    CollectionStatus_t      _lastCollectionStatus {};
     int                     _controllerStatus   = ControllerStatusIdle;
     float                   _controllerCPUTemp  = 0.0;
+    uint32_t                _controllerProtocolVersion = 0;
+    bool                    _protocolMismatchReported = false;
 
     QmlObjectListModel      _rotationInfoList;
 

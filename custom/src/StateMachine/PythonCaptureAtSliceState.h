@@ -7,15 +7,15 @@ class CustomPlugin;
 class CustomSettings;
 class SendMavlinkCommandState;
 
-// Per-slice state for Python detection mode.
-// Flow: announce → rotate command → wait for heading → start detection →
-//       wait for result (pulse or no-pulse from all detectors) → stop detection.
+// Per-slice state for Python detection mode within a persistent collection.
+// Flow: announce → rotate command → wait for heading → START_COLLECTION_SLICE →
+//       wait for COLLECTION_STATUS_SLICE_COMPLETE.
 class PythonCaptureAtSliceState : public CustomState
 {
     Q_OBJECT
 
 public:
-    PythonCaptureAtSliceState(QState* parentState, int sliceIndex);
+    PythonCaptureAtSliceState(QState* parentState, int sliceIndex, uint32_t collectionId);
 
 private:
     SendMavlinkCommandState* _rotateMavlinkCommandState(QState* parentState);

@@ -12,7 +12,9 @@ class SendTunnelCommandState : public CustomState
     Q_OBJECT
 
 public:
-    SendTunnelCommandState(const QString& stateName, QState* parentState, uint8_t* payload, size_t payloadSize);
+    static constexpr int kDefaultAckTimeoutMs = 2000;
+
+    SendTunnelCommandState(const QString& stateName, QState* parentState, uint8_t* payload, size_t payloadSize, int ackTimeoutMs = kDefaultAckTimeoutMs);
     ~SendTunnelCommandState();
 
     static QString commandIdToText(uint32_t command);

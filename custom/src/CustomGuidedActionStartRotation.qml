@@ -14,7 +14,7 @@ GuidedToolStripAction {
     text:       customController.startRotationTitle
     iconSource: "/res/action.svg"
     visible:    true
-    enabled:    _activeVehicle && _activeVehicle.flying 
+    enabled:    _activeVehicle && _activeVehicle.flying && !QGroundControl.corePlugin.rotationInProgress
     actionID:   customController.actionStartRotation
 
     property var _activeVehicle: QGroundControl.multiVehicleManager.activeVehicle

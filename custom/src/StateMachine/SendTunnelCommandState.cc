@@ -1,4 +1,5 @@
 #include "SendTunnelCommandState.h"
+#include "CustomPlugin.h"
 #include "CustomLoggingCategory.h"
 #include "TunnelProtocol.h"
 #include "DetectorList.h"
@@ -13,7 +14,7 @@
 
 using namespace TunnelProtocol;
 
-SendTunnelCommandState::SendTunnelCommandState(const QString& stateName, QState* parentState, uint8_t* payload, size_t payloadSize)
+SendTunnelCommandState::SendTunnelCommandState(const QString& stateName, QState* parentState, uint8_t* payload, size_t payloadSize, int ackTimeoutMs)
     : CustomState   (stateName, parentState)
     , _vehicle      (MultiVehicleManager::instance()->activeVehicle())
     , _payload      (new uint8_t[payloadSize])
@@ -22,7 +23,7 @@ SendTunnelCommandState::SendTunnelCommandState(const QString& stateName, QState*
     memcpy(_payload, payload, payloadSize);
 
     _ackResponseTimer.setSingleShot(true);
-    _ackResponseTimer.setInterval(2000);
+    _ackResponseTimer.setInterval(ackTimeoutMs);
 
     connect(this, &QState::entered, this, &SendTunnelCommandState::_sendTunnelCommand);
     connect(this, &QState::exited, this, &SendTunnelCommandState::_disconnectAll);
@@ -72,14 +73,16 @@ QString SendTunnelCommandState::commandIdToText(uint32_t vhfCommandId)
         return QStringLiteral("Clean Logs");
     case COMMAND_ID_AIRSPY_STATUS:
         return QStringLiteral("Airspy Status");
-    case COMMAND_ID_START_ROTATION_DETECTION:
-        return QStringLiteral("Start Rotation Detection");
-    case COMMAND_ID_START_DETECTION_AT_HEADING:
-        return QStringLiteral("Start Detection At Heading");
-    case COMMAND_ID_STOP_ROTATION_DETECTION:
-        return QStringLiteral("Stop Rotation Detection");
+    case COMMAND_ID_START_COLLECTION:
+        return QStringLiteral("Start Collection");
+    case COMMAND_ID_START_COLLECTION_SLICE:
+        return QStringLiteral("Start Collection Slice");
+    case COMMAND_ID_FINISH_COLLECTION:
+        return QStringLiteral("Finish Collection");
     case COMMAND_ID_BEARING_RESULT:
         return QStringLiteral("Bearing Result");
+    case COMMAND_ID_COLLECTION_STATUS:
+        return QStringLiteral("Collection Status");
     default:
         return QStringLiteral("Unknown command: %1").arg(vhfCommandId);
     }
@@ -87,6 +90,30 @@ QString SendTunnelCommandState::commandIdToText(uint32_t vhfCommandId)
 
 void SendTunnelCommandState::_sendTunnelCommand()
 {
+    HeaderInfo_t tunnelHeader {};
+    memcpy(&tunnelHeader, _payload, sizeof(tunnelHeader));
+    _sentTunnelCommand = tunnelHeader.command;
+
+    auto customPlugin = qobject_cast<CustomPlugin*>(CustomPlugin::instance());
+    if (!customPlugin || !customPlugin->protocolCompatible()) {
+        const QString commandText = commandIdToText(_sentTunnelCommand);
+        const uint32_t controllerVersion = customPlugin ? customPlugin->controllerProtocolVersion() : 0;
+        QString message;
+        if (controllerVersion != 0 && controllerVersion != TUNNEL_PROTOCOL_VERSION) {
+            message = QStringLiteral("Cannot send %1: TagTracker protocol version %2 does not match controller version %3.")
+                          .arg(commandText)
+                          .arg(TUNNEL_PROTOCOL_VERSION)
+                          .arg(controllerVersion);
+        } else if (controllerVersion == 0) {
+            message = QStringLiteral("Cannot send %1 until a compatible controller heartbeat is received.").arg(commandText);
+        } else {
+            message = QStringLiteral("Cannot send %1: controller heartbeat lost.").arg(commandText);
+        }
+        qCWarning(CustomStateMachineLog) << message;
+        setError(message);
+        return;
+    }
+
     WeakLinkInterfacePtr weakPrimaryLink = _vehicle->vehicleLinkManager()->primaryLink();
 
     if (!weakPrimaryLink.expired()) {
@@ -100,10 +127,6 @@ void SendTunnelCommandState::_sendTunnelCommand()
 
         memset(&tunnel, 0, sizeof(tunnel));
 
-        HeaderInfo_t tunnelHeader;
-        memcpy(&tunnelHeader, _payload, sizeof(tunnelHeader));
-
-        _sentTunnelCommand = tunnelHeader.command;
         _ackResponseTimer.start();
 
         memcpy(tunnel.payload, _payload, _payloadSize);
