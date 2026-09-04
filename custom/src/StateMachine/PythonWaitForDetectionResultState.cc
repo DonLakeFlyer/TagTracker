@@ -1,15 +1,17 @@
 #include "PythonWaitForDetectionResultState.h"
 #include "FunctionState.h"
 #include "CustomPlugin.h"
-#include "DetectorList.h"
-#include "DetectorInfo.h"
 #include "CustomLoggingCategory.h"
+#include "TunnelProtocol.h"
 
 #include <QFinalState>
 
-PythonWaitForDetectionResultState::PythonWaitForDetectionResultState(QState* parentState, int timeoutMsecs)
+PythonWaitForDetectionResultState::PythonWaitForDetectionResultState(
+    QState* parentState, uint32_t collectionId, uint32_t sliceId, int timeoutMsecs)
     : CustomState   ("PythonWaitForDetectionResultState", parentState)
     , _customPlugin (qobject_cast<CustomPlugin*>(CustomPlugin::instance()))
+    , _collectionId (collectionId)
+    , _sliceId      (sliceId)
 {
     _timeoutTimer.setSingleShot(true);
     if (timeoutMsecs > 0) {
@@ -38,41 +40,30 @@ PythonWaitForDetectionResultState::PythonWaitForDetectionResultState(QState* par
 
 void PythonWaitForDetectionResultState::_startListening()
 {
-    _pendingTagIds.clear();
-
-    DetectorList* detectorList = DetectorList::instance();
-    for (int i = 0; i < detectorList->count(); i++) {
-        const DetectorInfo* detectorInfo = qobject_cast<const DetectorInfo*>(detectorList->get(i));
-        if (detectorInfo) {
-            _pendingTagIds.insert(detectorInfo->tagId());
-        }
-    }
-
-    qCDebug(CustomStateMachineLog) << "Python: waiting for detection results from tag IDs:" << _pendingTagIds << " - " << Q_FUNC_INFO;
-
-    if (_pendingTagIds.isEmpty()) {
-        qCWarning(CustomStateMachineLog) << "PythonWaitForDetectionResultState: no detectors in list" << Q_FUNC_INFO;
-        emit resultsReceived();
-        return;
-    }
-
-    connect(_customPlugin, &CustomPlugin::pythonDetectorResultReceived,
-            this, &PythonWaitForDetectionResultState::_pythonDetectorResultReceived);
+    qCDebug(CustomStateMachineLog) << "Python: waiting for collection slice"
+                                   << _collectionId << _sliceId << Q_FUNC_INFO;
+    connect(_customPlugin, &CustomPlugin::collectionStatusReceived,
+            this, &PythonWaitForDetectionResultState::_collectionStatusReceived);
 
     if (_timeoutTimer.interval() > 0) {
         _timeoutTimer.start();
     }
+
+    // The controller can report completion before the slice command is acked
+    const CollectionStatus_t& last = _customPlugin->lastCollectionStatus();
+    _collectionStatusReceived(last.collection_id, last.slice_id, last.status, last.error_code);
 }
 
-void PythonWaitForDetectionResultState::_pythonDetectorResultReceived(uint32_t tagId)
+void PythonWaitForDetectionResultState::_collectionStatusReceived(
+    uint32_t collectionId, uint32_t sliceId, uint32_t status, uint32_t errorCode)
 {
-    if (_pendingTagIds.remove(tagId)) {
-        qCDebug(CustomStateMachineLog) << "Python detection result for tag_id" << tagId
-                                 << "- still pending:" << _pendingTagIds << " - " << Q_FUNC_INFO;
-    }
+    Q_UNUSED(errorCode);
 
-    if (_pendingTagIds.isEmpty()) {
-        qCDebug(CustomStateMachineLog) << "Python: all detection results received" << " - " << Q_FUNC_INFO;
+    if (collectionId != _collectionId || sliceId != _sliceId) {
+        return;
+    }
+    // Collection-wide FAILED is handled by PythonRotateAndCaptureState
+    if (status == COLLECTION_STATUS_SLICE_COMPLETE) {
         _disconnectAll();
         emit resultsReceived();
     }
@@ -81,6 +72,6 @@ void PythonWaitForDetectionResultState::_pythonDetectorResultReceived(uint32_t t
 void PythonWaitForDetectionResultState::_disconnectAll()
 {
     _timeoutTimer.stop();
-    disconnect(_customPlugin, &CustomPlugin::pythonDetectorResultReceived,
-               this, &PythonWaitForDetectionResultState::_pythonDetectorResultReceived);
+    disconnect(_customPlugin, &CustomPlugin::collectionStatusReceived,
+               this, &PythonWaitForDetectionResultState::_collectionStatusReceived);
 }

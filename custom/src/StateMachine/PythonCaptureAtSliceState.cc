@@ -22,7 +22,7 @@ static constexpr double kPythonResultTimeoutFudgeFactor = 0.5;
 
 using namespace TunnelProtocol;
 
-PythonCaptureAtSliceState::PythonCaptureAtSliceState(QState* parentState, int sliceIndex)
+PythonCaptureAtSliceState::PythonCaptureAtSliceState(QState* parentState, int sliceIndex, uint32_t collectionId)
     : CustomState       ("PythonCaptureAtSliceState", parentState)
     , _vehicle          (MultiVehicleManager::instance()->activeVehicle())
     , _customPlugin     (qobject_cast<CustomPlugin*>(CustomPlugin::instance()))
@@ -49,27 +49,28 @@ PythonCaptureAtSliceState::PythonCaptureAtSliceState(QState* parentState, int sl
         qCDebug(CustomStateMachineLog) << QStringLiteral("Python: rotating to heading %1").arg(_sliceHeadingDegrees) << " - " << Q_FUNC_INFO;
     });
 
-    // Build StartDetectionAtHeading for this slice
-    StartDetectionAtHeading_t startAtHeading;
-    memset(&startAtHeading, 0, sizeof(startAtHeading));
-    startAtHeading.header.command = COMMAND_ID_START_DETECTION_AT_HEADING;
-    startAtHeading.heading_deg    = static_cast<float>(_sliceHeadingDegrees);
+    StartCollectionSlice_t startSlice {};
+    startSlice.header.command = COMMAND_ID_START_COLLECTION_SLICE;
+    startSlice.collection_id = collectionId;
+    startSlice.slice_id = static_cast<uint32_t>(sliceIndex + 1);
+    startSlice.heading_deg = static_cast<float>(_sliceHeadingDegrees);
 
     // States
     auto announceRotateState        = new SayState("Announce Rotate", this, QStringLiteral("Searching at %1 degrees").arg(_sliceHeadingDegrees));
     auto rotateCommandState         = _rotateMavlinkCommandState(this);
     auto waitForHeadingState        = new FactWaitForValueTarget(this, _vehicle->heading(), _sliceHeadingDegrees, 1.0, 10 * 1000);
-    auto startAtHeadingState        = new SendTunnelCommandState("Python StartDetectionAtHeading", this, (uint8_t*)&startAtHeading, sizeof(startAtHeading));
+    auto startSliceState            = new SendTunnelCommandState("Python StartCollectionSlice", this, reinterpret_cast<uint8_t*>(&startSlice), sizeof(startSlice));
     const int maxWaitMsecs = _customPlugin->maxWaitMSecsForKGroup();
     const int waitForDetectionTimeoutMsecs = maxWaitMsecs + static_cast<int>(maxWaitMsecs * kPythonResultTimeoutFudgeFactor);
-    auto waitForDetectionResultState= new PythonWaitForDetectionResultState(this, waitForDetectionTimeoutMsecs);
+    auto waitForDetectionResultState= new PythonWaitForDetectionResultState(
+        this, collectionId, startSlice.slice_id, waitForDetectionTimeoutMsecs);
     auto finalState                 = new QFinalState(this);
 
     // Transitions
     announceRotateState->addTransition      (announceRotateState,           &SayState::advance,               rotateCommandState);
     rotateCommandState->addTransition       (rotateCommandState,            &SendMavlinkCommandState::success,          waitForHeadingState);
-    waitForHeadingState->addTransition      (waitForHeadingState,           &FactWaitForValueTarget::success,           startAtHeadingState);
-    startAtHeadingState->addTransition      (startAtHeadingState,           &SendTunnelCommandState::commandSucceeded,  waitForDetectionResultState);
+    waitForHeadingState->addTransition      (waitForHeadingState,           &FactWaitForValueTarget::success,           startSliceState);
+    startSliceState->addTransition          (startSliceState,               &SendTunnelCommandState::commandSucceeded,  waitForDetectionResultState);
     waitForDetectionResultState->addTransition(waitForDetectionResultState, &QState::finished,                          finalState);
 
     setInitialState(announceRotateState);

@@ -176,6 +176,9 @@ bool CustomPlugin::mavlinkMessage(Vehicle *vehicle, LinkInterface *link, const m
         case COMMAND_ID_BEARING_RESULT:
             _handleBearingResult(tunnel);
             return false;
+        case COMMAND_ID_COLLECTION_STATUS:
+            _handleCollectionStatus(tunnel);
+            return false;
         }
     }
 
@@ -184,28 +187,61 @@ bool CustomPlugin::mavlinkMessage(Vehicle *vehicle, LinkInterface *link, const m
 
 void CustomPlugin::_handleTunnelHeartbeat(const mavlink_tunnel_t& tunnel)
 {
-    Heartbeat_t heartbeat;
+    if (tunnel.payload_length != sizeof(Heartbeat_t)) {
+        if (_controllerProtocolVersion != 0) {
+            _controllerProtocolVersion = 0;
+            emit protocolCompatibilityChanged();
+        }
+        if (!_protocolMismatchReported) {
+            _protocolMismatchReported = true;
+            qCWarning(CustomPluginLog) << "Controller heartbeat does not contain a compatible protocol version"
+                                       << "payload size" << tunnel.payload_length
+                                       << "expected" << sizeof(Heartbeat_t);
+            qgcApp()->showAppMessage(tr("Controller protocol is incompatible with this TagTracker build."));
+        }
+        return;
+    }
+
+    Heartbeat_t heartbeat {};
 
     memcpy(&heartbeat, tunnel.payload, sizeof(heartbeat));
 
-    switch (heartbeat.system_id) {
-    case HEARTBEAT_SYSTEM_ID_MAVLINKCONTROLLER:
-        //qCDebug(CustomPluginLog) << "HEARTBEAT from MavlinkTagController - status:temp" << controllerStatusString(heartbeat.status) << heartbeat.cpu_temp_c;
-        _controllerLostHeartbeat = false;
-        emit controllerLostHeartbeatChanged();
-        _controllerHeartbeatTimer.start();
-        if (_controllerStatus != heartbeat.status) {
-            _controllerStatus = (ControllerStatus)heartbeat.status;
-            emit controllerStatusChanged();
+    if (heartbeat.system_id != HEARTBEAT_SYSTEM_ID_MAVLINKCONTROLLER) {
+        qCWarning(CustomPluginLog) << "Ignoring heartbeat from unknown system_id" << heartbeat.system_id;
+        return;
+    }
+
+    const bool heartbeatWasLost = _controllerLostHeartbeat;
+    if (_controllerProtocolVersion != heartbeat.protocol_version) {
+        _controllerProtocolVersion = heartbeat.protocol_version;
+        emit protocolCompatibilityChanged();
+    }
+    if (heartbeat.protocol_version != TUNNEL_PROTOCOL_VERSION) {
+        if (!_protocolMismatchReported) {
+            _protocolMismatchReported = true;
+            qCWarning(CustomPluginLog) << "Controller protocol version mismatch, QGC:controller"
+                                       << TUNNEL_PROTOCOL_VERSION << heartbeat.protocol_version;
+            qgcApp()->showAppMessage(
+                tr("Controller protocol mismatch. TagTracker expects version %1; controller reports version %2.")
+                    .arg(TUNNEL_PROTOCOL_VERSION)
+                    .arg(heartbeat.protocol_version));
         }
-        if (_controllerCPUTemp != heartbeat.cpu_temp_c) {
-            _controllerCPUTemp = heartbeat.cpu_temp_c;
-            emit controllerCPUTempChanged();
-        }
-        break;
-    case HEARTBEAT_SYSTEM_ID_CHANNELIZER:
-        qCDebug(CustomPluginLog) << "HEARTBEAT from Channelizer";
-        break;
+        return;
+    }
+    _protocolMismatchReported = false;
+    _controllerLostHeartbeat = false;
+    emit controllerLostHeartbeatChanged();
+    if (heartbeatWasLost) {
+        emit protocolCompatibilityChanged();
+    }
+    _controllerHeartbeatTimer.start();
+    if (_controllerStatus != heartbeat.status) {
+        _controllerStatus = (ControllerStatus)heartbeat.status;
+        emit controllerStatusChanged();
+    }
+    if (_controllerCPUTemp != heartbeat.cpu_temp_c) {
+        _controllerCPUTemp = heartbeat.cpu_temp_c;
+        emit controllerCPUTempChanged();
     }
 }
 
@@ -216,12 +252,18 @@ void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& 
         return;
     }
 
-    detectorList()->handleTunnelPulse(tunnel);
-
     PulseInfo_t pulseInfo;
     memcpy(&pulseInfo, tunnel.payload, sizeof(pulseInfo));
 
     bool isDetectorHeartbeat = pulseInfo.frequency_hz == 0;
+    if (!isDetectorHeartbeat && pulseInfo.collection_id != _activeCollectionId) {
+        qCWarning(CustomPluginLog) << "Ignoring stale collection pulse"
+                                   << pulseInfo.collection_id << pulseInfo.slice_id
+                                   << "active collection" << _activeCollectionId;
+        return;
+    }
+    detectorList()->handleTunnelPulse(tunnel);
+
     const bool isPythonMode = _customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON;
     const bool isNoPulseResult = !isDetectorHeartbeat && pulseInfo.detection_status == kNoPulseDetectionStatus;
     const bool isLowConfidencePulse = !isDetectorHeartbeat && !pulseInfo.confirmed_status && !isNoPulseResult;
@@ -314,6 +356,13 @@ void CustomPlugin::autoDetection()
 {
     qCDebug(CustomPluginLog) << Q_FUNC_INFO;
 
+    if (_rotationInProgress) {
+        qgcApp()->showAppMessage(tr("A rotation is already in progress"));
+        return;
+    }
+    if (!_validatePythonCollectionAllowed()) {
+        return;
+    }
     if (!_validateAtLeastOneTagSelected()) {
         return;
     }
@@ -359,12 +408,20 @@ void CustomPlugin::autoDetection()
     }
 
     stateMachine->setInitialState(announceAutoStartState);
-    stateMachine->start();
+    _startRotationMachine(stateMachine);
 }
 
 void CustomPlugin::startRotation(void)
 {
     qCDebug(CustomPluginLog) << Q_FUNC_INFO;
+
+    if (_rotationInProgress) {
+        qgcApp()->showAppMessage(tr("A rotation is already in progress"));
+        return;
+    }
+    if (!_validatePythonCollectionAllowed()) {
+        return;
+    }
 
     auto stateMachine = new CustomStateMachine("Start Rotation", this);
     stateMachine->setEventMode(CustomStateMachine::CancelOnFlightModeChange);
@@ -406,7 +463,24 @@ void CustomPlugin::startRotation(void)
 
     stateMachine->setInitialState(startDetectionState ? startDetectionState : rotateState);
 
+    _startRotationMachine(stateMachine);
+}
+
+void CustomPlugin::_startRotationMachine(CustomStateMachine* stateMachine)
+{
+    // Reserve the rotation before start() so a second request during async setup is rejected
+    _setRotationInProgress(true);
+    connect(stateMachine, &QStateMachine::finished, this, [this]() { _setRotationInProgress(false); });
+    connect(stateMachine, &QStateMachine::stopped,  this, [this]() { _setRotationInProgress(false); });
     stateMachine->start();
+}
+
+void CustomPlugin::_setRotationInProgress(bool inProgress)
+{
+    if (_rotationInProgress != inProgress) {
+        _rotationInProgress = inProgress;
+        emit rotationInProgressChanged(inProgress);
+    }
 }
 
 void CustomPlugin::startDetection(void)
@@ -551,6 +625,13 @@ void CustomPlugin::_controllerHeartbeatFailed()
 {
     _controllerLostHeartbeat = true;
     emit controllerLostHeartbeatChanged();
+    emit protocolCompatibilityChanged();
+}
+
+bool CustomPlugin::protocolCompatible() const
+{
+    return !_controllerLostHeartbeat
+        && _controllerProtocolVersion == TUNNEL_PROTOCOL_VERSION;
 }
 
 void CustomPlugin::_captureScreen(void)
@@ -583,6 +664,20 @@ void CustomPlugin::clearMap()
 
 void CustomPlugin::_sendStopDetectionDirect()
 {
+    _sendCollectionCancel();
+
+    // Local cleanup must happen even when the cancel cannot be transmitted
+    _csvLogManager.csvStopFullPulseLog();
+    DetectorList::instance()->clearDetectors();
+}
+
+void CustomPlugin::_sendCollectionCancel()
+{
+    if (!protocolCompatible()) {
+        qCWarning(CustomPluginLog) << "Not sending collection cancellation: controller protocol is incompatible";
+        return;
+    }
+
     Vehicle* vehicle = MultiVehicleManager::instance()->activeVehicle();
     if (!vehicle) {
         return;
@@ -593,11 +688,16 @@ void CustomPlugin::_sendStopDetectionDirect()
         return;
     }
 
-    qCDebug(CustomPluginLog) << "Sending direct STOP_ROTATION_DETECTION (Python mode cleanup)" << " - " << Q_FUNC_INFO;
+    if (_activeCollectionId == 0) {
+        return;
+    }
 
-    StopRotationDetection_t stopRotationDetection;
-    memset(&stopRotationDetection, 0, sizeof(stopRotationDetection));
-    stopRotationDetection.header.command = COMMAND_ID_STOP_ROTATION_DETECTION;
+    qCDebug(CustomPluginLog) << "Sending direct FINISH_COLLECTION cancel (Python mode cleanup)" << Q_FUNC_INFO;
+
+    FinishCollection_t finishCollection {};
+    finishCollection.header.command = COMMAND_ID_FINISH_COLLECTION;
+    finishCollection.collection_id = _activeCollectionId;
+    finishCollection.disposition = COLLECTION_FINISH_CANCEL;
 
     SharedLinkInterfacePtr  sharedLink  = weakLink.lock();
     MAVLinkProtocol*        mavlink     = MAVLinkProtocol::instance();
@@ -605,12 +705,12 @@ void CustomPlugin::_sendStopDetectionDirect()
     mavlink_tunnel_t        tunnel;
 
     memset(&tunnel, 0, sizeof(tunnel));
-    memcpy(tunnel.payload, &stopRotationDetection, sizeof(stopRotationDetection));
+    memcpy(tunnel.payload, &finishCollection, sizeof(finishCollection));
 
     tunnel.target_system    = vehicle->id();
     tunnel.target_component = MAV_COMP_ID_ONBOARD_COMPUTER;
     tunnel.payload_type     = MAV_TUNNEL_PAYLOAD_TYPE_UNKNOWN;
-    tunnel.payload_length   = sizeof(stopRotationDetection);
+    tunnel.payload_length   = sizeof(finishCollection);
 
     mavlink_msg_tunnel_encode_chan(
                 static_cast<uint8_t>(mavlink->getSystemId()),
@@ -620,10 +720,6 @@ void CustomPlugin::_sendStopDetectionDirect()
                 &tunnel);
 
     vehicle->sendMessageOnLinkThreadSafe(sharedLink.get(), msg);
-
-    // Match StopDetectionState cleanup: stop logging and clear detector list
-    _csvLogManager.csvStopFullPulseLog();
-    DetectorList::instance()->clearDetectors();
 }
 
 void CustomPlugin::_stopDetectionOnDisarmed(bool armed)
@@ -650,8 +746,21 @@ bool CustomPlugin::_validateAtLeastOneTagSelected()
     return false;
 }
 
-void CustomPlugin::rotationIsStarting()
+bool CustomPlugin::_validatePythonCollectionAllowed()
 {
+    // Controller only accepts START_COLLECTION from HAS_TAGS, not while detection is running
+    const bool isPythonMode = _customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON;
+    if (isPythonMode && _controllerStatus == ControllerStatusDetecting) {
+        qgcApp()->showAppMessage(tr("Stop detection before starting a rotation"));
+        return false;
+    }
+    return true;
+}
+
+void CustomPlugin::rotationIsStarting(uint32_t collectionId)
+{
+    _activeCollectionId = collectionId;
+    _lastCollectionStatus = {};
     _setActiveRotation(true);
 
     // Setup up new RotationInfo
@@ -673,6 +782,7 @@ void CustomPlugin::rotationIsEnding()
 {
     if (_activeRotation) {
         _setActiveRotation(false);
+        _activeCollectionId = 0;
 
         // In C++ detector mode, fit bearing locally. In Python mode the controller
         // computes the bearing and sends COMMAND_ID_BEARING_RESULT.
@@ -699,6 +809,13 @@ void CustomPlugin::_handleBearingResult(const mavlink_tunnel_t& tunnel)
     BearingResult_t bearingResult;
     memcpy(&bearingResult, tunnel.payload, sizeof(bearingResult));
 
+    if (!_activeRotation || bearingResult.collection_id != _activeCollectionId) {
+        qCWarning(CustomPluginLog) << "Ignoring stale bearing result for collection"
+                                   << bearingResult.collection_id
+                                   << "active collection" << _activeCollectionId;
+        return;
+    }
+
     qCDebug(CustomPluginLog) << "BearingResult received - tag_id:bearing:r2:nValid:bestSNR"
                              << bearingResult.tag_id
                              << bearingResult.bearing_deg
@@ -713,6 +830,28 @@ void CustomPlugin::_handleBearingResult(const mavlink_tunnel_t& tunnel)
                                            bearingResult.n_valid_slices, bearingResult.best_snr);
         }
     }
+}
+
+void CustomPlugin::_handleCollectionStatus(const mavlink_tunnel_t& tunnel)
+{
+    if (tunnel.payload_length != sizeof(CollectionStatus_t)) {
+        qCWarning(CustomPluginLog) << "CollectionStatus payload has incorrect size"
+                                   << tunnel.payload_length << sizeof(CollectionStatus_t);
+        return;
+    }
+
+    CollectionStatus_t status {};
+    memcpy(&status, tunnel.payload, sizeof(status));
+    qCDebug(CustomPluginLog) << "Collection status"
+                             << status.collection_id << status.slice_id << status.status
+                             << status.completed_detectors << status.expected_detectors
+                             << status.error_code;
+    // Kept so a listener that connects after the message arrived can replay it
+    if (status.collection_id == _activeCollectionId) {
+        _lastCollectionStatus = status;
+    }
+    emit collectionStatusReceived(
+        status.collection_id, status.slice_id, status.status, status.error_code);
 }
 
 void CustomPlugin::_setActiveRotation(bool active)
