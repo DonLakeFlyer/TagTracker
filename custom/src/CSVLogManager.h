@@ -24,6 +24,7 @@ public:
 
 private:
     void _csvLogRotationStartStop(bool startRotation);
+    void _csvWritePulseHeader(QFile& csvFile);
     void _csvLogPulse(QFile& csvFile, const TunnelProtocol::PulseInfo_t& pulseInfo);
 
     QFile   _csvFullPulseLogFile;
