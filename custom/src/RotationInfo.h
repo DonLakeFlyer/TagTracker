@@ -35,6 +35,7 @@ public:
     void pulseInfoReceived(const TunnelProtocol::PulseInfo_t& pulseInfo);
     void fitBearing(void);
     void setBearingResult(float bearingDeg, float rSquared, uint32_t nValidSlices, float bestSNR);
+    static double pulseStrengthForDisplay(const TunnelProtocol::PulseInfo_t& pulseInfo, bool isPythonMode);
 
 signals:
     void pulseRateCountsChanged(void);

@@ -44,11 +44,13 @@ void SliceInfo::updateMaxSNR(double snr, bool confirmedPulse, const QString& sou
     const bool oldLowConfidenceOnly = lowConfidenceOnly();
 
     if (confirmedPulse) {
-        if (!qIsNaN(_maxSNR) && snr <= _maxSNR) {
+        // Latest confirmed value wins: a locked re-measurement supersedes the
+        // provisional acquisition value, matching the controller's fit input.
+        if (!qIsNaN(_maxSNR) && snr == _maxSNR) {
             return;
         }
 
-        qCDebug(CustomPluginLog) << "Updating SliceInfo CONFIRMED max SNR - index:centerHeading:sliceDegress:maxSnr"
+        qCDebug(CustomPluginLog) << "Updating SliceInfo CONFIRMED SNR - index:centerHeading:sliceDegress:snr"
                                  << _sliceIndex << _centerHeading << _sliceDegrees << snr << " _ " << Q_FUNC_INFO;
         _maxSNR = snr;
         _maxSNRSourceRateLabel = sourceRateLabel;

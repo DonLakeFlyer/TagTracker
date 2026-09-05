@@ -84,3 +84,7 @@ add_subdirectory(Utilities)
 add_subdirectory(Viewer3D)
 add_subdirectory(Vehicle)
 add_subdirectory(QmlUITests)
+
+if(QGC_CUSTOM_BUILD)
+    add_qgc_test(TagTrackerPulseDisplayTest LABELS Unit)
+endif()

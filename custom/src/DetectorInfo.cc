@@ -27,7 +27,7 @@ DetectorInfo::DetectorInfo(uint32_t tagId, const QString& tagLabel, uint32_t int
 {
     _heartbeatTimerInterval = ((_k + 1) * intraPulseMsecs) + 1000;
 
-    qDebug() << "DetectorInfo::DetectorInfo" << _tagId << _tagLabel << _intraPulseMsecs << _k << _heartbeatTimerInterval;
+    qCDebug(DetectorInfoLog) << "DetectorInfo::DetectorInfo" << _tagId << _tagLabel << _intraPulseMsecs << _k << _heartbeatTimerInterval;
 
     _heartbeatTimeoutTimer.setSingleShot(true);
     _heartbeatTimeoutTimer.setInterval(_heartbeatTimerInterval);
@@ -86,6 +86,8 @@ void DetectorInfo::handleTunnelPulse(const mavlink_tunnel_t& tunnel)
             } else {
                 _lastPulseStrength = std::max(clampedSNR, _lastPulseStrength);
             }
+            _lastSignalPower = pulseInfo.group_snr;
+            emit lastSignalPowerChanged();
             if (_lastPulseLowConfidence != newLowConfidence) {
                 _lastPulseLowConfidence = newLowConfidence;
                 emit lastPulseLowConfidenceChanged();

@@ -14,6 +14,7 @@
 #include <QTimer>
 #include <QFile>
 #include <QtQml/QQmlAbstractUrlInterceptor>
+#include <cmath>
 
 class CustomState;
 class CustomStateMachine;
@@ -61,6 +62,8 @@ public:
     int                 maxWaitMSecsForKGroup();
     uint32_t            controllerProtocolVersion() const { return _controllerProtocolVersion; }
     bool                protocolCompatible() const;
+    bool                hasPriorBearing() const { return std::isfinite(_priorBearingDeg); }
+    double              priorBearingDeg() const { return _priorBearingDeg; }
     // True from the moment a rotation state machine starts until it finishes or is stopped
     bool                rotationInProgress() const { return _rotationInProgress; }
     const CollectionStatus_t& lastCollectionStatus() const { return _lastCollectionStatus; }
@@ -156,6 +159,7 @@ private:
 
     double                  _maxSNR = qQNaN();
     double                  _minSNR = qQNaN();
+    double                  _priorBearingDeg = qQNaN();
 
     QQmlApplicationEngine*  _qmlEngine = nullptr;
     class CustomOverrideInterceptor* _urlInterceptor = nullptr;

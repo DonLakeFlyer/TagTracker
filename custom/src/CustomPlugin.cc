@@ -830,6 +830,10 @@ void CustomPlugin::_handleBearingResult(const mavlink_tunnel_t& tunnel)
                                            bearingResult.n_valid_slices, bearingResult.best_snr);
         }
     }
+    if (std::isfinite(bearingResult.bearing_deg)
+        && bearingResult.n_valid_slices >= 3) {
+        _priorBearingDeg = normalizeHeading(bearingResult.bearing_deg);
+    }
 }
 
 void CustomPlugin::_handleCollectionStatus(const mavlink_tunnel_t& tunnel)
@@ -870,7 +874,9 @@ int CustomPlugin::maxWaitMSecsForKGroup()
     auto maxIntraPulseMsecs = TagDatabase::instance()->maxIntraPulseMsecs();
 
     if (isPythonMode) {
-        return maxIntraPulseMsecs * (maxK + 1);
+        // A strong first acquisition is held at the same heading for one
+        // confirming K-pulse cycle before the detector completes the slice.
+        return maxIntraPulseMsecs * ((2 * maxK) + 1);
     } else {
         auto kGroups = _customSettings->rotationKWaitCount()->rawValue().toInt();
         return maxIntraPulseMsecs * ((kGroups * maxK) + 1);

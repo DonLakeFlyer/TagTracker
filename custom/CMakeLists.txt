@@ -190,8 +190,16 @@ set(CUSTOM_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/StopDetectionState.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/TakeoffState.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/TakeoffState.h
-    PARENT_SCOPE
 )
+
+if(QGC_BUILD_TESTING)
+    list(APPEND CUSTOM_SOURCES
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/TagTrackerPulseDisplayTest.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/TagTrackerPulseDisplayTest.h
+    )
+endif()
+
+set(CUSTOM_SOURCES ${CUSTOM_SOURCES} PARENT_SCOPE)
 
 # ============================================================================
 # Tunnel Protocol (shared with the companion computer firmware)
@@ -201,7 +209,7 @@ set(CUSTOM_SOURCES
 CPMAddPackage(
     NAME              TunnelProtocol
     GITHUB_REPOSITORY DonLakeFlyer/TagTrackerTunnelProtocol
-    GIT_TAG           f31024e700ffee41803eb68a5e5c6e1352aa4b5d
+    GIT_TAG           30813192e4746de2b583391ea376386265188908
     DOWNLOAD_ONLY     TRUE
 )
 

@@ -72,7 +72,9 @@ void RotationInfo::_applyPulseToSlice(const TunnelProtocol::PulseInfo_t& pulseIn
         return;
     }
 
-    const double sliceStrength = pulseInfo.snr;
+    CustomSettings* customSettings = qobject_cast<CustomPlugin*>(CustomPlugin::instance())->customSettings();
+    const bool isPythonMode = customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON;
+    const double sliceStrength = pulseStrengthForDisplay(pulseInfo, isPythonMode);
     SliceInfo* slice = _slices.value<SliceInfo*>(sliceIndex);
 
     if (!slice) {
@@ -80,15 +82,27 @@ void RotationInfo::_applyPulseToSlice(const TunnelProtocol::PulseInfo_t& pulseIn
         return;
     }
 
-    if (!qIsNaN(sliceStrength) && sliceStrength > 0.0) {
-        CustomSettings* customSettings = qobject_cast<CustomPlugin*>(CustomPlugin::instance())->customSettings();
-        const bool isPythonMode = customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON;
+    // Python reports are locked measurements; 0 dB above noise is still a measurement.
+    const bool paintSlice = isPythonMode ? !qIsNaN(sliceStrength) : (!qIsNaN(sliceStrength) && sliceStrength > 0.0);
+    if (paintSlice) {
         const QString rateLabel = isPythonMode ? _rateLabelFromGroupInd(pulseInfo) : _sourceRateLabelForTagId(pulseInfo.tag_id);
         slice->updateMaxSNR(sliceStrength, pulseInfo.confirmed_status, rateLabel);
     }
 
     _updatePulseRateCount(pulseInfo);
     _updateMaxSNR(sliceStrength);
+}
+
+double RotationInfo::pulseStrengthForDisplay(const TunnelProtocol::PulseInfo_t& pulseInfo, bool isPythonMode)
+{
+    if (!isPythonMode) {
+        return pulseInfo.snr;
+    }
+    // group_snr is absolute PSD; show it as dB above the per-report noise floor.
+    if (pulseInfo.group_snr <= 0.0 || pulseInfo.noise_psd <= 0.0) {
+        return 0.0;
+    }
+    return 10.0 * std::log10(pulseInfo.group_snr / pulseInfo.noise_psd);
 }
 
 void RotationInfo::_updatePulseRateCount(const TunnelProtocol::PulseInfo_t& pulseInfo)
