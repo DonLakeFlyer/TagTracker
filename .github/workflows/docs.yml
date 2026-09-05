@@ -2,11 +2,11 @@ name: Build PDF Docs
 
 on:
   push:
-    branches: [ master, sync-upstream-master ]
+    branches: [master]
     paths:
       - 'custom/docs/**'
   pull_request:
-    branches: [ master, sync-upstream-master ]
+    branches: [master]
     paths:
       - 'custom/docs/**'
   workflow_dispatch:
