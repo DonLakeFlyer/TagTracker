@@ -36,6 +36,7 @@ void CSVLogManager::csvStartFullPulseLog(void)
         qgcApp()->showAppMessage(QString("Open of full pulse csv log file failed: %1").arg(_csvFullPulseLogFile.errorString()));
         return;
     }
+    _csvWritePulseHeader(_csvFullPulseLogFile);
 }
 
 void CSVLogManager::csvStopFullPulseLog(void)
@@ -66,24 +67,26 @@ void CSVLogManager::csvStartRotationPulseLog()
         qgcApp()->showAppMessage(QString("Open of rotation pulse csv log file failed: %1").arg(_csvRotationPulseLogFile.errorString()));
         return;
     }
+    _csvWritePulseHeader(_csvRotationPulseLogFile);
 }
 
 void CSVLogManager::csvStopRotationPulseLog()
 {
     if (_csvRotationPulseLogFile.isOpen()) {
-        csvLogRotationStop();
         _csvRotationPulseLogFile.close();
     }
+}
+
+void CSVLogManager::_csvWritePulseHeader(QFile& csvFile)
+{
+    csvFile.write(QString("# %1, tag_id, frequency_hz, start_time_seconds, predict_next_start_seconds, snr, stft_score, group_seq_counter, group_ind, group_snr, noise_psd, detection_status, confirmed_status, latitude, longitude, altitude_rel, roll_deg, pitch_deg, yaw_deg, antenna_offset\n")
+        .arg(COMMAND_ID_PULSE)
+        .toUtf8());
 }
 
 void CSVLogManager::_csvLogPulse(QFile& csvFile, const TunnelProtocol::PulseInfo_t& pulseInfo)
 {
     if (csvFile.isOpen()) {
-        if (csvFile.size() == 0) {
-            csvFile.write(QString("# %1, tag_id, frequency_hz, start_time_seconds, predict_next_start_seconds, snr, stft_score, group_seq_counter, group_ind, group_snr, noise_psd, detection_status, confirmed_status, latitude, longitude, altitude_rel, roll_deg, pitch_deg, yaw_deg, antenna_offset\n")
-                .arg(COMMAND_ID_PULSE)
-                .toUtf8());
-        }
         auto customSettings = qobject_cast<CustomPlugin*>(CustomPlugin::instance())->customSettings();
         csvFile.write(QString("%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15, %16, %17, %18, %19, %20\n")
             .arg(COMMAND_ID_PULSE)
