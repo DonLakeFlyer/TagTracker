@@ -2,11 +2,11 @@ name: Build PDF Docs
 
 on:
   push:
-    branches: [ master ]
+    branches: [ herelink ]
     paths:
       - 'custom/docs/**'
   pull_request:
-    branches: [ master ]
+    branches: [ herelink ]
     paths:
       - 'custom/docs/**'
   workflow_dispatch:
