@@ -7,7 +7,7 @@
             "name": "TagTracker",
             "url": "qrc:/qml/TagTrackerSettings.qml",
             "icon": "qrc:/InstrumentValueIcons/tag.svg",
-            "insertAfter": "General"
+            "insertBefore": "General"
         }
     ]
 }

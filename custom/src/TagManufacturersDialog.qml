@@ -107,7 +107,7 @@ QGCPopupDialog {
                             QGroundControl.corePlugin.tagDatabase.save()
                         }
                     }
-                }                
+                }
             }
         }
     }
@@ -138,21 +138,26 @@ QGCPopupDialog {
                 QGroundControl.corePlugin.tagDatabase.save()
             }
 
-            Column {
-                spacing: ScreenTools.defaultFontPixelHeight
+            ColumnLayout {
+                spacing: ScreenTools.defaultFontPixelHeight / 2
 
-                FactTextFieldGrid {
-                    useNameForLabels: false
-                    factList: [
+                Repeater {
+                    model: [
                         tagManufacturer.name,
                         tagManufacturer.ip_msecs_1_id,
-                        tagManufacturer.ip_msecs_1, 
+                        tagManufacturer.ip_msecs_1,
                         tagManufacturer.ip_msecs_2_id,
-                        tagManufacturer.ip_msecs_2, 
-                        tagManufacturer.pulse_width_msecs, 
+                        tagManufacturer.ip_msecs_2,
+                        tagManufacturer.pulse_width_msecs,
                         tagManufacturer.ip_uncertainty_msecs,
                         tagManufacturer.ip_jitter_msecs,
                     ]
+
+                    LabelledFactTextField {
+                        Layout.fillWidth:           true
+                        fact:                       modelData
+                        textFieldPreferredWidth:    ScreenTools.defaultFontPixelWidth * 15
+                    }
                 }
             }
         }
