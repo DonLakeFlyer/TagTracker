@@ -35,6 +35,7 @@ public:
     void pulseInfoReceived(const TunnelProtocol::PulseInfo_t& pulseInfo);
     void fitBearing(void);
     void setBearingResult(float bearingDeg, float rSquared, uint32_t nValidSlices, float bestSNR);
+    static double pulseStrengthForDisplay(const TunnelProtocol::PulseInfo_t& pulseInfo, bool isPythonMode);
 
 signals:
     void pulseRateCountsChanged(void);
@@ -46,8 +47,8 @@ private:
 
     int _sliceIndexForHeading(double normalizedHeading);
     void _applyPulseToSlice(const TunnelProtocol::PulseInfo_t& pulseInfo, int sliceIndex);
-    void _updatePulseRateCount(const TunnelProtocol::PulseInfo_t& pulseInfo);
-    void _updateMaxSNR(double sliceStrength);
+    void _updatePulseRateCount(const TunnelProtocol::PulseInfo_t& pulseInfo, bool isPythonMode);
+    void _updateMaxSNR();
     QString _sourceRateLabelForTagId(uint32_t tagId) const;
     QString _rateLabelFromGroupInd(const TunnelProtocol::PulseInfo_t& pulseInfo) const;
     bool _isNoDetectionPulse(const TunnelProtocol::PulseInfo_t& pulseInfo) const;

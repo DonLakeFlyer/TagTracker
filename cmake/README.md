@@ -72,9 +72,10 @@ cmake --list-presets=all
 ```
 
 Each visible configure preset has a same-name build preset and workflow preset. Workflows run tests
-only for configurations that set `QGC_BUILD_TESTING=ON`; mobile and ARM64 cross-build debug presets
-intentionally keep tests disabled because their target binaries cannot be assumed runnable on the
-host. For example:
+only for configurations that set `QGC_BUILD_TESTING=ON`; mobile presets keep tests disabled because
+their target binaries cannot run on the host. The `*-arm64-debug` presets are intended for native
+ARM64 development hosts (e.g. Apple Silicon VMs, Windows on ARM) and do build and run tests; if you
+use them to cross-compile from x64, run only the configure and build presets. For example:
 
 ```bash
 cmake --workflow --preset Linux-debug

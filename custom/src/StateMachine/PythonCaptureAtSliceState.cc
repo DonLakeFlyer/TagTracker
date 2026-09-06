@@ -22,7 +22,8 @@ static constexpr double kPythonResultTimeoutFudgeFactor = 0.5;
 
 using namespace TunnelProtocol;
 
-PythonCaptureAtSliceState::PythonCaptureAtSliceState(QState* parentState, int sliceIndex, uint32_t collectionId)
+PythonCaptureAtSliceState::PythonCaptureAtSliceState(
+    QState* parentState, int headingIndex, int sequenceIndex, uint32_t collectionId)
     : CustomState       ("PythonCaptureAtSliceState", parentState)
     , _vehicle          (MultiVehicleManager::instance()->activeVehicle())
     , _customPlugin     (qobject_cast<CustomPlugin*>(CustomPlugin::instance()))
@@ -31,7 +32,7 @@ PythonCaptureAtSliceState::PythonCaptureAtSliceState(QState* parentState, int sl
 {
     double degreesPerSlice = 360.0 / _rotationDivisions;
 
-    _sliceHeadingDegrees = sliceIndex * degreesPerSlice;
+    _sliceHeadingDegrees = headingIndex * degreesPerSlice;
     if (_sliceHeadingDegrees > 360.0) {
         _sliceHeadingDegrees -= 360.0;
     } else if (_sliceHeadingDegrees < 0.0) {
@@ -52,13 +53,13 @@ PythonCaptureAtSliceState::PythonCaptureAtSliceState(QState* parentState, int sl
     StartCollectionSlice_t startSlice {};
     startSlice.header.command = COMMAND_ID_START_COLLECTION_SLICE;
     startSlice.collection_id = collectionId;
-    startSlice.slice_id = static_cast<uint32_t>(sliceIndex + 1);
+    startSlice.slice_id = static_cast<uint32_t>(sequenceIndex + 1);
     startSlice.heading_deg = static_cast<float>(_sliceHeadingDegrees);
 
     // States
     auto announceRotateState        = new SayState("Announce Rotate", this, QStringLiteral("Searching at %1 degrees").arg(_sliceHeadingDegrees));
     auto rotateCommandState         = _rotateMavlinkCommandState(this);
-    auto waitForHeadingState        = new FactWaitForValueTarget(this, _vehicle->heading(), _sliceHeadingDegrees, 1.0, 10 * 1000);
+    auto waitForHeadingState        = new FactWaitForValueTarget(this, _vehicle->heading(), _sliceHeadingDegrees, 1.0, 20 * 1000);
     auto startSliceState            = new SendTunnelCommandState("Python StartCollectionSlice", this, reinterpret_cast<uint8_t*>(&startSlice), sizeof(startSlice));
     const int maxWaitMsecs = _customPlugin->maxWaitMSecsForKGroup();
     const int waitForDetectionTimeoutMsecs = maxWaitMsecs + static_cast<int>(maxWaitMsecs * kPythonResultTimeoutFudgeFactor);

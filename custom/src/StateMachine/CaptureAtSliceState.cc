@@ -97,7 +97,7 @@ CustomState* CaptureAtSliceState::_rotateAndCaptureAtHeadingState()
     auto announceRotateState        = new SayState("Announce Rotate", groupingState, QStringLiteral("Searching at %1 degrees").arg(_sliceHeadingDegrees));
     auto rotateCommandState         = _rotateMavlinkCommandState(groupingState);
     //auto rotateCommandState         = new FunctionState("ErrorTesting", groupingState, [sliceBeginState] () { sliceBeginState->machine()->setError("Error Testing"); });
-    auto waitForHeadingChangeState  = new FactWaitForValueTarget(groupingState, _vehicle->heading(), _sliceHeadingDegrees, 1.0 /* _targetVariance */, 10 * 1000 /* _waitMsecs */);
+    auto waitForHeadingChangeState  = new FactWaitForValueTarget(groupingState, _vehicle->heading(), _sliceHeadingDegrees, 1.0 /* _targetVariance */, 20 * 1000 /* _waitMsecs */);
     auto sliceBeginState            = new FunctionState("Slice Begin", groupingState, std::bind(&CaptureAtSliceState::_sliceBegin, this));
     auto delayForKGroupsState       = new DelayState(groupingState, _customPlugin->maxWaitMSecsForKGroup());
     auto sliceEndState              = new FunctionState("Slice End", groupingState, [this] () { _sliceEnd(); });

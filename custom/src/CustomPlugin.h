@@ -14,6 +14,7 @@
 #include <QTimer>
 #include <QFile>
 #include <QtQml/QQmlAbstractUrlInterceptor>
+#include <cmath>
 
 class CustomState;
 class CustomStateMachine;
@@ -56,11 +57,14 @@ public:
     Q_PROPERTY(QmlObjectListModel*  rotationInfoList        READ    rotationInfoList          CONSTANT)
 
     CustomSettings*     customSettings  () { return _customSettings; }
+    bool                isPythonMode    () const { return _customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON; }
     DetectorList *      detectorList() { return DetectorList::instance(); }
     QString             holdFlightMode();
     int                 maxWaitMSecsForKGroup();
     uint32_t            controllerProtocolVersion() const { return _controllerProtocolVersion; }
     bool                protocolCompatible() const;
+    bool                hasPriorBearing() const { return std::isfinite(_priorBearingDeg); }
+    double              priorBearingDeg() const { return _priorBearingDeg; }
     // True from the moment a rotation state machine starts until it finishes or is stopped
     bool                rotationInProgress() const { return _rotationInProgress; }
     const CollectionStatus_t& lastCollectionStatus() const { return _lastCollectionStatus; }
@@ -115,6 +119,7 @@ private slots:
     void _stopDetectionOnDisarmed(bool armed);
     bool _validateAtLeastOneTagSelected();
     bool _validatePythonCollectionAllowed();
+    bool _validateVehicleAvailable();
 
 private:
     void    _handleTunnelPulse          (Vehicle* vehicle, const mavlink_tunnel_t& tunnel);
@@ -156,6 +161,7 @@ private:
 
     double                  _maxSNR = qQNaN();
     double                  _minSNR = qQNaN();
+    double                  _priorBearingDeg = qQNaN();
 
     QQmlApplicationEngine*  _qmlEngine = nullptr;
     class CustomOverrideInterceptor* _urlInterceptor = nullptr;

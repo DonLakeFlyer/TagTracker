@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QHash>
 #include <QObject>
 #include <QString>
 
@@ -23,7 +24,7 @@ public:
     double displaySNR(void) const;
     QString displaySource(void) const;
     bool lowConfidenceOnly(void) const;
-    void updateMaxSNR(double snr, bool confirmedPulse, const QString& sourceRateLabel);
+    void updateMaxSNR(uint32_t tagId, double snr, bool confirmedPulse, const QString& sourceRateLabel);
 
 signals:
     void maxSNRChanged(double maxSNR);
@@ -32,6 +33,13 @@ signals:
     void lowConfidenceOnlyChanged(bool lowConfidenceOnly);
 
 private:
+    struct ConfirmedValue {
+        double  snr;
+        QString sourceRateLabel;
+    };
+
+    void _recomputeConfirmedMax();
+
     int     _sliceIndex     = 0;
     double  _centerHeading  = 0.0;
     double  _sliceDegrees   = 0.0;
@@ -39,4 +47,6 @@ private:
     double  _maxLowConfidenceSNR = qQNaN();
     QString _maxSNRSourceRateLabel;
     QString _maxLowConfidenceSourceRateLabel;
+    // Latest confirmed value per tag; _maxSNR is the max across tags
+    QHash<uint32_t, ConfirmedValue> _confirmedByTag;
 };

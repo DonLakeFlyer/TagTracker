@@ -14,6 +14,8 @@
 #include <QLineF>
 #include <QQmlEngine>
 
+#include <algorithm>
+
 using namespace TunnelProtocol;
 
 QGC_LOGGING_CATEGORY(DetectorInfoLog, "DetectorInfoLog")
@@ -27,7 +29,7 @@ DetectorInfo::DetectorInfo(uint32_t tagId, const QString& tagLabel, uint32_t int
 {
     _heartbeatTimerInterval = ((_k + 1) * intraPulseMsecs) + 1000;
 
-    qDebug() << "DetectorInfo::DetectorInfo" << _tagId << _tagLabel << _intraPulseMsecs << _k << _heartbeatTimerInterval;
+    qCDebug(DetectorInfoLog) << "DetectorInfo::DetectorInfo" << _tagId << _tagLabel << _intraPulseMsecs << _k << _heartbeatTimerInterval;
 
     _heartbeatTimeoutTimer.setSingleShot(true);
     _heartbeatTimeoutTimer.setInterval(_heartbeatTimerInterval);
@@ -35,6 +37,10 @@ DetectorInfo::DetectorInfo(uint32_t tagId, const QString& tagLabel, uint32_t int
         _heartbeatLost = true;
         emit heartbeatLostChanged();
     });
+    // A detector that never sends its first heartbeat must still be flagged, but the
+    // controller may take up to 30 s to bring Python detectors to READY before the first one.
+    constexpr uint32_t kStartupGraceMsecs = 35000;
+    _heartbeatTimeoutTimer.start(static_cast<int>(std::max(_heartbeatTimerInterval, kStartupGraceMsecs)));
 }
 
 DetectorInfo::~DetectorInfo()
@@ -53,15 +59,14 @@ void DetectorInfo::handleTunnelPulse(const mavlink_tunnel_t& tunnel)
     memcpy(&pulseInfo, tunnel.payload, sizeof(pulseInfo));
 
     bool isDetectorHeartbeat = pulseInfo.frequency_hz == 0;
-    CustomSettings* customSettings = qobject_cast<CustomPlugin*>(CustomPlugin::instance())->customSettings();
-    const bool isPythonMode = customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON;
+    const bool isPythonMode = qobject_cast<CustomPlugin*>(CustomPlugin::instance())->isPythonMode();
     const bool isLowConfidencePythonPulse = isPythonMode && !pulseInfo.confirmed_status && !isDetectorHeartbeat && pulseInfo.detection_status != kNoPulseDetectionStatus;
 
     if (pulseInfo.tag_id == _tagId) {
         if (isDetectorHeartbeat) {
             _heartbeatLost = false;
             _heartbeatCount++;
-            _heartbeatTimeoutTimer.start();
+            _heartbeatTimeoutTimer.start(static_cast<int>(_heartbeatTimerInterval));
             emit heartbeatLostChanged();
             qCDebug(DetectorInfoLog) << "HEARTBEAT from Detector id" << _tagId;
         } else if (pulseInfo.confirmed_status || isLowConfidencePythonPulse) {
@@ -86,6 +91,8 @@ void DetectorInfo::handleTunnelPulse(const mavlink_tunnel_t& tunnel)
             } else {
                 _lastPulseStrength = std::max(clampedSNR, _lastPulseStrength);
             }
+            _lastSignalPower = pulseInfo.group_snr;
+            emit lastSignalPowerChanged();
             if (_lastPulseLowConfidence != newLowConfidence) {
                 _lastPulseLowConfidence = newLowConfidence;
                 emit lastPulseLowConfidenceChanged();

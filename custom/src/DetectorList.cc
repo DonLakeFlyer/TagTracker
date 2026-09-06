@@ -37,8 +37,9 @@ void DetectorList::setupFromSelectedTags()
 
     TagDatabase*        tagDB               = TagDatabase::instance();
     QmlObjectListModel* tagInfoList         = tagDB->tagInfoListModel();
-    CustomSettings*     customSettings      = qobject_cast<CustomPlugin*>(CustomPlugin::instance())->customSettings();
-    const bool          isPythonMode        = customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON;
+    CustomPlugin*       customPlugin        = qobject_cast<CustomPlugin*>(CustomPlugin::instance());
+    CustomSettings*     customSettings      = customPlugin->customSettings();
+    const bool          isPythonMode        = customPlugin->isPythonMode();
     const uint32_t      kValue              = isPythonMode ? customSettings->pythonK()->rawValue().toUInt()
                                                            : customSettings->k()->rawValue().toUInt();
 

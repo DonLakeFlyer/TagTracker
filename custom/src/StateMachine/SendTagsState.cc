@@ -89,7 +89,8 @@ SendTunnelCommandState* SendTagsState::_sendTagState(int tagIndex, QState* paren
 {
     auto tagDatabase = TagDatabase::instance();
     auto tagInfoListModel = tagDatabase->tagInfoListModel();
-    auto customSettings = qobject_cast<CustomPlugin*>(CustomPlugin::instance())->customSettings();
+    auto customPlugin = qobject_cast<CustomPlugin*>(CustomPlugin::instance());
+    auto customSettings = customPlugin->customSettings();
     auto tagInfo = tagInfoListModel->value<TagInfo*>(tagIndex);
 
     TunnelProtocol::TagInfo_t tunnelTagInfo;
@@ -106,7 +107,7 @@ SendTunnelCommandState* SendTagsState::_sendTagState(int tagIndex, QState* paren
     tunnelTagInfo.intra_pulse_uncertainty_msecs             = tagManufacturer->ip_uncertainty_msecs()->rawValue().toUInt();
     tunnelTagInfo.intra_pulse_jitter_msecs                  = tagManufacturer->ip_jitter_msecs()->rawValue().toUInt();
 
-    const bool isPythonMode = customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON;
+    const bool isPythonMode = customPlugin->isPythonMode();
 
     tunnelTagInfo.k                                         = isPythonMode ? customSettings->pythonK()->rawValue().toUInt()
                                                                           : customSettings->k()->rawValue().toUInt();

@@ -13,6 +13,9 @@ class SetFlightModeState : public CustomState
 public:
     SetFlightModeState(QState* parentState, const QString& flightMode);
 
+    // Mode acks arrive well after 2 s over a lossy link or a slow SITL clock.
+    static constexpr int kTimeoutMsecs = 10000;
+
 signals:
     void flightModeChanged();
 

@@ -30,4 +30,5 @@ private:
     QFile   _csvFullPulseLogFile;
     QFile   _csvRotationPulseLogFile;
     int     _csvRotationCount = 1;
+    bool    _rotationStartLogged = false;
 };

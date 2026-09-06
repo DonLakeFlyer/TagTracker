@@ -6,6 +6,8 @@
 
 #include <functional>
 
+class Vehicle;
+
 class CustomStateMachine : public QGCStateMachine
 {
     Q_OBJECT
@@ -27,11 +29,13 @@ public slots:
 
 private slots:
     void _flightModeChanged(const QString& flightMode);
+    void _vehicleRemoved(Vehicle* vehicle);
 
 private:
     void _runStopHandler();
 
     QString                 _errorString;
     uint                    _eventMode = 0;
+    bool                    _vehicleLost = false;
     std::function<void()>   _stopHandler;
 };
