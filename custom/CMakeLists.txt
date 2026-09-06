@@ -87,11 +87,14 @@ qt_add_resources(${CMAKE_PROJECT_NAME} custom_json
     FILES ${CUSTOM_JSON_RESOURCES}
 )
 
-set(CUSTOM_TAG_INFO "${CMAKE_CURRENT_SOURCE_DIR}/TagInfo.txt")
-qgc_set_qt_resource_alias("${CUSTOM_TAG_INFO}")
+set(CUSTOM_RES_RESOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/TagInfo.txt"
+    "${CMAKE_SOURCE_DIR}/resources/action.svg"
+)
+qgc_set_qt_resource_alias(${CUSTOM_RES_RESOURCES})
 qt_add_resources(${CMAKE_PROJECT_NAME} custom_res
     PREFIX "/res"
-    FILES "${CUSTOM_TAG_INFO}"
+    FILES ${CUSTOM_RES_RESOURCES}
 )
 
 # ============================================================================

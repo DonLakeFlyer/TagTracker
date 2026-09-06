@@ -30,16 +30,18 @@ QGCPopupDialog {
         }
         QGroundControl.corePlugin.tagDatabase.save()
     }
-    
+
     ColumnLayout {
         spacing: ScreenTools.defaultFontPixelHeight / 2
 
         LabelledFactTextField {
-            fact: tagInfo.name
+            fact:                       tagInfo.name
+            textFieldPreferredWidth:    ScreenTools.defaultFontPixelWidth * 15
         }
 
         LabelledFactTextField {
-            fact: tagInfo.frequencyMHz
+            fact:                       tagInfo.frequencyMHz
+            textFieldPreferredWidth:    ScreenTools.defaultFontPixelWidth * 15
         }
 
         LabelledComboBox {
