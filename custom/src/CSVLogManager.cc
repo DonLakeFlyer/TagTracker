@@ -42,6 +42,8 @@ void CSVLogManager::csvStartFullPulseLog(void)
 void CSVLogManager::csvStopFullPulseLog(void)
 {
     if (_csvFullPulseLogFile.isOpen()) {
+        // Closing mid-rotation must still leave a paired STOP_ROTATION row
+        csvLogRotationStop();
         _csvFullPulseLogFile.close();
     }
 }
@@ -125,19 +127,32 @@ void CSVLogManager::csvLogPulse(const PulseInfo_t& pulseInfo)
 
 void CSVLogManager::_csvLogRotationStartStop(bool startRotation)
 {
-    Vehicle* vehicle = MultiVehicleManager::instance()->activeVehicle();
-    if (!vehicle) {
-        qCWarning(CustomPluginLog) << "INTERNAL ERROR: _csvLogRotationStartStop - no vehicle available";
+    if (!_csvFullPulseLogFile.isOpen()) {
+        return;
+    }
+    // One START and one STOP marker per rotation
+    if (startRotation == _rotationStartLogged) {
         return;
     }
 
-    if (_csvFullPulseLogFile.isOpen()) {
+    double latitude = qQNaN();
+    double longitude = qQNaN();
+    double altitudeAMSL = qQNaN();
+    Vehicle* vehicle = MultiVehicleManager::instance()->activeVehicle();
+    if (vehicle) {
         QGeoCoordinate coord = vehicle->coordinate();
-        _csvFullPulseLogFile.write(QString("%1,%2,%3,%4\n").arg(startRotation ? COMMAND_ID_START_ROTATION : COMMAND_ID_STOP_ROTATION)
-                                .arg(coord.latitude(), 0, 'f', 6)
-                                .arg(coord.longitude(), 0, 'f', 6)
-                                .arg(vehicle->altitudeAMSL()->rawValue().toDouble(), 0, 'f', 6)
-                                .toUtf8());
+        latitude = coord.latitude();
+        longitude = coord.longitude();
+        altitudeAMSL = vehicle->altitudeAMSL()->rawValue().toDouble();
+    } else {
+        qCWarning(CustomPluginLog) << "_csvLogRotationStartStop - no vehicle available, logging without position";
     }
+
+    _csvFullPulseLogFile.write(QString("%1,%2,%3,%4\n").arg(startRotation ? COMMAND_ID_START_ROTATION : COMMAND_ID_STOP_ROTATION)
+                            .arg(latitude, 0, 'f', 6)
+                            .arg(longitude, 0, 'f', 6)
+                            .arg(altitudeAMSL, 0, 'f', 6)
+                            .toUtf8());
+    _rotationStartLogged = startRotation;
 }
 

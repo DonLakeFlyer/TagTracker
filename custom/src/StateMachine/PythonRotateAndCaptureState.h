@@ -2,6 +2,8 @@
 
 #include "CustomState.h"
 
+#include <QList>
+
 #include <cstdint>
 
 class CustomPlugin;
@@ -19,6 +21,11 @@ class PythonRotateAndCaptureState : public CustomState
 
 public:
     PythonRotateAndCaptureState(QState* parentState);
+
+    // Heading-index visit order. With a finite prior bearing: nearest slice first, then
+    // alternating outward clockwise/counter-clockwise. Without one: spread order for 8
+    // slices, sequential otherwise.
+    static QList<int> sliceVisitOrder(int rotationDivisions, double priorBearingDeg, double antennaOffsetDeg);
 
 private slots:
     void _collectionStatusReceived(uint32_t collectionId, uint32_t sliceId, uint32_t status, uint32_t errorCode);

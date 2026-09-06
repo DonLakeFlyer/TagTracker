@@ -264,7 +264,7 @@ void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& 
     }
     detectorList()->handleTunnelPulse(tunnel);
 
-    const bool isPythonMode = _customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON;
+    const bool isPythonMode = this->isPythonMode();
     const bool isNoPulseResult = !isDetectorHeartbeat && pulseInfo.detection_status == kNoPulseDetectionStatus;
     const bool isLowConfidencePulse = !isDetectorHeartbeat && !pulseInfo.confirmed_status && !isNoPulseResult;
 
@@ -356,6 +356,9 @@ void CustomPlugin::autoDetection()
 {
     qCDebug(CustomPluginLog) << Q_FUNC_INFO;
 
+    if (!_validateVehicleAvailable()) {
+        return;
+    }
     if (_rotationInProgress) {
         qgcApp()->showAppMessage(tr("A rotation is already in progress"));
         return;
@@ -380,7 +383,7 @@ void CustomPlugin::autoDetection()
     auto airspyStatusState      = new SendTunnelCommandState("AirspyStatusCheck", stateMachine, reinterpret_cast<uint8_t*>(&airspyStatusInfo), sizeof(airspyStatusInfo));
     auto takeoffState           = new TakeoffState(stateMachine, _customSettings->takeoffAltitude()->rawValue().toDouble());
     auto eventModeRTLState      = new FunctionState("eventModeRTLState", stateMachine, [stateMachine] () { stateMachine->setEventMode(CustomStateMachine::CancelOnFlightModeChange | CustomStateMachine::RTLOnError); });
-    const bool isPythonMode     = _customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON;
+    const bool isPythonMode     = this->isPythonMode();
     auto startDetectionState    = new StartDetectionState(stateMachine, !isPythonMode);
     auto stopDetectionState     = new StopDetectionState(stateMachine, !isPythonMode);
     CustomState* rotateAndCaptureState = isPythonMode
@@ -415,6 +418,9 @@ void CustomPlugin::startRotation(void)
 {
     qCDebug(CustomPluginLog) << Q_FUNC_INFO;
 
+    if (!_validateVehicleAvailable()) {
+        return;
+    }
     if (_rotationInProgress) {
         qgcApp()->showAppMessage(tr("A rotation is already in progress"));
         return;
@@ -429,7 +435,7 @@ void CustomPlugin::startRotation(void)
     // States
 
     bool needStartDetection = _controllerStatus != ControllerStatusDetecting;
-    const bool isPythonMode   = _customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON;
+    const bool isPythonMode   = this->isPythonMode();
 
     StartDetectionState* startDetectionState = nullptr;
     StopDetectionState* stopDetectionState = nullptr;
@@ -440,7 +446,7 @@ void CustomPlugin::startRotation(void)
     auto finalState = new QFinalState(stateMachine);
 
     CustomState* rotateState = nullptr;
-    if (_customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON) {
+    if (isPythonMode) {
         rotateState = new PythonRotateAndCaptureState(stateMachine);
     } else if (_customSettings->rotationType()->rawValue().toInt() == 1) {
         rotateState = new FullRotateAndCaptureState(stateMachine);
@@ -485,6 +491,10 @@ void CustomPlugin::_setRotationInProgress(bool inProgress)
 
 void CustomPlugin::startDetection(void)
 {
+    if (!_validateVehicleAvailable()) {
+        return;
+    }
+
     auto stateMachine = new CustomStateMachine("Start Detection", this);
 
     auto startDetectionState = new StartDetectionState(stateMachine);
@@ -500,6 +510,16 @@ void CustomPlugin::startDetection(void)
 
 void CustomPlugin::stopDetection(void)
 {
+    // Ending the session (user or disarm) invalidates the prior; a cancelled or
+    // failed rotation does not, so the retry can still start near the last estimate.
+    _priorBearingDeg = qQNaN();
+
+    if (!MultiVehicleManager::instance()->activeVehicle()) {
+        // Nothing to send to, but local state must still be torn down
+        _sendStopDetectionDirect();
+        return;
+    }
+
     auto stateMachine = new CustomStateMachine("Stop Detection", this);
 
     auto stopDetectionState = new StopDetectionState(stateMachine);
@@ -538,6 +558,10 @@ void CustomPlugin::rawCapture(void)
     rawCapture.gain             = _customSettings->gain()->rawValue().toUInt();
     rawCapture.frequency_hz     = selectedTagInfo->frequencyMHz()->rawValue().toDouble() * 1000000;
 
+    if (!_validateVehicleAvailable()) {
+        return;
+    }
+
     auto stateMachine = new CustomStateMachine("RawCapture", this);
 
     auto finalState = new QFinalState(stateMachine);
@@ -562,6 +586,10 @@ void CustomPlugin::saveLogs()
 
     saveLogsInfo.header.command = COMMAND_ID_SAVE_LOGS;
 
+    if (!_validateVehicleAvailable()) {
+        return;
+    }
+
     auto stateMachine = new CustomStateMachine("SaveLogs", this);
 
     auto sendSaveLogsState  = new SendTunnelCommandState("SaveLogsCommand", stateMachine, (uint8_t*)&saveLogsInfo, sizeof(saveLogsInfo));
@@ -580,6 +608,10 @@ void CustomPlugin::cleanLogs()
     CleanLogsInfo_t cleanLogsInfo;
 
     cleanLogsInfo.header.command = COMMAND_ID_CLEAN_LOGS;
+
+    if (!_validateVehicleAvailable()) {
+        return;
+    }
 
     auto stateMachine = new CustomStateMachine("CleanLogs", this);
 
@@ -749,9 +781,18 @@ bool CustomPlugin::_validateAtLeastOneTagSelected()
 bool CustomPlugin::_validatePythonCollectionAllowed()
 {
     // Controller only accepts START_COLLECTION from HAS_TAGS, not while detection is running
-    const bool isPythonMode = _customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON;
+    const bool isPythonMode = this->isPythonMode();
     if (isPythonMode && _controllerStatus == ControllerStatusDetecting) {
         qgcApp()->showAppMessage(tr("Stop detection before starting a rotation"));
+        return false;
+    }
+    return true;
+}
+
+bool CustomPlugin::_validateVehicleAvailable()
+{
+    if (!MultiVehicleManager::instance()->activeVehicle()) {
+        qgcApp()->showAppMessage(tr("No vehicle connected"));
         return false;
     }
     return true;
@@ -786,7 +827,7 @@ void CustomPlugin::rotationIsEnding()
 
         // In C++ detector mode, fit bearing locally. In Python mode the controller
         // computes the bearing and sends COMMAND_ID_BEARING_RESULT.
-        const bool isPythonMode = _customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON;
+        const bool isPythonMode = this->isPythonMode();
         if (!isPythonMode && _rotationInfoList.count() > 0) {
             auto* rotationInfo = _rotationInfoList.value<RotationInfo*>(_rotationInfoList.count() - 1);
             if (rotationInfo) {
@@ -830,6 +871,11 @@ void CustomPlugin::_handleBearingResult(const mavlink_tunnel_t& tunnel)
                                            bearingResult.n_valid_slices, bearingResult.best_snr);
         }
     }
+    // Any finite estimate beats blind slice order for the next rotation; the
+    // controller already folds detection count into r_squared confidence.
+    if (std::isfinite(bearingResult.bearing_deg)) {
+        _priorBearingDeg = normalizeHeading(bearingResult.bearing_deg);
+    }
 }
 
 void CustomPlugin::_handleCollectionStatus(const mavlink_tunnel_t& tunnel)
@@ -864,13 +910,15 @@ void CustomPlugin::_setActiveRotation(bool active)
 
 int CustomPlugin::maxWaitMSecsForKGroup()
 {
-    const bool isPythonMode = _customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON;
+    const bool isPythonMode = this->isPythonMode();
     uint32_t maxK           = isPythonMode ? _customSettings->pythonK()->rawValue().toUInt()
                                            : _customSettings->k()->rawValue().toUInt();
     auto maxIntraPulseMsecs = TagDatabase::instance()->maxIntraPulseMsecs();
 
     if (isPythonMode) {
-        return maxIntraPulseMsecs * (maxK + 1);
+        // A strong first acquisition is held at the same heading for one
+        // confirming K-pulse cycle before the detector completes the slice.
+        return maxIntraPulseMsecs * ((2 * maxK) + 1);
     } else {
         auto kGroups = _customSettings->rotationKWaitCount()->rawValue().toInt();
         return maxIntraPulseMsecs * ((kGroups * maxK) + 1);

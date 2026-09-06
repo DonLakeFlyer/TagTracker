@@ -11,6 +11,7 @@
 
 #include <QFinalState>
 #include <QRandomGenerator>
+#include <cmath>
 
 using namespace TunnelProtocol;
 
@@ -52,8 +53,11 @@ PythonRotateAndCaptureState::PythonRotateAndCaptureState(QState* parentState)
 
     // Build the per-slice states
     QList<PythonCaptureAtSliceState*> sliceStates;
-    for (int i = 0; i < rotationDivisions; i++) {
-        sliceStates.append(new PythonCaptureAtSliceState(this, i, _collectionId));
+    const double priorBearingDeg = _customPlugin->hasPriorBearing() ? _customPlugin->priorBearingDeg() : qQNaN();
+    const QList<int> sliceOrder = sliceVisitOrder(rotationDivisions, priorBearingDeg, _customSettings->antennaOffset()->rawValue().toDouble());
+    for (int sequenceIndex = 0; sequenceIndex < sliceOrder.count(); ++sequenceIndex) {
+        sliceStates.append(new PythonCaptureAtSliceState(
+            this, sliceOrder[sequenceIndex], sequenceIndex, _collectionId));
     }
 
     // Transitions: rotationBegin → startRotationDetection → slice[0] → ... → slice[N-1] → stopRotationDetection → rotationEnd
@@ -82,12 +86,69 @@ PythonRotateAndCaptureState::PythonRotateAndCaptureState(QState* parentState)
     setInitialState(rotationBeginState);
 }
 
+QList<int> PythonRotateAndCaptureState::sliceVisitOrder(int rotationDivisions, double priorBearingDeg, double antennaOffsetDeg)
+{
+    QList<int> sliceOrder;
+    if (rotationDivisions <= 0) {
+        return sliceOrder;
+    }
+
+    if (std::isfinite(priorBearingDeg)) {
+        const double degreesPerSlice = 360.0 / rotationDivisions;
+        double bearingDeg = std::fmod(priorBearingDeg + antennaOffsetDeg, 360.0);
+        if (bearingDeg < 0) {
+            bearingDeg += 360.0;
+        }
+        const int firstSlice = static_cast<int>(std::lround(bearingDeg / degreesPerSlice)) % rotationDivisions;
+        sliceOrder.append(firstSlice);
+        for (int distance = 1; sliceOrder.count() < rotationDivisions; ++distance) {
+            const int clockwise = (firstSlice + distance) % rotationDivisions;
+            const int counterClockwise = (firstSlice - distance + rotationDivisions) % rotationDivisions;
+            if (!sliceOrder.contains(clockwise)) {
+                sliceOrder.append(clockwise);
+            }
+            if (sliceOrder.count() < rotationDivisions && !sliceOrder.contains(counterClockwise)) {
+                sliceOrder.append(counterClockwise);
+            }
+        }
+    } else if (rotationDivisions == 8) {
+        sliceOrder = {0, 2, 4, 6, 1, 3, 5, 7};
+    } else {
+        for (int i = 0; i < rotationDivisions; ++i) {
+            sliceOrder.append(i);
+        }
+    }
+    return sliceOrder;
+}
+
 void PythonRotateAndCaptureState::_collectionStatusReceived(uint32_t collectionId, uint32_t sliceId, uint32_t status, uint32_t errorCode)
 {
     if (collectionId != _collectionId || status != COLLECTION_STATUS_FAILED) {
         return;
     }
-    setError(QStringLiteral("Python detector failed (slice %1, error %2)").arg(sliceId).arg(errorCode));
+
+    QString errorDescription;
+    switch (errorCode) {
+    case COLLECTION_ERROR_PROCESS_FAILED:
+        errorDescription = QStringLiteral("detector process exited");
+        break;
+    case COLLECTION_ERROR_UNEXPECTED_EXCEPTION:
+        errorDescription = QStringLiteral("unexpected exception; see the py_detector log");
+        break;
+    case COLLECTION_ERROR_REPORT_SEND_FAILED:
+        errorDescription = QStringLiteral("failed to send a detector report");
+        break;
+    case COLLECTION_ERROR_LOG_OPEN_FAILED:
+        errorDescription = QStringLiteral("failed to open the detector log");
+        break;
+    default:
+        errorDescription = QStringLiteral("unknown error");
+        break;
+    }
+    setError(QStringLiteral("Python detector failed at slice %1: %2 (error %3)")
+                 .arg(sliceId)
+                 .arg(errorDescription)
+                 .arg(errorCode));
 }
 
 void PythonRotateAndCaptureState::_rotationBegin()

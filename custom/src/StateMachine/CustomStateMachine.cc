@@ -12,10 +12,14 @@ CustomStateMachine::CustomStateMachine(const QString& machineName, QObject* pare
 {
     connect(this, &CustomStateMachine::stopped, this, [this] () {
         qobject_cast<CustomPlugin*>(CustomPlugin::instance())->rotationIsEnding();
-        disconnect(vehicle(), &Vehicle::flightModeChanged, this, &CustomStateMachine::_flightModeChanged);
+        if (!_vehicleLost) {
+            disconnect(vehicle(), &Vehicle::flightModeChanged, this, &CustomStateMachine::_flightModeChanged);
+        }
     });
 
+    // Callers guard against a null active vehicle before constructing a machine
     connect(vehicle(), &Vehicle::flightModeChanged, this, &CustomStateMachine::_flightModeChanged);
+    connect(MultiVehicleManager::instance(), &MultiVehicleManager::vehicleRemoved, this, &CustomStateMachine::_vehicleRemoved);
 }
 
 void CustomStateMachine::setError(const QString& errorString)
@@ -24,7 +28,7 @@ void CustomStateMachine::setError(const QString& errorString)
 
     qCWarning(CustomStateMachineLog) << "errorString" << errorString << " - " << Q_FUNC_INFO;
     _errorString = errorString;
-    if (vehicle()->flying()) {
+    if (!_vehicleLost && vehicle()->flying()) {
         AudioOutput::instance()->say(QStringLiteral("%1 failed. %2").arg(objectName()).arg(rtlOnError ? "Returning" : "User is in control of vehicle"));
         if (rtlOnError) {
             vehicle()->setFlightMode(vehicle()->rtlFlightMode());
@@ -54,6 +58,23 @@ void CustomStateMachine::_flightModeChanged(const QString& flightMode)
         _runStopHandler();
         stopMachine();
     }
+}
+
+void CustomStateMachine::_vehicleRemoved(Vehicle* vehicle)
+{
+    if (vehicle != this->vehicle() || _vehicleLost) {
+        return;
+    }
+    _vehicleLost = true;
+    disconnect(vehicle, &Vehicle::flightModeChanged, this, &CustomStateMachine::_flightModeChanged);
+
+    if (!isRunning()) {
+        return;
+    }
+    qCWarning(CustomStateMachineLog) << "Vehicle removed while running, cancelling" << objectName() << " - " << Q_FUNC_INFO;
+    AudioOutput::instance()->say(QStringLiteral("%1 cancelled. Vehicle disconnected.").arg(objectName()));
+    _runStopHandler();
+    stopMachine();
 }
 
 void CustomStateMachine::setEventMode(uint eventMode)

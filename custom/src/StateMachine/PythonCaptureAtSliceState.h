@@ -15,7 +15,8 @@ class PythonCaptureAtSliceState : public CustomState
     Q_OBJECT
 
 public:
-    PythonCaptureAtSliceState(QState* parentState, int sliceIndex, uint32_t collectionId);
+    PythonCaptureAtSliceState(QState* parentState, int headingIndex,
+                              int sequenceIndex, uint32_t collectionId);
 
 private:
     SendMavlinkCommandState* _rotateMavlinkCommandState(QState* parentState);

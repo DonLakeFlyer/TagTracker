@@ -7,7 +7,7 @@ SliceInfo::SliceInfo(int sliceIndex, double centerHeading, double sliceDegrees, 
     , _centerHeading(centerHeading)
     , _sliceDegrees (sliceDegrees)
 {
-    //qDebug() << "SliceInfo constructor - index:centerHeading:sliceDegress" << _sliceIndex << _centerHeading << _sliceDegrees << " _ " << Q_FUNC_INFO;
+    //qDebug() << "SliceInfo constructor - index:centerHeading:sliceDegrees" << _sliceIndex << _centerHeading << _sliceDegrees << " _ " << Q_FUNC_INFO;
 }
 
 double SliceInfo::displaySNR(void) const
@@ -34,31 +34,33 @@ bool SliceInfo::lowConfidenceOnly(void) const
     return qIsNaN(_maxSNR) && !qIsNaN(_maxLowConfidenceSNR);
 }
 
-void SliceInfo::updateMaxSNR(double snr, bool confirmedPulse, const QString& sourceRateLabel)
+void SliceInfo::updateMaxSNR(uint32_t tagId, double snr, bool confirmedPulse, const QString& sourceRateLabel)
 {
-    qCDebug(CustomPluginLog) << "SliceInfo updateMaxSNR called - index:snr:confirmed"
-                             << _sliceIndex << snr << confirmedPulse << " _ " << Q_FUNC_INFO;
+    qCDebug(CustomPluginLog) << "SliceInfo updateMaxSNR called - index:tag:snr:confirmed"
+                             << _sliceIndex << tagId << snr << confirmedPulse << " _ " << Q_FUNC_INFO;
 
     const double oldDisplaySNR = displaySNR();
     const QString oldDisplaySource = displaySource();
     const bool oldLowConfidenceOnly = lowConfidenceOnly();
 
     if (confirmedPulse) {
-        if (!qIsNaN(_maxSNR) && snr <= _maxSNR) {
+        // Latest confirmed value per tag wins: a locked re-measurement supersedes that
+        // tag's provisional value, matching the controller's (tag_id, slice_id) upsert.
+        auto it = _confirmedByTag.find(tagId);
+        if (it != _confirmedByTag.end() && it->snr == snr && it->sourceRateLabel == sourceRateLabel) {
             return;
         }
 
-        qCDebug(CustomPluginLog) << "Updating SliceInfo CONFIRMED max SNR - index:centerHeading:sliceDegress:maxSnr"
-                                 << _sliceIndex << _centerHeading << _sliceDegrees << snr << " _ " << Q_FUNC_INFO;
-        _maxSNR = snr;
-        _maxSNRSourceRateLabel = sourceRateLabel;
-        emit maxSNRChanged(_maxSNR);
+        qCDebug(CustomPluginLog) << "Updating SliceInfo CONFIRMED SNR - index:centerHeading:sliceDegrees:tag:snr"
+                                 << _sliceIndex << _centerHeading << _sliceDegrees << tagId << snr << " _ " << Q_FUNC_INFO;
+        _confirmedByTag.insert(tagId, {snr, sourceRateLabel});
+        _recomputeConfirmedMax();
     } else {
         if (!qIsNaN(_maxLowConfidenceSNR) && snr <= _maxLowConfidenceSNR) {
             return;
         }
 
-        qCDebug(CustomPluginLog) << "Updating SliceInfo LOW-CONFIDENCE max SNR - index:centerHeading:sliceDegress:maxSnr"
+        qCDebug(CustomPluginLog) << "Updating SliceInfo LOW-CONFIDENCE max SNR - index:centerHeading:sliceDegrees:maxSnr"
                                  << _sliceIndex << _centerHeading << _sliceDegrees << snr << " _ " << Q_FUNC_INFO;
         _maxLowConfidenceSNR = snr;
         _maxLowConfidenceSourceRateLabel = sourceRateLabel;
@@ -76,5 +78,22 @@ void SliceInfo::updateMaxSNR(double snr, bool confirmedPulse, const QString& sou
     }
     if (oldLowConfidenceOnly != newLowConfidenceOnly) {
         emit lowConfidenceOnlyChanged(newLowConfidenceOnly);
+    }
+}
+
+void SliceInfo::_recomputeConfirmedMax()
+{
+    double newMax = qQNaN();
+    QString newLabel;
+    for (auto it = _confirmedByTag.cbegin(); it != _confirmedByTag.cend(); ++it) {
+        if (qIsNaN(newMax) || it->snr > newMax) {
+            newMax = it->snr;
+            newLabel = it->sourceRateLabel;
+        }
+    }
+    if (newMax != _maxSNR || newLabel != _maxSNRSourceRateLabel) {
+        _maxSNR = newMax;
+        _maxSNRSourceRateLabel = newLabel;
+        emit maxSNRChanged(_maxSNR);
     }
 }

@@ -72,7 +72,8 @@ void RotationInfo::_applyPulseToSlice(const TunnelProtocol::PulseInfo_t& pulseIn
         return;
     }
 
-    const double sliceStrength = pulseInfo.snr;
+    const bool isPythonMode = qobject_cast<CustomPlugin*>(CustomPlugin::instance())->isPythonMode();
+    const double sliceStrength = pulseStrengthForDisplay(pulseInfo, isPythonMode);
     SliceInfo* slice = _slices.value<SliceInfo*>(sliceIndex);
 
     if (!slice) {
@@ -80,21 +81,35 @@ void RotationInfo::_applyPulseToSlice(const TunnelProtocol::PulseInfo_t& pulseIn
         return;
     }
 
-    if (!qIsNaN(sliceStrength) && sliceStrength > 0.0) {
-        CustomSettings* customSettings = qobject_cast<CustomPlugin*>(CustomPlugin::instance())->customSettings();
-        const bool isPythonMode = customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON;
+    // Python reports are locked measurements; 0 dB above noise is still a measurement.
+    const bool paintSlice = isPythonMode ? !qIsNaN(sliceStrength) : (!qIsNaN(sliceStrength) && sliceStrength > 0.0);
+    if (paintSlice) {
         const QString rateLabel = isPythonMode ? _rateLabelFromGroupInd(pulseInfo) : _sourceRateLabelForTagId(pulseInfo.tag_id);
-        slice->updateMaxSNR(sliceStrength, pulseInfo.confirmed_status, rateLabel);
+        slice->updateMaxSNR(pulseInfo.tag_id, sliceStrength, pulseInfo.confirmed_status, rateLabel);
     }
 
-    _updatePulseRateCount(pulseInfo);
-    _updateMaxSNR(sliceStrength);
+    _updatePulseRateCount(pulseInfo, isPythonMode);
+    _updateMaxSNR();
 }
 
-void RotationInfo::_updatePulseRateCount(const TunnelProtocol::PulseInfo_t& pulseInfo)
+double RotationInfo::pulseStrengthForDisplay(const TunnelProtocol::PulseInfo_t& pulseInfo, bool isPythonMode)
 {
-    CustomSettings* customSettings = qobject_cast<CustomPlugin*>(CustomPlugin::instance())->customSettings();
-    const bool isPythonMode = customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON;
+    if (!isPythonMode) {
+        return pulseInfo.snr;
+    }
+    // group_snr is absolute PSD; show it as dB above the per-report noise floor.
+    if (pulseInfo.noise_psd <= 0.0) {
+        return qQNaN();
+    }
+    // Noise-subtracted power at or below zero is still a locked measurement, shown at the floor
+    if (pulseInfo.group_snr <= 0.0) {
+        return 0.0;
+    }
+    return 10.0 * std::log10(pulseInfo.group_snr / pulseInfo.noise_psd);
+}
+
+void RotationInfo::_updatePulseRateCount(const TunnelProtocol::PulseInfo_t& pulseInfo, bool isPythonMode)
+{
     const int rateIndex = isPythonMode ? (pulseInfo.group_ind == 0 ? 0 : 1) : (pulseInfo.tag_id % cRates);
 
     if (pulseInfo.confirmed_status && !qIsNaN(pulseInfo.snr)) {
@@ -104,14 +119,27 @@ void RotationInfo::_updatePulseRateCount(const TunnelProtocol::PulseInfo_t& puls
     }
 }
 
-void RotationInfo::_updateMaxSNR(double sliceStrength)
+void RotationInfo::_updateMaxSNR()
 {
-    if (!qIsNaN(sliceStrength) && sliceStrength > 0.0) {
-        if (qIsNaN(_maxSNR) || sliceStrength > _maxSNR) {
-            qCDebug(CustomPluginLog) << "Updating RotationInfo max SNR to" << sliceStrength << " _ " << Q_FUNC_INFO;
-            _maxSNR = sliceStrength;
-            emit maxSNRChanged(_maxSNR);
+    // Recomputed from the slices so a confirmed re-measurement that lowers a slice
+    // also lowers the rose normalization instead of leaving a stale maximum.
+    double newMax = qQNaN();
+    for (int i = 0; i < _cSlices; ++i) {
+        SliceInfo* slice = _slices.value<SliceInfo*>(i);
+        if (!slice) {
+            continue;
         }
+        const double snr = slice->displaySNR();
+        if (!qIsNaN(snr) && snr > 0.0 && (qIsNaN(newMax) || snr > newMax)) {
+            newMax = snr;
+        }
+    }
+
+    const bool changed = qIsNaN(newMax) != qIsNaN(_maxSNR) || (!qIsNaN(newMax) && newMax != _maxSNR);
+    if (changed) {
+        qCDebug(CustomPluginLog) << "Updating RotationInfo max SNR to" << newMax << " _ " << Q_FUNC_INFO;
+        _maxSNR = newMax;
+        emit maxSNRChanged(_maxSNR);
     }
 }
 

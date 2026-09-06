@@ -50,7 +50,7 @@
     {
       "name": "Linux-arm64-debug",
       "displayName": "Linux ARM64 Debug",
-      "inherits": ["debug-no-tests", "linux-base"],
+      "inherits": ["debug", "linux-base"],
       "binaryDir": "${sourceDir}/build/Linux-arm64-debug",
       "cacheVariables": {
         "QT_HOST_PATH": "$penv{QT_HOST_PATH}"
@@ -87,6 +87,7 @@
   ],
   "testPresets": [
     { "name": "Linux-debug", "configurePreset": "Linux-debug", "inherits": ["test-defaults"] },
+    { "name": "Linux-arm64-debug", "configurePreset": "Linux-arm64-debug", "inherits": ["test-defaults"] },
     { "name": "Linux-coverage", "configurePreset": "Linux-coverage", "inherits": ["test-defaults"] }
   ],
   "packagePresets": [
@@ -127,7 +128,8 @@
       "name": "Linux-arm64-debug",
       "steps": [
         { "type": "configure", "name": "Linux-arm64-debug" },
-        { "type": "build", "name": "Linux-arm64-debug" }
+        { "type": "build", "name": "Linux-arm64-debug" },
+        { "type": "test", "name": "Linux-arm64-debug" }
       ]
     },
     {

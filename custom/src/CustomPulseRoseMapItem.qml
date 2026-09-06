@@ -57,10 +57,11 @@ MapQuickItem {
                 property real centerY:          height / 2
                 property real arcRadians:       (Math.PI * 2) / _sliceCount
                 property var  sliceInfo:        _rotationInfo.slices.get(index)
+                property bool noDetection:      isNaN(sliceInfo.displaySNR)
                 property real rawStrengthRatio: _rotationInfo.maxSNR > 0 ? sliceInfo.displaySNR / _rotationInfo.maxSNR : 0
-                property bool noDetection:      rawStrengthRatio == 0
                 property bool lowConfidenceOnly: sliceInfo.lowConfidenceOnly
-                property real strengthRatio:    noDetection ? 1 : rawStrengthRatio
+                // Weak (<= 0 dB) Python detections still get a visible stub so they read as "signal, faint"
+                property real strengthRatio:    noDetection ? 1 : Math.max(0.1, Math.min(1, rawStrengthRatio))
 
                 onPaint: {
                     var ctx = getContext("2d");
@@ -111,8 +112,7 @@ MapQuickItem {
 
             Text {
                 property var  sliceInfo:        _rotationInfo.slices.get(index)
-                property real rawStrengthRatio: _rotationInfo.maxSNR > 0 ? sliceInfo.displaySNR / _rotationInfo.maxSNR : 0
-                property bool noDetection:      rawStrengthRatio == 0
+                property bool noDetection:      isNaN(sliceInfo.displaySNR)
                 property bool lowConfidenceOnly: sliceInfo.lowConfidenceOnly
                 property string displaySource:  sliceInfo.displaySource
                 property real sliceAngleDeg:    -90 + (360 / _sliceCount) * index
