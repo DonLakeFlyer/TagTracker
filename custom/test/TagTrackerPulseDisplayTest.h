@@ -19,4 +19,6 @@ private slots:
     void _flightModeChangeTimeoutToleratesSlowLink();
     void _sliceVisitOrder_data();
     void _sliceVisitOrder();
+    void _bearingResultValidity_data();
+    void _bearingResultValidity();
 };

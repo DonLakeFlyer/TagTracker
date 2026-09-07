@@ -518,7 +518,9 @@ void RotationInfo::setBearingResult(float bearingDeg, float rSquared, uint32_t n
     _bearingRSquared    = static_cast<double>(rSquared);
     _bearingUncertainty = qQNaN();
     _bearingAmbiguous   = false;
-    _bearingValid       = nValidSlices >= 3;
+    // NaN (or any non-finite value): the controller compared its lock candidates
+    // and none fitted the antenna pattern well enough to call a bearing.
+    _bearingValid       = nValidSlices >= 3 && std::isfinite(bearingDeg);
 
     qCDebug(CustomPluginLog) << "BearingResult applied: bearing" << _bearingDeg
                              << "R²" << _bearingRSquared

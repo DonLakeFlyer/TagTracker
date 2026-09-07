@@ -6,6 +6,10 @@
 #include "SetFlightModeState.h"
 #include "SliceInfo.h"
 
+#include <QtTest/QSignalSpy>
+
+#include <limits>
+
 void TagTrackerPulseDisplayTest::_pythonUsesSignalPower()
 {
     TunnelProtocol::PulseInfo_t pulseInfo {};
@@ -133,6 +137,43 @@ void TagTrackerPulseDisplayTest::_sliceVisitOrder()
     QFETCH(QList<int>, expected);
 
     QCOMPARE(PythonRotateAndCaptureState::sliceVisitOrder(divisions, priorBearingDeg, antennaOffsetDeg), expected);
+}
+
+void TagTrackerPulseDisplayTest::_bearingResultValidity_data()
+{
+    QTest::addColumn<float>("bearingDeg");
+    QTest::addColumn<uint32_t>("nValidSlices");
+    QTest::addColumn<bool>("expectedValid");
+
+    const float inf = std::numeric_limits<float>::infinity();
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+
+    QTest::newRow("finite, enough slices")  << 123.4f << 3u << true;
+    QTest::newRow("finite, too few slices") << 123.4f << 2u << false;
+    QTest::newRow("NaN sentinel")           << nan    << 5u << false;
+    QTest::newRow("+Inf")                   << inf    << 5u << false;
+    QTest::newRow("-Inf")                   << -inf   << 5u << false;
+}
+
+void TagTrackerPulseDisplayTest::_bearingResultValidity()
+{
+    QFETCH(float, bearingDeg);
+    QFETCH(uint32_t, nValidSlices);
+    QFETCH(bool, expectedValid);
+
+    RotationInfo rotationInfo(8);
+    QSignalSpy bearingSpy(&rotationInfo, &RotationInfo::bearingChanged);
+
+    rotationInfo.setBearingResult(bearingDeg, 0.9f, nValidSlices, 20.0f);
+
+    QCOMPARE(rotationInfo.bearingValid(), expectedValid);
+    QCOMPARE(bearingSpy.count(), 1);
+    if (expectedValid) {
+        QCOMPARE(rotationInfo.bearingDeg(), static_cast<double>(bearingDeg));
+        QCOMPARE(rotationInfo.bearingRSquared(), static_cast<double>(0.9f));
+        QVERIFY(qIsNaN(rotationInfo.bearingUncertainty()));
+        QVERIFY(!rotationInfo.bearingAmbiguous());
+    }
 }
 
 UT_REGISTER_TEST(TagTrackerPulseDisplayTest, TestLabel::Unit)
