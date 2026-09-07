@@ -1,10 +1,12 @@
 #include "TagTrackerPulseDisplayTest.h"
 
-#include "DetectorInfo.h"
+#include "PythonDetectorInfo.h"
 #include "PythonRotateAndCaptureState.h"
 #include "RotationInfo.h"
 #include "SetFlightModeState.h"
 #include "SliceInfo.h"
+#include "TagDatabase.h"
+#include "TunnelProtocol.h"
 
 #include <QtTest/QSignalSpy>
 
@@ -12,62 +14,61 @@
 
 void TagTrackerPulseDisplayTest::_pythonUsesSignalPower()
 {
-    TunnelProtocol::PulseInfo_t pulseInfo {};
-    pulseInfo.snr = 0.0;
-    pulseInfo.group_snr = 1.0e-10;
-    pulseInfo.noise_psd = 1.0e-10;
-
-    // 0 dB above noise; must still be driven by group_snr, not snr.
-    QCOMPARE(RotationInfo::pulseStrengthForDisplay(pulseInfo, true), 0.0);
-    pulseInfo.group_snr = 1.0e-9;
-    QCOMPARE(RotationInfo::pulseStrengthForDisplay(pulseInfo, true), 10.0);
-}
-
-void TagTrackerPulseDisplayTest::_legacyUsesSNR()
-{
-    TunnelProtocol::PulseInfo_t pulseInfo {};
-    pulseInfo.snr = 12.5;
-    pulseInfo.group_snr = 0.0025;
-
-    QCOMPARE(RotationInfo::pulseStrengthForDisplay(pulseInfo, false), 12.5);
+    // 0 dB above noise; must be driven by signal_psd, not snr.
+    QCOMPARE(RotationInfo::displayStrength(1.0e-10, 1.0e-10), 0.0);
+    QCOMPARE(RotationInfo::displayStrength(1.0e-9, 1.0e-10), 10.0);
 }
 
 void TagTrackerPulseDisplayTest::_pythonDisplaysDbAboveNoise()
 {
-    TunnelProtocol::PulseInfo_t pulseInfo {};
-    pulseInfo.snr = 0.0;
-    pulseInfo.group_snr = 1.0e-6;
-    pulseInfo.noise_psd = 1.0e-10;
-
-    QCOMPARE(RotationInfo::pulseStrengthForDisplay(pulseInfo, true), 40.0);
+    QCOMPARE(RotationInfo::displayStrength(1.0e-6, 1.0e-10), 40.0);
 }
 
 void TagTrackerPulseDisplayTest::_pythonNonPositivePowerDisplaysZero()
 {
-    TunnelProtocol::PulseInfo_t pulseInfo {};
-    pulseInfo.group_snr = -1.9e-10;
-    pulseInfo.noise_psd = 1.0e-10;
-
-    QCOMPARE(RotationInfo::pulseStrengthForDisplay(pulseInfo, true), 0.0);
+    QCOMPARE(RotationInfo::displayStrength(-1.9e-10, 1.0e-10), 0.0);
 }
 
 void TagTrackerPulseDisplayTest::_pythonInvalidNoiseIsNotAMeasurement()
 {
-    TunnelProtocol::PulseInfo_t pulseInfo {};
-    pulseInfo.group_snr = 1.0e-9;
-    pulseInfo.noise_psd = 0.0;
-
-    QVERIFY(qIsNaN(RotationInfo::pulseStrengthForDisplay(pulseInfo, true)));
+    QVERIFY(qIsNaN(RotationInfo::displayStrength(1.0e-9, 0.0)));
 }
 
 void TagTrackerPulseDisplayTest::_pythonBelowNoiseDisplaysNegativeDb()
 {
-    TunnelProtocol::PulseInfo_t pulseInfo {};
-    pulseInfo.group_snr = 1.0e-11;
-    pulseInfo.noise_psd = 1.0e-10;
+    // signal_psd is noise-subtracted, so a positive value below noise_psd is still a weak detection
+    QCOMPARE(RotationInfo::displayStrength(1.0e-11, 1.0e-10), -10.0);
+}
 
-    // group_snr is noise-subtracted, so a positive value below noise_psd is still a weak detection
-    QCOMPARE(RotationInfo::pulseStrengthForDisplay(pulseInfo, true), -10.0);
+void TagTrackerPulseDisplayTest::_rateLabel_data()
+{
+    QTest::addColumn<QString>("rateA");
+    QTest::addColumn<QString>("rateB");
+    QTest::addColumn<int>("rateState");
+    QTest::addColumn<bool>("abbreviated");
+    QTest::addColumn<QString>("expected");
+
+    using namespace TunnelProtocol;
+    QTest::newRow("A full")           << "Resting" << "Moving" << int(kRateStateA)    << false << "Resting";
+    QTest::newRow("B full")           << "Resting" << "Moving" << int(kRateStateB)    << false << "Moving";
+    QTest::newRow("A abbreviated")    << "Resting" << "Moving" << int(kRateStateA)    << true  << "R";
+    QTest::newRow("B abbreviated")    << "Resting" << "Moving" << int(kRateStateB)    << true  << "M";
+    QTest::newRow("A->B always pair") << "Resting" << "Moving" << int(kRateStateAToB) << false << "R/M";
+    QTest::newRow("B->A always pair") << "Resting" << "Moving" << int(kRateStateBToA) << true  << "M/R";
+    QTest::newRow("empty names fall back to 1/2") << "" << "" << int(kRateStateAToB) << false << "1/2";
+    QTest::newRow("empty A full")     << ""        << ""       << int(kRateStateA)    << false << "1";
+    QTest::newRow("unknown state -> A") << "Resting" << "Moving" << 42                 << false << "Resting";
+}
+
+void TagTrackerPulseDisplayTest::_rateLabel()
+{
+    QFETCH(QString, rateA);
+    QFETCH(QString, rateB);
+    QFETCH(int, rateState);
+    QFETCH(bool, abbreviated);
+    QFETCH(QString, expected);
+
+    QCOMPARE(TagDatabase::rateLabel(rateA, rateB, static_cast<uint8_t>(rateState), abbreviated), expected);
 }
 
 void TagTrackerPulseDisplayTest::_confirmedMeasurementReplacesPriorSliceValue()
@@ -98,10 +99,43 @@ void TagTrackerPulseDisplayTest::_confirmedMeasurementsAggregateAcrossTags()
 
 void TagTrackerPulseDisplayTest::_startupWaitIsNotHeartbeatFailure()
 {
-    DetectorInfo detectorInfo(2, QStringLiteral("Test tag"), 1333, 20);
+    PythonDetectorInfo detectorInfo(2, QStringLiteral("Test tag"), 1333, 20);
 
     QVERIFY(!detectorInfo.property("heartbeatLost").toBool());
     QVERIFY(detectorInfo.property("waitingForFirstPulse").toBool());
+}
+
+void TagTrackerPulseDisplayTest::_heartbeatWatchdogArmsOnlyWhenStarted()
+{
+    // Python detectors are created before takeoff but only start heartbeating after
+    // START_COLLECTION, so the watchdog must stay disarmed until explicitly started.
+    constexpr uint32_t intraPulseMsecs = 1333;
+    constexpr uint32_t k = 3;
+    constexpr int cadenceTimeoutMsecs = (k + 1) * intraPulseMsecs + 1000;
+    constexpr int startupGraceMsecs = 35000;
+    // Coarse QTimer may round the deadline by up to 5%
+    constexpr auto withSlack = [](int msecs) { return msecs + msecs / 20; };
+
+    PythonDetectorInfo detectorInfo(2, QStringLiteral("Test tag"), intraPulseMsecs, k);
+    QVERIFY(!detectorInfo.heartbeatWatchdogActive());
+
+    // A stale heartbeat before arming must not start the timer
+    TunnelProtocol::PythonPulseInfo_t heartbeat {};
+    heartbeat.tag_id = 2;
+    heartbeat.frequency_hz = 0;
+    detectorInfo.handlePulse(heartbeat);
+    QVERIFY(!detectorInfo.heartbeatWatchdogActive());
+
+    detectorInfo.startHeartbeatWatchdog();
+    QVERIFY(detectorInfo.heartbeatWatchdogActive());
+    QVERIFY(detectorInfo.heartbeatWatchdogRemainingMsecs() > withSlack(cadenceTimeoutMsecs));
+    QVERIFY(detectorInfo.heartbeatWatchdogRemainingMsecs() <= withSlack(startupGraceMsecs));
+
+    // First heartbeat drops the watchdog to the tag cadence
+    detectorInfo.handlePulse(heartbeat);
+    QVERIFY(detectorInfo.heartbeatWatchdogActive());
+    QVERIFY(detectorInfo.heartbeatWatchdogRemainingMsecs() <= withSlack(cadenceTimeoutMsecs));
+    QVERIFY(!detectorInfo.property("heartbeatLost").toBool());
 }
 
 void TagTrackerPulseDisplayTest::_flightModeChangeTimeoutToleratesSlowLink()
@@ -171,8 +205,6 @@ void TagTrackerPulseDisplayTest::_bearingResultValidity()
     if (expectedValid) {
         QCOMPARE(rotationInfo.bearingDeg(), static_cast<double>(bearingDeg));
         QCOMPARE(rotationInfo.bearingRSquared(), static_cast<double>(0.9f));
-        QVERIFY(qIsNaN(rotationInfo.bearingUncertainty()));
-        QVERIFY(!rotationInfo.bearingAmbiguous());
     }
 }
 

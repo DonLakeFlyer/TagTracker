@@ -1,35 +1,17 @@
 #include "DetectorInfo.h"
-#include "CustomPlugin.h"
-#include "CustomSettings.h"
-#include "TagDatabase.h"
-#include "Vehicle.h"
-#include "QGCApplication.h"
-#include "SettingsManager.h"
-#include "AppSettings.h"
-#include "FlyViewSettings.h"
-#include "QmlComponentInfo.h"
-#include "TunnelProtocol.h"
-#include <QDebug>
-#include <QPointF>
-#include <QLineF>
-#include <QQmlEngine>
 
 #include <algorithm>
 
-using namespace TunnelProtocol;
-
 QGC_LOGGING_CATEGORY(DetectorInfoLog, "DetectorInfoLog")
 
-DetectorInfo::DetectorInfo(uint32_t tagId, const QString& tagLabel, uint32_t intraPulseMsecs, uint32_t k, QObject* parent)
-    : QObject           (parent)
-    , _tagId            (tagId)
-    , _tagLabel         (tagLabel)
-    , _intraPulseMsecs  (intraPulseMsecs)
-    , _k                (k)
+DetectorInfo::DetectorInfo(uint32_t tagId, const QString& tagLabel, uint32_t intraPulseMsecs, uint32_t k,
+                           QObject* parent)
+    : QObject(parent), _tagId(tagId), _tagLabel(tagLabel)
 {
-    _heartbeatTimerInterval = ((_k + 1) * intraPulseMsecs) + 1000;
+    _heartbeatTimerInterval = ((k + 1) * intraPulseMsecs) + 1000;
 
-    qCDebug(DetectorInfoLog) << "DetectorInfo::DetectorInfo" << _tagId << _tagLabel << _intraPulseMsecs << _k << _heartbeatTimerInterval;
+    qCDebug(DetectorInfoLog) << "tagId:tagLabel:intraPulseMsecs:k:heartbeatInterval" << _tagId << _tagLabel
+                             << intraPulseMsecs << k << _heartbeatTimerInterval;
 
     _heartbeatTimeoutTimer.setSingleShot(true);
     _heartbeatTimeoutTimer.setInterval(_heartbeatTimerInterval);
@@ -37,118 +19,75 @@ DetectorInfo::DetectorInfo(uint32_t tagId, const QString& tagLabel, uint32_t int
         _heartbeatLost = true;
         emit heartbeatLostChanged();
     });
+}
+
+void DetectorInfo::startHeartbeatWatchdog()
+{
+    _watchdogArmed = true;
     // A detector that never sends its first heartbeat must still be flagged, but the
     // controller may take up to 30 s to bring Python detectors to READY before the first one.
     constexpr uint32_t kStartupGraceMsecs = 35000;
     _heartbeatTimeoutTimer.start(static_cast<int>(std::max(_heartbeatTimerInterval, kStartupGraceMsecs)));
 }
 
-DetectorInfo::~DetectorInfo()
+void DetectorInfo::_heartbeatReceived()
 {
-
-}
-
-void DetectorInfo::handleTunnelPulse(const mavlink_tunnel_t& tunnel)
-{
-    if (tunnel.payload_length != sizeof(PulseInfo_t)) {
-        qWarning() << "handleTunnelPulse Received incorrectly sized PulseInfo payload expected:actual" <<  sizeof(PulseInfo_t) << tunnel.payload_length;
+    qCDebug(DetectorInfoLog) << "HEARTBEAT from Detector id" << _tagId;
+    // Stale heartbeats from a prior collection's detector must not arm the watchdog early
+    if (!_watchdogArmed) {
         return;
     }
+    _heartbeatTimeoutTimer.start(static_cast<int>(_heartbeatTimerInterval));
+    if (_heartbeatLost) {
+        _heartbeatLost = false;
+        emit heartbeatLostChanged();
+    }
+}
 
-    PulseInfo_t pulseInfo;
-    memcpy(&pulseInfo, tunnel.payload, sizeof(pulseInfo));
+void DetectorInfo::_pulseReceived(double snr, bool lowConfidence, bool newGroup)
+{
+    const double clampedSNR = qIsNaN(snr) ? 0.0 : std::max(0.0, snr);
+    _lastPulseStrength = newGroup ? clampedSNR : std::max(clampedSNR, _lastPulseStrength);
 
-    bool isDetectorHeartbeat = pulseInfo.frequency_hz == 0;
-    const bool isPythonMode = qobject_cast<CustomPlugin*>(CustomPlugin::instance())->isPythonMode();
-    const bool isLowConfidencePythonPulse = isPythonMode && !pulseInfo.confirmed_status && !isDetectorHeartbeat && pulseInfo.detection_status != kNoPulseDetectionStatus;
+    if (_lastPulseLowConfidence != lowConfidence) {
+        _lastPulseLowConfidence = lowConfidence;
+        emit lastPulseLowConfidenceChanged();
+    }
+    if (_waitingForFirstPulse) {
+        _waitingForFirstPulse = false;
+        emit waitingForFirstPulseChanged();
+    }
+    if (_lastPulseNoPulse) {
+        _lastPulseNoPulse = false;
+        emit lastPulseNoPulseChanged();
+    }
+    if (_noPulseCount > 0) {
+        _noPulseCount = 0;
+        emit noPulseCountChanged();
+    }
 
-    if (pulseInfo.tag_id == _tagId) {
-        if (isDetectorHeartbeat) {
-            _heartbeatLost = false;
-            _heartbeatCount++;
-            _heartbeatTimeoutTimer.start(static_cast<int>(_heartbeatTimerInterval));
-            emit heartbeatLostChanged();
-            qCDebug(DetectorInfoLog) << "HEARTBEAT from Detector id" << _tagId;
-        } else if (pulseInfo.confirmed_status || isLowConfidencePythonPulse) {
-            const bool newLowConfidence = !pulseInfo.confirmed_status;
-            qCDebug(DetectorInfoLog)
-                << (pulseInfo.confirmed_status ? "CONFIRMED" : "LOW_CONFIDENCE")
-                << "tag_id:frequency_hz:seq_ctr:snr:stft_score:noise_psd" <<
-                                        pulseInfo.tag_id <<
-                                        pulseInfo.frequency_hz <<
-                                        pulseInfo.group_seq_counter <<
-                                        pulseInfo.snr <<
-                                        pulseInfo.stft_score <<
-                                        pulseInfo.noise_psd;
+    emit lastPulseStrengthChanged();
+}
 
-            // We track the max pulse in each K group, clamping SNR to 0 and ignoring NaN
-            const double clampedSNR = qIsNaN(pulseInfo.snr) ? 0.0 : std::max(0.0, pulseInfo.snr);
-            // Python detector doesn't send group_seq_counter — every pulse is its own group
-            if (isPythonMode || _lastPulseGroupSeqCtr != pulseInfo.group_seq_counter) {
-                _lastPulseGroupSeqCtr = pulseInfo.group_seq_counter;
-                _pulseGroupCount++;
-                _lastPulseStrength = clampedSNR;
-            } else {
-                _lastPulseStrength = std::max(clampedSNR, _lastPulseStrength);
-            }
-            _lastSignalPower = pulseInfo.group_snr;
-            emit lastSignalPowerChanged();
-            if (_lastPulseLowConfidence != newLowConfidence) {
-                _lastPulseLowConfidence = newLowConfidence;
-                emit lastPulseLowConfidenceChanged();
-            }
-            if (_waitingForFirstPulse) {
-                _waitingForFirstPulse = false;
-                emit waitingForFirstPulseChanged();
-            }
-            if (_lastPulseNoPulse) {
-                _lastPulseNoPulse = false;
-                emit lastPulseNoPulseChanged();
-            }
-            if (_noPulseCount > 0) {
-                _noPulseCount = 0;
-                emit noPulseCountChanged();
-            }
+void DetectorInfo::_noPulseReceived()
+{
+    qCDebug(DetectorInfoLog) << "NO_PULSE from Detector id" << _tagId;
+    if (!_lastPulseNoPulse) {
+        _lastPulseNoPulse = true;
+        emit lastPulseNoPulseChanged();
+    }
+    _noPulseCount++;
+    emit noPulseCountChanged();
+    if (_waitingForFirstPulse) {
+        _waitingForFirstPulse = false;
+        emit waitingForFirstPulseChanged();
+    }
+}
 
-            emit lastPulseStrengthChanged();
-
-            if (isPythonMode) {
-                TagInfo* tagInfo = TagDatabase::instance()->findTagInfo(_tagId);
-                TagManufacturer* manufacturer = tagInfo ? TagDatabase::instance()->findTagManufacturer(tagInfo->manufacturerId()->rawValue().toUInt()) : nullptr;
-                const QString rateA = manufacturer ? manufacturer->ip_msecs_1_id()->rawValue().toString() : QString();
-                const QString rateB = manufacturer ? manufacturer->ip_msecs_2_id()->rawValue().toString() : QString();
-                const QString letterA = rateA.isEmpty() ? QStringLiteral("1") : rateA.left(1);
-                const QString letterB = rateB.isEmpty() ? QStringLiteral("2") : rateB.left(1);
-
-                QString newRateLabel;
-                if (pulseInfo.group_ind == 0) {
-                    newRateLabel = letterA;
-                } else if (pulseInfo.group_ind == 1) {
-                    newRateLabel = letterB;
-                } else if (pulseInfo.group_ind < _k) {
-                    newRateLabel = letterA + QStringLiteral("/") + letterB;
-                } else {
-                    newRateLabel = letterB + QStringLiteral("/") + letterA;
-                }
-                if (_rateLabel != newRateLabel) {
-                    _rateLabel = newRateLabel;
-                    emit rateLabelChanged();
-                }
-            }
-
-            _maxStrength = qMax(_maxStrength, pulseInfo.snr);
-        } else if (pulseInfo.detection_status == kNoPulseDetectionStatus) {
-            qCDebug(DetectorInfoLog) << "NO_PULSE from Detector id" << _tagId;
-            if (!_lastPulseNoPulse) {
-                _lastPulseNoPulse = true;
-                emit lastPulseNoPulseChanged();
-            }
-            _noPulseCount++;
-            emit noPulseCountChanged();
-            if (_waitingForFirstPulse) {
-                _waitingForFirstPulse = false;
-                emit waitingForFirstPulseChanged();
-            }
-        }
+void DetectorInfo::_setRateLabel(const QString& rateLabel)
+{
+    if (_rateLabel != rateLabel) {
+        _rateLabel = rateLabel;
+        emit rateLabelChanged();
     }
 }

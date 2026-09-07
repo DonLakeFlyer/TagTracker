@@ -147,6 +147,13 @@ public:
     TagInfo*            findTagInfo         (uint32_t id);
     TagManufacturer*    findTagManufacturer (uint32_t id);
 
+    /// Display label for a Python detector rate_state (TunnelProtocol::kRateStateXxx) using the tag's
+    /// manufacturer rate names. Rate switches are always letter pairs ("R/M"); abbreviated shortens
+    /// pure rates to their first letter.
+    QString rateLabel(uint32_t tagId, uint8_t rateState, bool abbreviated);
+    /// Pure mapping used by the above; empty rate names fall back to "1" / "2".
+    static QString rateLabel(const QString& rateA, const QString& rateB, uint8_t rateState, bool abbreviated);
+
     uint32_t maxIntraPulseMsecs ();
     uint32_t channelizerTuner    ();
 

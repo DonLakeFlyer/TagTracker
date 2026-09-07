@@ -9,11 +9,12 @@
 
 import QGroundControl
 import QGroundControl.FlyView
+import QGroundControl.CustomControls
 
 GuidedToolStripAction {
     text:       customController.startRotationTitle
     iconSource: "/res/action.svg"
-    visible:    true
+    visible:    QGroundControl.settingsManager.customSettings.detectionFlightMode.rawValue === CustomSettings.ManualRotation
     enabled:    _activeVehicle && _activeVehicle.flying && !QGroundControl.corePlugin.rotationInProgress
     actionID:   customController.actionStartRotation
 

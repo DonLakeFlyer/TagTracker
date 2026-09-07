@@ -27,7 +27,7 @@ StartDetectionState::StartDetectionState(QState* parentState, bool sendCommand)
     startDetectionInfo.header.command               = COMMAND_ID_START_DETECTION;
     startDetectionInfo.radio_center_frequency_hz    = TagDatabase::instance()->channelizerTuner();
     startDetectionInfo.gain                         = customPlugin->customSettings()->gain()->rawValue().toUInt();
-    startDetectionInfo.detection_mode               = customPlugin->customSettings()->detectionMode()->rawValue().toUInt();
+    startDetectionInfo.detection_mode               = customPlugin->isPythonMode() ? DETECTION_MODE_PYTHON : DETECTION_MODE_UAVRT;
     startDetectionInfo.detection_margin             = customPlugin->customSettings()->detectionMargin()->rawValue().toDouble();
     startDetectionInfo.confidence_ratio             = customPlugin->customSettings()->confidenceRatio()->rawValue().toDouble();
     startDetectionInfo.debug_detector               = customPlugin->customSettings()->debugDetector()->rawValue().toBool() ? 1 : 0;

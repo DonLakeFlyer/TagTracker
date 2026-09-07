@@ -1,4 +1,5 @@
 #include "TagDatabase.h"
+#include "TunnelProtocol.h"
 #include "FactMetaData.h"
 #include "Fact.h"
 #include "QmlObjectListModel.h"
@@ -384,6 +385,34 @@ TagManufacturer* TagDatabase::findTagManufacturer(uint32_t id)
         }
     }
     return nullptr;
+}
+
+QString TagDatabase::rateLabel(uint32_t tagId, uint8_t rateState, bool abbreviated)
+{
+    TagInfo* tagInfo = findTagInfo(tagId);
+    TagManufacturer* manufacturer = tagInfo ? findTagManufacturer(tagInfo->manufacturerId()->rawValue().toUInt()) : nullptr;
+
+    const QString rateA = manufacturer ? manufacturer->ip_msecs_1_id()->rawValue().toString() : QString();
+    const QString rateB = manufacturer ? manufacturer->ip_msecs_2_id()->rawValue().toString() : QString();
+    return rateLabel(rateA, rateB, rateState, abbreviated);
+}
+
+QString TagDatabase::rateLabel(const QString& rateAName, const QString& rateBName, uint8_t rateState, bool abbreviated)
+{
+    const QString rateA = rateAName.isEmpty() ? QStringLiteral("1") : rateAName;
+    const QString rateB = rateBName.isEmpty() ? QStringLiteral("2") : rateBName;
+
+    switch (rateState) {
+    case TunnelProtocol::kRateStateB:
+        return abbreviated ? rateB.left(1) : rateB;
+    case TunnelProtocol::kRateStateAToB:
+        return rateA.left(1) + QStringLiteral("/") + rateB.left(1);
+    case TunnelProtocol::kRateStateBToA:
+        return rateB.left(1) + QStringLiteral("/") + rateA.left(1);
+    case TunnelProtocol::kRateStateA:
+    default:
+        return abbreviated ? rateA.left(1) : rateA;
+    }
 }
 
 void TagDatabase::_updateNextIds(void)

@@ -109,20 +109,18 @@ SendTunnelCommandState* SendTagsState::_sendTagState(int tagIndex, QState* paren
 
     const bool isPythonMode = customPlugin->isPythonMode();
 
-    tunnelTagInfo.k                                         = isPythonMode ? customSettings->pythonK()->rawValue().toUInt()
+    tunnelTagInfo.k                                         = isPythonMode ? customSettings->pythonPreLockK()->rawValue().toUInt()
                                                                           : customSettings->k()->rawValue().toUInt();
+    tunnelTagInfo.measurement_k                             = isPythonMode ? customSettings->pythonPostLockK()->rawValue().toUInt() : 0;
 
     double falseAlarmProbability;
     if (isPythonMode) {
-        switch (customSettings->pythonFalseAlarmPreset()->rawValue().toUInt()) {
-        case CustomSettings::Aggressive:
-            falseAlarmProbability = CustomSettings::AggressivePf;
+        switch (customSettings->pythonFalseAlarmMode()->rawValue().toUInt()) {
+        case CustomSettings::Normal:
+            falseAlarmProbability = CustomSettings::NormalPf;
             break;
-        case CustomSettings::Moderate:
-            falseAlarmProbability = CustomSettings::ModeratePf;
-            break;
-        case CustomSettings::Conservative:
-            falseAlarmProbability = CustomSettings::ConservativePf;
+        case CustomSettings::StressTest:
+            falseAlarmProbability = CustomSettings::StressTestPf;
             break;
         case CustomSettings::Custom:
         default:

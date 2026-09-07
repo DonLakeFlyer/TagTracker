@@ -84,6 +84,9 @@ void CSVLogManager::_csvWritePulseHeader(QFile& csvFile)
     csvFile.write(QString("# %1, tag_id, frequency_hz, start_time_seconds, predict_next_start_seconds, snr, stft_score, group_seq_counter, group_ind, group_snr, noise_psd, detection_status, confirmed_status, latitude, longitude, altitude_rel, roll_deg, pitch_deg, yaw_deg, antenna_offset\n")
         .arg(COMMAND_ID_PULSE)
         .toUtf8());
+    csvFile.write(QString("# %1, collection_id, slice_id, tag_id, frequency_hz, cycle_counter, start_time_seconds, predict_next_start_seconds, snr, score_ratio, signal_psd, noise_psd, detection_status, confirmed_status, rate_state, candidate_id, latitude, longitude, altitude_rel, roll_deg, pitch_deg, yaw_deg, antenna_offset\n")
+        .arg(COMMAND_ID_PYTHON_PULSE)
+        .toUtf8());
 }
 
 void CSVLogManager::_csvLogPulse(QFile& csvFile, const TunnelProtocol::PulseInfo_t& pulseInfo)
@@ -115,6 +118,38 @@ void CSVLogManager::_csvLogPulse(QFile& csvFile, const TunnelProtocol::PulseInfo
     }
 }
 
+void CSVLogManager::_csvLogPythonPulse(QFile& csvFile, const TunnelProtocol::PythonPulseInfo_t& pulseInfo)
+{
+    if (csvFile.isOpen()) {
+        auto customSettings = qobject_cast<CustomPlugin*>(CustomPlugin::instance())->customSettings();
+        csvFile.write(QString("%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15, %16, %17, %18, %19, %20, %21, %22, %23\n")
+            .arg(COMMAND_ID_PYTHON_PULSE)
+            .arg(pulseInfo.collection_id)
+            .arg(pulseInfo.slice_id)
+            .arg(pulseInfo.tag_id)
+            .arg(pulseInfo.frequency_hz)
+            .arg(pulseInfo.cycle_counter)
+            .arg(pulseInfo.start_time_seconds,          0, 'f', 6)
+            .arg(pulseInfo.predict_next_start_seconds,  0, 'f', 6)
+            .arg(pulseInfo.snr,                         0, 'f', 6)
+            .arg(pulseInfo.score_ratio,                 0, 'f', 6)
+            .arg(pulseInfo.signal_psd,                  0, 'g', 7)
+            .arg(pulseInfo.noise_psd,                   0, 'g', 7)
+            .arg(pulseInfo.detection_status)
+            .arg(pulseInfo.confirmed_status)
+            .arg(pulseInfo.rate_state)
+            .arg(pulseInfo.candidate_id)
+            .arg(pulseInfo.latitude,                    0, 'f', 6)
+            .arg(pulseInfo.longitude,                   0, 'f', 6)
+            .arg(pulseInfo.altitude_rel,                0, 'f', 6)
+            .arg(pulseInfo.roll_deg,                    0, 'f', 6)
+            .arg(pulseInfo.pitch_deg,                   0, 'f', 6)
+            .arg(pulseInfo.yaw_deg,                     0, 'f', 6)
+            .arg(customSettings->antennaOffset()->rawValue().toDouble(), 0, 'f', 6)
+            .toUtf8());
+    }
+}
+
 void CSVLogManager::csvLogPulse(const PulseInfo_t& pulseInfo)
 {
     if (_csvFullPulseLogFile.isOpen()) {
@@ -122,6 +157,16 @@ void CSVLogManager::csvLogPulse(const PulseInfo_t& pulseInfo)
     }
     if (_csvRotationPulseLogFile.isOpen()) {
         _csvLogPulse(_csvRotationPulseLogFile, pulseInfo);
+    }
+}
+
+void CSVLogManager::csvLogPythonPulse(const PythonPulseInfo_t& pulseInfo)
+{
+    if (_csvFullPulseLogFile.isOpen()) {
+        _csvLogPythonPulse(_csvFullPulseLogFile, pulseInfo);
+    }
+    if (_csvRotationPulseLogFile.isOpen()) {
+        _csvLogPythonPulse(_csvRotationPulseLogFile, pulseInfo);
     }
 }
 
@@ -155,4 +200,3 @@ void CSVLogManager::_csvLogRotationStartStop(bool startRotation)
                             .toUtf8());
     _rotationStartLogged = startRotation;
 }
-

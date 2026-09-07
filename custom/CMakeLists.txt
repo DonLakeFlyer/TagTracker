@@ -145,6 +145,8 @@ set(CUSTOM_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/DetectorList.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/DetectorList.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/PulseMapItem.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/PythonDetectorInfo.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/PythonDetectorInfo.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/PulseRoseMapItem.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/RotationInfo.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/RotationInfo.h
@@ -152,8 +154,8 @@ set(CUSTOM_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/SliceInfo.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/TagDatabase.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/TagDatabase.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/CaptureAtSliceState.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/CaptureAtSliceState.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/UavrtDetectorInfo.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/UavrtDetectorInfo.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/CustomState.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/CustomState.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/CustomStateMachine.cc
@@ -161,8 +163,6 @@ set(CUSTOM_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/ErrorTransition.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/FactWaitForValueTarget.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/FactWaitForValueTarget.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/FullRotateAndCaptureState.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/FullRotateAndCaptureState.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/GuidedModeCancelledTransition.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/PythonCaptureAtSliceState.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/PythonCaptureAtSliceState.h
@@ -170,12 +170,6 @@ set(CUSTOM_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/PythonRotateAndCaptureState.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/PythonWaitForDetectionResultState.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/PythonWaitForDetectionResultState.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/RotateAndCaptureStateBase.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/RotateAndCaptureStateBase.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/RotateAndRateHeartbeatWaitState.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/RotateAndRateHeartbeatWaitState.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/RotateMavlinkCommandState.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/RotateMavlinkCommandState.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/SayState.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/SendTagsState.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/SendTagsState.h
@@ -183,10 +177,6 @@ set(CUSTOM_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/SendTunnelCommandState.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/SetFlightModeState.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/SetFlightModeState.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/SliceSequenceCaptureState.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/SliceSequenceCaptureState.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/SmartRotateAndCaptureState.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/SmartRotateAndCaptureState.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/StartDetectionState.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/StartDetectionState.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/StopDetectionState.cc
@@ -215,7 +205,7 @@ set(CUSTOM_SOURCES ${CUSTOM_SOURCES} PARENT_SCOPE)
 CPMAddPackage(
     NAME              TunnelProtocol
     GITHUB_REPOSITORY DonLakeFlyer/TagTrackerTunnelProtocol
-    GIT_TAG           d5979b9838fe6cabadf4501360314f96b801962c
+    GIT_TAG           ccd9dff0b466d090c0305960053a67e12ac1ec50
     DOWNLOAD_ONLY     TRUE
 )
 

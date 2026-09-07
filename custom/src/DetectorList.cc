@@ -1,30 +1,20 @@
 #include "DetectorList.h"
-#include "DetectorInfo.h"
-#include "TagDatabase.h"
-#include "QGCApplication.h"
+
+#include <QtCore/QApplicationStatic>
+#include <algorithm>
+
 #include "CustomPlugin.h"
 #include "CustomSettings.h"
-#include "TunnelProtocol.h"
-
-#include <QDebug>
-#include <QPointF>
-#include <QLineF>
-#include <QQmlEngine>
-
-using namespace TunnelProtocol;
+#include "DetectorInfo.h"
+#include "PythonDetectorInfo.h"
+#include "TagDatabase.h"
+#include "UavrtDetectorInfo.h"
 
 Q_APPLICATION_STATIC(DetectorList, _detectorListInstance);
 
-DetectorList::DetectorList(QObject* parent)
-    : QmlObjectListModel(parent)
-{
+DetectorList::DetectorList(QObject* parent) : QmlObjectListModel(parent) {}
 
-}
-
-DetectorList::~DetectorList()
-{
-
-}
+DetectorList::~DetectorList() {}
 
 DetectorList* DetectorList::instance()
 {
@@ -33,99 +23,77 @@ DetectorList* DetectorList::instance()
 
 void DetectorList::setupFromSelectedTags()
 {
-    clear();
+    clearDetectors();
 
-    TagDatabase*        tagDB               = TagDatabase::instance();
-    QmlObjectListModel* tagInfoList         = tagDB->tagInfoListModel();
-    CustomPlugin*       customPlugin        = qobject_cast<CustomPlugin*>(CustomPlugin::instance());
-    CustomSettings*     customSettings      = customPlugin->customSettings();
-    const bool          isPythonMode        = customPlugin->isPythonMode();
-    const uint32_t      kValue              = isPythonMode ? customSettings->pythonK()->rawValue().toUInt()
-                                                           : customSettings->k()->rawValue().toUInt();
+    TagDatabase* tagDB = TagDatabase::instance();
+    QmlObjectListModel* tagInfoList = tagDB->tagInfoListModel();
+    CustomPlugin* customPlugin = qobject_cast<CustomPlugin*>(CustomPlugin::instance());
+    CustomSettings* customSettings = customPlugin->customSettings();
+    const bool isPythonMode = customPlugin->isPythonMode();
 
-    for (int i=0; i<tagInfoList->count(); i++) {
+    // Python heartbeats are a 1 Hz timer independent of K; K only scales the timeout to the tag
+    // cadence, so the longer of the acquisition and measurement cycles is the safe bound
+    const uint32_t pythonK = std::max(customSettings->pythonPreLockK()->rawValue().toUInt(),
+                                      customSettings->pythonPostLockK()->rawValue().toUInt());
+    const uint32_t uavrtK = customSettings->k()->rawValue().toUInt();
+
+    for (int i = 0; i < tagInfoList->count(); i++) {
         TagInfo* tagInfo = tagInfoList->value<TagInfo*>(i);
         if (!tagInfo->selected()->rawValue().toBool()) {
             continue;
         }
 
         TagManufacturer* tagManufacturer = tagDB->findTagManufacturer(tagInfo->manufacturerId()->rawValue().toUInt());
+        const uint32_t tagId = tagInfo->id()->rawValue().toUInt();
+        if (!tagManufacturer) {
+            qCWarning(DetectorInfoLog) << "Skipping tag with unknown manufacturer id" << tagId
+                                       << tagInfo->manufacturerId()->rawValue().toUInt();
+            continue;
+        }
 
-        DetectorInfo* detectorInfo = new DetectorInfo(
-                                            tagInfo->id()->rawValue().toUInt(),
-                                            tagManufacturer->ip_msecs_1_id()->rawValue().toString(),
-                                            tagManufacturer->ip_msecs_1()->rawValue().toUInt(),
-                                            kValue,
-                                            this);
-        append(detectorInfo);
+        if (isPythonMode) {
+            // One Python detector handles both rates of a tag
+            append(new PythonDetectorInfo(tagId, tagManufacturer->ip_msecs_1_id()->rawValue().toString(),
+                                          tagManufacturer->ip_msecs_1()->rawValue().toUInt(), pythonK, this));
+        } else {
+            append(new UavrtDetectorInfo(tagId, tagManufacturer->ip_msecs_1_id()->rawValue().toString(),
+                                         tagManufacturer->ip_msecs_1()->rawValue().toUInt(), uavrtK, this));
+            if (tagManufacturer->ip_msecs_2()->rawValue().toUInt() != 0) {
+                append(new UavrtDetectorInfo(tagId + 1, tagManufacturer->ip_msecs_2_id()->rawValue().toString(),
+                                             tagManufacturer->ip_msecs_2()->rawValue().toUInt(), uavrtK, this));
+            }
+        }
+    }
 
-        if (!isPythonMode && tagManufacturer->ip_msecs_2()->rawValue().toUInt() != 0) {
-            DetectorInfo* secondaryDetectorInfo = new DetectorInfo(
-                                                tagInfo->id()->rawValue().toUInt() + 1,
-                                                tagManufacturer->ip_msecs_2_id()->rawValue().toString(),
-                                                tagManufacturer->ip_msecs_2()->rawValue().toUInt(),
-                                                kValue,
-                                                this);
-            append(secondaryDetectorInfo);
+    // uavrt detectors start heartbeating as soon as START_DETECTION is acked, which follows immediately
+    if (!isPythonMode) {
+        startHeartbeatWatchdogs();
+    }
+}
+
+void DetectorList::startHeartbeatWatchdogs()
+{
+    for (int i = 0; i < count(); i++) {
+        if (auto* detectorInfo = qobject_cast<DetectorInfo*>(get(i))) {
+            detectorInfo->startHeartbeatWatchdog();
         }
     }
 }
 
-void DetectorList::handleTunnelPulse(const mavlink_tunnel_t& tunnel)
+void DetectorList::handleUavrtPulse(const TunnelProtocol::PulseInfo_t& pulseInfo)
 {
-    for (int i=0; i<count(); i++) {
-        DetectorInfo* detectorInfo = qobject_cast<DetectorInfo*>(get(i));
-        detectorInfo->handleTunnelPulse(tunnel);
-    }
-}
-
-void DetectorList::resetMaxStrength()
-{
-    for (int i=0; i<count(); i++) {
-        DetectorInfo* detectorInfo = qobject_cast<DetectorInfo*>(get(i));
-        detectorInfo->resetMaxStrength();
-    }
-}
-
-void DetectorList::resetPulseGroupCount()
-{
-    for (int i=0; i<count(); i++) {
-        DetectorInfo* detectorInfo = qobject_cast<DetectorInfo*>((*this)[i]);
-        detectorInfo->resetPulseGroupCount();
-    }
-}
-
-double DetectorList::maxStrength() const
-{
-    double maxStrength = 0.0;
-    for (int i=0; i<count(); i++) {
-        const DetectorInfo* detectorInfo = qobject_cast<const DetectorInfo*>((*this)[i]);
-        maxStrength = std::max(maxStrength, detectorInfo->maxStrength());
-    }
-
-    return maxStrength;
-}
-
-bool DetectorList::allHeartbeatCountsReached(uint32_t targetHeartbeatCount) const
-{
-    for (int i=0; i<count(); i++) {
-        const DetectorInfo* detectorInfo = qobject_cast<const DetectorInfo*>((*this)[i]);
-        if (detectorInfo->heartbeatCount() < targetHeartbeatCount) {
-            return false;
+    for (int i = 0; i < count(); i++) {
+        if (auto* detectorInfo = qobject_cast<UavrtDetectorInfo*>(get(i))) {
+            detectorInfo->handlePulse(pulseInfo);
         }
     }
-
-    return true;
 }
 
-bool DetectorList::allPulseGroupCountsReached(uint32_t targetPulseGroupCount) const
+void DetectorList::handlePythonPulse(const TunnelProtocol::PythonPulseInfo_t& pulseInfo)
 {
-    for (int i=0; i<count(); i++) {
-        const DetectorInfo* detectorInfo = qobject_cast<const DetectorInfo*>((*this)[i]);
-        if (detectorInfo->pulseGroupCount() < targetPulseGroupCount) {
-            return false;
+    for (int i = 0; i < count(); i++) {
+        if (auto* detectorInfo = qobject_cast<PythonDetectorInfo*>(get(i))) {
+            detectorInfo->handlePulse(pulseInfo);
         }
     }
-
-    return true;
 }

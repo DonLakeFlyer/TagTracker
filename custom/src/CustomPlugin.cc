@@ -5,8 +5,6 @@
 #include "SendTagsState.h"
 #include "CustomStateMachine.h"
 #include "SendTunnelCommandState.h"
-#include "FullRotateAndCaptureState.h"
-#include "SmartRotateAndCaptureState.h"
 #include "PythonRotateAndCaptureState.h"
 #include "TakeoffState.h"
 #include "SetFlightModeState.h"
@@ -14,8 +12,6 @@
 #include "StopDetectionState.h"
 #include "FunctionState.h"
 #include "SayState.h"
-#include "RotateMavlinkCommandState.h"
-#include "RotateAndRateHeartbeatWaitState.h"
 #include "RotationInfo.h"
 
 #include "Vehicle.h"
@@ -168,7 +164,10 @@ bool CustomPlugin::mavlinkMessage(Vehicle *vehicle, LinkInterface *link, const m
 
         switch (header.command) {
         case COMMAND_ID_PULSE:
-            _handleTunnelPulse(vehicle, tunnel);
+            _handleUavrtPulse(vehicle, tunnel);
+            return false;
+        case COMMAND_ID_PYTHON_PULSE:
+            _handlePythonPulse(tunnel);
             return false;
         case COMMAND_ID_HEARTBEAT:
             _handleTunnelHeartbeat(tunnel);
@@ -238,6 +237,14 @@ void CustomPlugin::_handleTunnelHeartbeat(const mavlink_tunnel_t& tunnel)
     if (_controllerStatus != heartbeat.status) {
         _controllerStatus = (ControllerStatus)heartbeat.status;
         emit controllerStatusChanged();
+        if (_controllerStatus == ControllerStatusDetecting) {
+            _detectionStartRequested = false;
+            if (_stopDetectionPending) {
+                _stopDetectionPending = false;
+                qCDebug(CustomPluginLog) << "Vehicle disarmed during detection start, stopping now that controller is detecting";
+                stopDetection();
+            }
+        }
     }
     if (_controllerCPUTemp != heartbeat.cpu_temp_c) {
         _controllerCPUTemp = heartbeat.cpu_temp_c;
@@ -245,111 +252,144 @@ void CustomPlugin::_handleTunnelHeartbeat(const mavlink_tunnel_t& tunnel)
     }
 }
 
-void CustomPlugin::_handleTunnelPulse(Vehicle* vehicle, const mavlink_tunnel_t& tunnel)
+void CustomPlugin::_handleUavrtPulse(Vehicle* vehicle, const mavlink_tunnel_t& tunnel)
 {
     if (tunnel.payload_length != sizeof(PulseInfo_t)) {
-        qWarning() << "_handleTunnelPulse Received incorrectly sized PulseInfo payload expected:actual" <<  sizeof(PulseInfo_t) << tunnel.payload_length;
+        qCWarning(CustomPluginLog) << "Incorrectly sized PulseInfo payload expected:actual" << sizeof(PulseInfo_t) << tunnel.payload_length;
         return;
     }
+    if (isPythonMode()) {
+        // A detector left running from the previous mode reports every cycle; warn once
+        if (!_uavrtWrongModeReported) {
+            _uavrtWrongModeReported = true;
+            qCWarning(CustomPluginLog) << "Ignoring uavrt pulses: flight mode is not Survey Detection";
+        }
+        return;
+    }
+    _uavrtWrongModeReported = false;
 
     PulseInfo_t pulseInfo;
     memcpy(&pulseInfo, tunnel.payload, sizeof(pulseInfo));
 
-    bool isDetectorHeartbeat = pulseInfo.frequency_hz == 0;
+    // uavrt reports rate B on tag_id + 1
+    if (!TagDatabase::instance()->findTagInfo(pulseInfo.tag_id - (pulseInfo.tag_id % 2))) {
+        qCWarning(CustomPluginLog) << "Received pulse for unknown tag_id" << pulseInfo.tag_id;
+        return;
+    }
+
+    detectorList()->handleUavrtPulse(pulseInfo);
+
+    if (pulseInfo.frequency_hz == 0 || !pulseInfo.confirmed_status) {
+        return;
+    }
+
+    qCDebug(CustomPluginLog) << Qt::fixed << qSetRealNumberPrecision(2)
+                             << "Confirmed pulse tag_id" << pulseInfo.tag_id
+                             << "snr" << pulseInfo.snr
+                             << "heading" << pulseInfo.yaw_deg
+                             << "stft_score" << pulseInfo.stft_score
+                             << "group_seq_counter" << pulseInfo.group_seq_counter
+                             << "group_ind" << pulseInfo.group_ind
+                             << "noise_psd" << pulseInfo.noise_psd
+                             << "at time" << pulseInfo.start_time_seconds;
+
+    _csvLogManager.csvLogPulse(pulseInfo);
+    _updateSNRRange(pulseInfo.snr);
+
+    if (pulseInfo.snr != 0) {
+        double antennaHeading = -1;
+        if (_customSettings->antennaType()->rawValue().toInt() == CustomSettings::DirectionalAntenna) {
+            double antennaOffset = _customSettings->antennaOffset()->rawValue().toDouble();
+            double vehicleHeading = vehicle->heading()->rawValue().toDouble();
+            antennaHeading = fmod(vehicleHeading + antennaOffset + 360.0, 360.0);
+            qCDebug(CustomPluginLog) << "vehicleHeading" << vehicleHeading << "antennaHeading" << antennaHeading;
+        }
+
+        QUrl url = QUrl::fromUserInput("qrc:/qml/PulseMapItem.qml");
+        PulseMapItem* mapItem = new PulseMapItem(url, QGeoCoordinate(pulseInfo.latitude, pulseInfo.longitude), pulseInfo.tag_id, _useSNRForPulseStrength() ? pulseInfo.snr : pulseInfo.stft_score, antennaHeading, this);
+        _customMapItems.append(mapItem);
+    }
+}
+
+void CustomPlugin::_handlePythonPulse(const mavlink_tunnel_t& tunnel)
+{
+    if (tunnel.payload_length != sizeof(PythonPulseInfo_t)) {
+        qCWarning(CustomPluginLog) << "Incorrectly sized PythonPulseInfo payload expected:actual" << sizeof(PythonPulseInfo_t) << tunnel.payload_length;
+        return;
+    }
+    if (!isPythonMode()) {
+        if (!_pythonWrongModeReported) {
+            _pythonWrongModeReported = true;
+            qCWarning(CustomPluginLog) << "Ignoring Python pulses: flight mode is Survey Detection";
+        }
+        return;
+    }
+    _pythonWrongModeReported = false;
+
+    PythonPulseInfo_t pulseInfo;
+    memcpy(&pulseInfo, tunnel.payload, sizeof(pulseInfo));
+
+    const bool isDetectorHeartbeat = pulseInfo.frequency_hz == 0;
     if (!isDetectorHeartbeat && pulseInfo.collection_id != _activeCollectionId) {
         qCWarning(CustomPluginLog) << "Ignoring stale collection pulse"
                                    << pulseInfo.collection_id << pulseInfo.slice_id
                                    << "active collection" << _activeCollectionId;
         return;
     }
-    detectorList()->handleTunnelPulse(tunnel);
+    if (!TagDatabase::instance()->findTagInfo(pulseInfo.tag_id)) {
+        qCWarning(CustomPluginLog) << "Received pulse for unknown tag_id" << pulseInfo.tag_id;
+        return;
+    }
 
-    const bool isPythonMode = this->isPythonMode();
-    const bool isNoPulseResult = !isDetectorHeartbeat && pulseInfo.detection_status == kNoPulseDetectionStatus;
-    const bool isLowConfidencePulse = !isDetectorHeartbeat && !pulseInfo.confirmed_status && !isNoPulseResult;
+    detectorList()->handlePythonPulse(pulseInfo);
 
-    if (pulseInfo.confirmed_status || isDetectorHeartbeat || (isPythonMode && (isLowConfidencePulse || isNoPulseResult))) {
-        if (!isDetectorHeartbeat) {
-            qCDebug(CustomPluginLog) << Qt::fixed << qSetRealNumberPrecision(2) <<
-                (pulseInfo.confirmed_status ? "Confirmed pulse tag_id" : (isNoPulseResult ? "No-pulse tag_id" : "Low-confidence pulse tag_id")) <<
-                pulseInfo.tag_id <<
-                "snr" <<
-                pulseInfo.snr <<
-                "heading" <<
-                pulseInfo.yaw_deg <<
-                "stft_score" <<
-                pulseInfo.stft_score <<
-                "detection_status" <<
-                pulseInfo.detection_status <<
-                "group_seq_counter" <<
-                pulseInfo.group_seq_counter <<
-                "group_ind" <<
-                pulseInfo.group_ind <<
-                "noise_psd" <<
-                pulseInfo.noise_psd <<
-                "predict_next" <<
-                pulseInfo.predict_next_start_seconds <<
-                "at time" <<
-                pulseInfo.start_time_seconds;
-        }
+    if (isDetectorHeartbeat) {
+        return;
+    }
 
-        if (_activeRotation) {
-            // Send pulse info to current rotation info, including low-confidence pulses in Python mode.
-            auto rotationInfo = _rotationInfoList.value<RotationInfo*>(_rotationInfoList.count() - 1);
-            if (rotationInfo) {
-                rotationInfo->pulseInfoReceived(pulseInfo);
-            } else {
-                qWarning() << "_handleTunnelPulse: No rotation info available - " << Q_FUNC_INFO;
-            }
-        }
+    const bool isNoPulseResult = pulseInfo.detection_status == kNoPulseDetectionStatus;
+    qCDebug(CustomPluginLog) << Qt::fixed << qSetRealNumberPrecision(2)
+                             << (pulseInfo.confirmed_status ? "Confirmed pulse tag_id" : (isNoPulseResult ? "No-pulse tag_id" : "Low-confidence pulse tag_id"))
+                             << pulseInfo.tag_id
+                             << "snr" << pulseInfo.snr
+                             << "heading" << pulseInfo.yaw_deg
+                             << "score_ratio" << pulseInfo.score_ratio
+                             << "detection_status" << pulseInfo.detection_status
+                             << "cycle" << pulseInfo.cycle_counter
+                             << "rate_state" << pulseInfo.rate_state
+                             << "candidate" << pulseInfo.candidate_id
+                             << "noise_psd" << pulseInfo.noise_psd
+                             << "predict_next" << pulseInfo.predict_next_start_seconds
+                             << "at time" << pulseInfo.start_time_seconds;
 
-        auto evenTagId  = pulseInfo.tag_id - (pulseInfo.tag_id % 2);
-        auto tagInfo    = TagDatabase::instance()->findTagInfo(evenTagId);
-
-        if (!tagInfo) {
-            qWarning() << "_handleTunnelPulse: Received pulse for unknown tag_id" << pulseInfo.tag_id;
-            return;
-        }
-
-        if (isDetectorHeartbeat) {
-            emit detectorHeartbeatReceived(pulseInfo.tag_id % 2 ? 1 : 2 /* oneBaseRateIndex */);
+    if (_activeRotation) {
+        // Low-confidence and no-pulse reports reach the rose too: the former paint orange, the latter are ignored there
+        auto rotationInfo = _rotationInfoList.value<RotationInfo*>(_rotationInfoList.count() - 1);
+        if (rotationInfo) {
+            rotationInfo->pulseReceived(pulseInfo);
         } else {
-            // Notify Python rotation state machine that this detector has a result
-            if (isPythonMode) {
-                emit pythonDetectorResultReceived(pulseInfo.tag_id);
-            }
-
-            if (pulseInfo.confirmed_status) {
-                _csvLogManager.csvLogPulse(pulseInfo);
-
-                if (qIsNaN(_minSNR) || pulseInfo.snr < _minSNR) {
-                    _minSNR = pulseInfo.snr;
-                    emit minSNRChanged(_minSNR);
-                }
-                if (qIsNaN(_maxSNR) || pulseInfo.snr > _maxSNR) {
-                    _maxSNR = pulseInfo.snr;
-                    emit maxSNRChanged(_maxSNR);
-                }
-
-                // Add pulse to map
-                if (_customSettings->detectionFlightMode()->rawValue().toUInt() == CustomSettings::SurveyDetection && pulseInfo.snr != 0) {
-                    double antennaHeading = -1;
-                    if (_customSettings->antennaType()->rawValue().toInt() == CustomSettings::DirectionalAntenna) {
-                        double antennaOffset = _customSettings->antennaOffset()->rawValue().toDouble();
-                        double vehicleHeading = vehicle->heading()->rawValue().toDouble();
-                        qDebug() << "vehicleHeading" << vehicleHeading;
-                        antennaHeading = fmod(vehicleHeading + antennaOffset + 360.0, 360.0);
-                        qDebug() << "antennaHeading" << antennaHeading;
-                    }
-
-                    QUrl url = QUrl::fromUserInput("qrc:/qml/PulseMapItem.qml");
-                    PulseMapItem* mapItem = new PulseMapItem(url, QGeoCoordinate(pulseInfo.latitude, pulseInfo.longitude), pulseInfo.tag_id, _useSNRForPulseStrength() ? pulseInfo.snr : pulseInfo.stft_score, antennaHeading, this);
-                    _customMapItems.append(mapItem);
-                }
-            }
+            qCWarning(CustomPluginLog) << "No rotation info available";
         }
     }
 
+    emit pythonDetectorResultReceived(pulseInfo.tag_id);
+
+    if (pulseInfo.confirmed_status) {
+        _csvLogManager.csvLogPythonPulse(pulseInfo);
+        _updateSNRRange(pulseInfo.snr);
+    }
+}
+
+void CustomPlugin::_updateSNRRange(double snr)
+{
+    if (qIsNaN(_minSNR) || snr < _minSNR) {
+        _minSNR = snr;
+        emit minSNRChanged(_minSNR);
+    }
+    if (qIsNaN(_maxSNR) || snr > _maxSNR) {
+        _maxSNR = snr;
+        emit maxSNRChanged(_maxSNR);
+    }
 }
 
 void CustomPlugin::autoDetection()
@@ -371,7 +411,7 @@ void CustomPlugin::autoDetection()
     }
 
     // We always stop detection on disarm
-    connect(MultiVehicleManager::instance()->activeVehicle(), &Vehicle::armedChanged, this, &CustomPlugin::_stopDetectionOnDisarmed);
+    connect(MultiVehicleManager::instance()->activeVehicle(), &Vehicle::armedChanged, this, &CustomPlugin::_stopDetectionOnDisarmed, Qt::UniqueConnection);
 
     auto stateMachine = new CustomStateMachine("Auto Detection", this);
 
@@ -383,12 +423,10 @@ void CustomPlugin::autoDetection()
     auto airspyStatusState      = new SendTunnelCommandState("AirspyStatusCheck", stateMachine, reinterpret_cast<uint8_t*>(&airspyStatusInfo), sizeof(airspyStatusInfo));
     auto takeoffState           = new TakeoffState(stateMachine, _customSettings->takeoffAltitude()->rawValue().toDouble());
     auto eventModeRTLState      = new FunctionState("eventModeRTLState", stateMachine, [stateMachine] () { stateMachine->setEventMode(CustomStateMachine::CancelOnFlightModeChange | CustomStateMachine::RTLOnError); });
-    const bool isPythonMode     = this->isPythonMode();
-    auto startDetectionState    = new StartDetectionState(stateMachine, !isPythonMode);
-    auto stopDetectionState     = new StopDetectionState(stateMachine, !isPythonMode);
-    CustomState* rotateAndCaptureState = isPythonMode
-                                        ? static_cast<CustomState*>(new PythonRotateAndCaptureState(stateMachine))
-                                        : static_cast<CustomState*>(new FullRotateAndCaptureState(stateMachine));
+    // Python collections start/stop their own detection per slice
+    auto startDetectionState    = new StartDetectionState(stateMachine, false /* sendCommand */);
+    auto stopDetectionState     = new StopDetectionState(stateMachine, false /* sendCommand */);
+    auto rotateAndCaptureState  = new PythonRotateAndCaptureState(stateMachine);
     auto announceAutoEndState   = new SayState("AnnounceAutoEnd", stateMachine, "Auto detection complete. Returning");
     auto eventModeNoneState     = new FunctionState("eventModeNoneState", stateMachine, [stateMachine] () { stateMachine->setEventMode(0); });
     auto rtlState               = new SetFlightModeState(stateMachine, MultiVehicleManager::instance()->activeVehicle()->rtlFlightMode());
@@ -406,9 +444,7 @@ void CustomPlugin::autoDetection()
     announceAutoEndState->addTransition     (announceAutoEndState,      &SayState::advance,       rtlState);
     rtlState->addTransition                 (rtlState,                  &QState::finished,                  finalState);
 
-    if (isPythonMode) {
-        stateMachine->registerStopHandler([this]() { _sendStopDetectionDirect(); });
-    }
+    stateMachine->registerStopHandler([this]() { _sendStopDetectionDirect(); });
 
     stateMachine->setInitialState(announceAutoStartState);
     _startRotationMachine(stateMachine);
@@ -432,42 +468,19 @@ void CustomPlugin::startRotation(void)
     auto stateMachine = new CustomStateMachine("Start Rotation", this);
     stateMachine->setEventMode(CustomStateMachine::CancelOnFlightModeChange);
 
-    // States
+    // Python collections start/stop their own detection per slice
+    auto startDetectionState    = new StartDetectionState(stateMachine, false /* sendCommand */);
+    auto stopDetectionState     = new StopDetectionState(stateMachine, false /* sendCommand */);
+    auto rotateState            = new PythonRotateAndCaptureState(stateMachine);
+    auto finalState             = new QFinalState(stateMachine);
 
-    bool needStartDetection = _controllerStatus != ControllerStatusDetecting;
-    const bool isPythonMode   = this->isPythonMode();
+    startDetectionState->addTransition(startDetectionState, &CustomState::finished, rotateState);
+    rotateState->addTransition(rotateState, &QState::finished, stopDetectionState);
+    stopDetectionState->addTransition(stopDetectionState, &CustomState::finished, finalState);
 
-    StartDetectionState* startDetectionState = nullptr;
-    StopDetectionState* stopDetectionState = nullptr;
-    if (needStartDetection) {
-        startDetectionState = new StartDetectionState(stateMachine, !isPythonMode);
-        stopDetectionState = new StopDetectionState(stateMachine, !isPythonMode);
-    }
-    auto finalState = new QFinalState(stateMachine);
+    stateMachine->registerStopHandler([this]() { _sendStopDetectionDirect(); });
 
-    CustomState* rotateState = nullptr;
-    if (isPythonMode) {
-        rotateState = new PythonRotateAndCaptureState(stateMachine);
-    } else if (_customSettings->rotationType()->rawValue().toInt() == 1) {
-        rotateState = new FullRotateAndCaptureState(stateMachine);
-    } else {
-        rotateState = new SmartRotateAndCaptureState(stateMachine);
-    }
-
-    // Transitions
-    if (needStartDetection) {
-        startDetectionState->addTransition(startDetectionState, &CustomState::finished, rotateState);
-        rotateState->addTransition(rotateState, &QState::finished, stopDetectionState);
-        stopDetectionState->addTransition(stopDetectionState, &CustomState::finished, finalState);
-    } else {
-        rotateState->addTransition(rotateState, &CustomState::finished, finalState);
-    }
-
-    if (isPythonMode) {
-        stateMachine->registerStopHandler([this]() { _sendStopDetectionDirect(); });
-    }
-
-    stateMachine->setInitialState(startDetectionState ? startDetectionState : rotateState);
+    stateMachine->setInitialState(startDetectionState);
 
     _startRotationMachine(stateMachine);
 }
@@ -494,8 +507,22 @@ void CustomPlugin::startDetection(void)
     if (!_validateVehicleAvailable()) {
         return;
     }
+    if (isPythonMode()) {
+        qgcApp()->showAppMessage(tr("Start Detection requires the Survey Detection flight mode"));
+        return;
+    }
+
+    // Survey detection runs until stopped; never leave the controller detecting after landing
+    connect(MultiVehicleManager::instance()->activeVehicle(), &Vehicle::armedChanged, this, &CustomPlugin::_stopDetectionOnDisarmed, Qt::UniqueConnection);
+    _detectionStartRequested = true;
+    _stopDetectionPending = false;
 
     auto stateMachine = new CustomStateMachine("Start Detection", this);
+    // An aborted start never reaches Detecting, so nothing is left to stop
+    connect(stateMachine, &QStateMachine::stopped, this, [this]() {
+        _detectionStartRequested = false;
+        _stopDetectionPending = false;
+    });
 
     auto startDetectionState = new StartDetectionState(stateMachine);
     auto finalState = new QFinalState(stateMachine);
@@ -510,6 +537,9 @@ void CustomPlugin::startDetection(void)
 
 void CustomPlugin::stopDetection(void)
 {
+    _detectionStartRequested = false;
+    _stopDetectionPending = false;
+
     // Ending the session (user or disarm) invalidates the prior; a cancelled or
     // failed rotation does not, so the retry can still start near the last estimate.
     _priorBearingDeg = qQNaN();
@@ -756,8 +786,15 @@ void CustomPlugin::_sendCollectionCancel()
 
 void CustomPlugin::_stopDetectionOnDisarmed(bool armed)
 {
-    if (!armed && _controllerStatus == ControllerStatusDetecting) {
+    if (armed) {
+        _stopDetectionPending = false;
+        return;
+    }
+    if (_controllerStatus == ControllerStatusDetecting) {
         stopDetection();
+    } else if (_detectionStartRequested) {
+        // START_DETECTION not yet reflected in the controller heartbeat; stop when it is
+        _stopDetectionPending = true;
     }
 }
 
@@ -780,9 +817,12 @@ bool CustomPlugin::_validateAtLeastOneTagSelected()
 
 bool CustomPlugin::_validatePythonCollectionAllowed()
 {
+    if (!isPythonMode()) {
+        qgcApp()->showAppMessage(tr("Rotation requires the Auto or Manual Rotation detection flight mode"));
+        return false;
+    }
     // Controller only accepts START_COLLECTION from HAS_TAGS, not while detection is running
-    const bool isPythonMode = this->isPythonMode();
-    if (isPythonMode && _controllerStatus == ControllerStatusDetecting) {
+    if (_controllerStatus == ControllerStatusDetecting) {
         qgcApp()->showAppMessage(tr("Stop detection before starting a rotation"));
         return false;
     }
@@ -824,16 +864,6 @@ void CustomPlugin::rotationIsEnding()
     if (_activeRotation) {
         _setActiveRotation(false);
         _activeCollectionId = 0;
-
-        // In C++ detector mode, fit bearing locally. In Python mode the controller
-        // computes the bearing and sends COMMAND_ID_BEARING_RESULT.
-        const bool isPythonMode = this->isPythonMode();
-        if (!isPythonMode && _rotationInfoList.count() > 0) {
-            auto* rotationInfo = _rotationInfoList.value<RotationInfo*>(_rotationInfoList.count() - 1);
-            if (rotationInfo) {
-                rotationInfo->fitBearing();
-            }
-        }
 
         csvLogManager().csvLogRotationStop();
         csvLogManager().csvStopRotationPulseLog();
@@ -910,19 +940,11 @@ void CustomPlugin::_setActiveRotation(bool active)
 
 int CustomPlugin::maxWaitMSecsForKGroup()
 {
-    const bool isPythonMode = this->isPythonMode();
-    uint32_t maxK           = isPythonMode ? _customSettings->pythonK()->rawValue().toUInt()
-                                           : _customSettings->k()->rawValue().toUInt();
-    auto maxIntraPulseMsecs = TagDatabase::instance()->maxIntraPulseMsecs();
-
-    if (isPythonMode) {
-        // A strong first acquisition is held at the same heading for one
-        // confirming K-pulse cycle before the detector completes the slice.
-        return maxIntraPulseMsecs * ((2 * maxK) + 1);
-    } else {
-        auto kGroups = _customSettings->rotationKWaitCount()->rawValue().toInt();
-        return maxIntraPulseMsecs * ((kGroups * maxK) + 1);
-    }
+    // A strong first acquisition (pre-lock K pulses) is held at the same heading
+    // for one confirming post-lock cycle before the detector completes the slice.
+    const uint32_t preLockK  = _customSettings->pythonPreLockK()->rawValue().toUInt();
+    const uint32_t postLockK = _customSettings->pythonPostLockK()->rawValue().toUInt();
+    return TagDatabase::instance()->maxIntraPulseMsecs() * (preLockK + postLockK + 1);
 }
 
 double CustomPlugin::normalizeHeading(double heading)

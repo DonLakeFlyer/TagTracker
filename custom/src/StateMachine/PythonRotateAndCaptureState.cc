@@ -6,6 +6,7 @@
 #include "CustomPlugin.h"
 #include "CustomSettings.h"
 #include "CustomLoggingCategory.h"
+#include "DetectorList.h"
 #include "TagDatabase.h"
 #include "TunnelProtocol.h"
 
@@ -154,6 +155,7 @@ void PythonRotateAndCaptureState::_collectionStatusReceived(uint32_t collectionI
 void PythonRotateAndCaptureState::_rotationBegin()
 {
     _customPlugin->rotationIsStarting(_collectionId);
+    DetectorList::instance()->startHeartbeatWatchdogs();
     qCDebug(CustomStateMachineLog) << "Python rotation begin" << " - " << Q_FUNC_INFO;
 }
 

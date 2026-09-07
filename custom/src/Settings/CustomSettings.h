@@ -30,22 +30,19 @@ public:
     DEFINE_SETTINGFACT(divisions)
     DEFINE_SETTINGFACT(maxPulseStrength)
     DEFINE_SETTINGFACT(k)
-    DEFINE_SETTINGFACT(falseAlarmPreset)
     DEFINE_SETTINGFACT(falseAlarmProbability)
     DEFINE_SETTINGFACT(gain)
     DEFINE_SETTINGFACT(detectionFlightMode)
     DEFINE_SETTINGFACT(antennaOffset)
     DEFINE_SETTINGFACT(antennaType)
-    DEFINE_SETTINGFACT(rotationKWaitCount)
     DEFINE_SETTINGFACT(useSNRForPulseStrength)
     DEFINE_SETTINGFACT(allowMultiTagDetection)
-    DEFINE_SETTINGFACT(rotationType)
-    DEFINE_SETTINGFACT(detectionMode)
     DEFINE_SETTINGFACT(detectionMargin)
     DEFINE_SETTINGFACT(confidenceRatio)
     DEFINE_SETTINGFACT(debugDetector)
-    DEFINE_SETTINGFACT(pythonK)
-    DEFINE_SETTINGFACT(pythonFalseAlarmPreset)
+    DEFINE_SETTINGFACT(pythonPreLockK)
+    DEFINE_SETTINGFACT(pythonPostLockK)
+    DEFINE_SETTINGFACT(pythonFalseAlarmMode)
     DEFINE_SETTINGFACT(pythonFalseAlarmProbability)
 
     enum AntennaType {
@@ -54,14 +51,14 @@ public:
     };
     Q_ENUM(AntennaType)
 
-    enum FalseAlarmPreset {
-        Aggressive = 0,
-        Moderate = 1,
-        Conservative = 2,
-        Custom = 3
+    enum FalseAlarmMode {
+        Normal = 0,
+        StressTest = 1,
+        Custom = 2
     };
-    Q_ENUM(FalseAlarmPreset)
+    Q_ENUM(FalseAlarmMode)
 
+    // Rotation modes use the Python detector; Survey Detection uses uavrt_detection.
     enum DetectionFlightMode {
         Auto = 0,
         ManualRotation = 1,
@@ -69,7 +66,10 @@ public:
     };
     Q_ENUM(DetectionFlightMode)
 
-    static constexpr double AggressivePf  = 5e-2;  // 5%
-    static constexpr double ModeratePf    = 1e-2;  // 1%
-    static constexpr double ConservativePf = 1e-3;  // 0.1%
+    bool isPythonMode() { return detectionFlightMode()->rawValue().toUInt() != SurveyDetection; }
+
+    // pf only sets acquisition range; false locks are rejected downstream. See
+    // MavlinkTagController2 DETECTOR_AMPLITUDE_ANALYSIS.md section 8.
+    static constexpr double NormalPf     = 5e-2;
+    static constexpr double StressTestPf = 0.25;
 };
