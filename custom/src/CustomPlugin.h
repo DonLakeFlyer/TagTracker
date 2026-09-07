@@ -57,7 +57,7 @@ public:
     Q_PROPERTY(QmlObjectListModel*  rotationInfoList        READ    rotationInfoList          CONSTANT)
 
     CustomSettings*     customSettings  () { return _customSettings; }
-    bool                isPythonMode    () const { return _customSettings->detectionMode()->rawValue().toUInt() == DETECTION_MODE_PYTHON; }
+    bool                isPythonMode    () { return _customSettings->isPythonMode(); }
     DetectorList *      detectorList() { return DetectorList::instance(); }
     QString             holdFlightMode();
     int                 maxWaitMSecsForKGroup();
@@ -110,8 +110,7 @@ signals:
     void minSNRChanged                  (double minSNR);
     void activeRotationChanged          (bool activeRotation);
     void rotationInProgressChanged      (bool rotationInProgress);
-    void detectorHeartbeatReceived      (int oneBasedRateIndex);
-    void pythonDetectorResultReceived   (uint32_t tagId);  // confirmed, low-confidence, or no-pulse in Python mode
+    void pythonDetectorResultReceived   (uint32_t tagId);  // confirmed, low-confidence, or no-pulse
     void collectionStatusReceived       (uint32_t collectionId, uint32_t sliceId, uint32_t status, uint32_t errorCode);
 
 private slots:
@@ -122,10 +121,12 @@ private slots:
     bool _validateVehicleAvailable();
 
 private:
-    void    _handleTunnelPulse          (Vehicle* vehicle, const mavlink_tunnel_t& tunnel);
+    void    _handleUavrtPulse           (Vehicle* vehicle, const mavlink_tunnel_t& tunnel);
+    void    _handlePythonPulse          (const mavlink_tunnel_t& tunnel);
     void    _handleTunnelHeartbeat      (const mavlink_tunnel_t& tunnel);
     void    _handleBearingResult        (const mavlink_tunnel_t& tunnel);
     void    _handleCollectionStatus     (const mavlink_tunnel_t& tunnel);
+    void    _updateSNRRange             (double snr);
     void    _say                        (QString text);
     bool    _useSNRForPulseStrength     (void) { return _customSettings->useSNRForPulseStrength()->rawValue().toBool(); }
     void    _captureScreen              (void);
@@ -143,6 +144,10 @@ private:
     float                   _controllerCPUTemp  = 0.0;
     uint32_t                _controllerProtocolVersion = 0;
     bool                    _protocolMismatchReported = false;
+    bool                    _uavrtWrongModeReported = false;
+    bool                    _pythonWrongModeReported = false;
+    bool                    _detectionStartRequested = false;   // survey start requested, heartbeat not yet Detecting
+    bool                    _stopDetectionPending = false;      // disarmed during that window; stop once controller reports Detecting
 
     QmlObjectListModel      _rotationInfoList;
 

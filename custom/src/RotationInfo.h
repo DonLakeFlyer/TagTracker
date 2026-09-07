@@ -1,11 +1,12 @@
 #pragma once
 
-#include "QmlObjectListModel.h"
-#include "TunnelProtocol.h"
-
 #include <QObject>
 #include <QString>
 
+#include "QmlObjectListModel.h"
+#include "TunnelProtocol.h"
+
+/// Per-rotation heading-slice signal strengths and the controller-computed bearing (Python detector only).
 class RotationInfo : public QObject
 {
     Q_OBJECT
@@ -13,29 +14,31 @@ class RotationInfo : public QObject
 public:
     RotationInfo(int cSlices, QObject* parent = nullptr);
 
-    Q_PROPERTY(QmlObjectListModel*  slices              READ slices             CONSTANT)
-    Q_PROPERTY(QList<int>           pulseRateCounts     READ pulseRateCounts    NOTIFY pulseRateCountsChanged)
-    Q_PROPERTY(double               maxSNR              READ maxSNR             NOTIFY maxSNRChanged)
-    Q_PROPERTY(double               bearingDeg          READ bearingDeg         NOTIFY bearingChanged)
-    Q_PROPERTY(double               bearingUncertainty  READ bearingUncertainty NOTIFY bearingChanged)
-    Q_PROPERTY(double               bearingRSquared     READ bearingRSquared    NOTIFY bearingChanged)
-    Q_PROPERTY(bool                 bearingAmbiguous    READ bearingAmbiguous   NOTIFY bearingChanged)
-    Q_PROPERTY(bool                 bearingValid        READ bearingValid       NOTIFY bearingChanged)
+    Q_PROPERTY(QmlObjectListModel* slices READ slices CONSTANT)
+    Q_PROPERTY(QList<int> pulseRateCounts READ pulseRateCounts NOTIFY pulseRateCountsChanged)
+    Q_PROPERTY(double maxSNR READ maxSNR NOTIFY maxSNRChanged)
+    Q_PROPERTY(double bearingDeg READ bearingDeg NOTIFY bearingChanged)
+    Q_PROPERTY(double bearingRSquared READ bearingRSquared NOTIFY bearingChanged)
+    Q_PROPERTY(bool bearingValid READ bearingValid NOTIFY bearingChanged)
 
     QmlObjectListModel* slices(void) { return &_slices; }
+
     QList<int> pulseRateCounts(void) const { return _pulseRateCounts; }
+
     double maxSNR(void) const { return _maxSNR; }
 
     double bearingDeg(void) const { return _bearingDeg; }
-    double bearingUncertainty(void) const { return _bearingUncertainty; }
-    double bearingRSquared(void) const { return _bearingRSquared; }
-    bool   bearingAmbiguous(void) const { return _bearingAmbiguous; }
-    bool   bearingValid(void) const { return _bearingValid; }
 
-    void pulseInfoReceived(const TunnelProtocol::PulseInfo_t& pulseInfo);
-    void fitBearing(void);
+    double bearingRSquared(void) const { return _bearingRSquared; }
+
+    bool bearingValid(void) const { return _bearingValid; }
+
+    void pulseReceived(const TunnelProtocol::PythonPulseInfo_t& pulseInfo);
     void setBearingResult(float bearingDeg, float rSquared, uint32_t nValidSlices, float bestSNR);
-    static double pulseStrengthForDisplay(const TunnelProtocol::PulseInfo_t& pulseInfo, bool isPythonMode);
+
+    /// Slice strength: signal_psd as dB above the reported noise floor. NaN when noise_psd is invalid
+    /// (not a measurement); 0 when the noise-subtracted power is <= 0 (still a locked measurement).
+    static double displayStrength(double signalPsd, double noisePsd);
 
 signals:
     void pulseRateCountsChanged(void);
@@ -46,24 +49,15 @@ private:
     static constexpr int cRates = 2;
 
     int _sliceIndexForHeading(double normalizedHeading);
-    void _applyPulseToSlice(const TunnelProtocol::PulseInfo_t& pulseInfo, int sliceIndex);
-    void _updatePulseRateCount(const TunnelProtocol::PulseInfo_t& pulseInfo, bool isPythonMode);
+    void _applyPulseToSlice(const TunnelProtocol::PythonPulseInfo_t& pulseInfo, int sliceIndex);
     void _updateMaxSNR();
-    QString _sourceRateLabelForTagId(uint32_t tagId) const;
-    QString _rateLabelFromGroupInd(const TunnelProtocol::PulseInfo_t& pulseInfo) const;
-    bool _isNoDetectionPulse(const TunnelProtocol::PulseInfo_t& pulseInfo) const;
 
-    static double _antennaPattern(double thetaDeg, double phiDeg, double A, double B);
+    int _cSlices = 0;
+    QmlObjectListModel _slices;
+    QList<int> _pulseRateCounts;
+    double _maxSNR = qQNaN();
 
-    int                 _cSlices = 0;
-    QmlObjectListModel  _slices;
-    QList<int>          _pulseRateCounts;
-    double              _maxSNR = qQNaN();
-
-    // Bearing fit results
-    double              _bearingDeg         = qQNaN();
-    double              _bearingUncertainty = qQNaN();
-    double              _bearingRSquared    = qQNaN();
-    bool                _bearingAmbiguous   = false;
-    bool                _bearingValid       = false;
+    double _bearingDeg = qQNaN();
+    double _bearingRSquared = qQNaN();
+    bool _bearingValid = false;
 };

@@ -59,13 +59,13 @@ Item {
     property var model: [
         {
             title:      _customController.startDetectionTitle,
-            visible:    _customSettings.detectionFlightMode.rawValue !== CustomSettings.Auto,
+            visible:    _customSettings.detectionFlightMode.rawValue === CustomSettings.SurveyDetection,
             enabled:    _controllerAvailable && _startDetectionEnabled,
             action:     _customController.actionStartDetection,
         },
         {
             title:      _customController.stopDetectionTitle,
-            visible:    _customSettings.detectionFlightMode.rawValue !== CustomSettings.Auto,
+            visible:    _customSettings.detectionFlightMode.rawValue === CustomSettings.SurveyDetection,
             enabled:    _controllerAvailable && _stopDetectionEnabled,
             action:     _customController.actionStopDetection,
         },

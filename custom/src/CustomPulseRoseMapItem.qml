@@ -141,9 +141,7 @@ MapQuickItem {
             property real centerY:      height / 2
             property real arrowRadius:  width / 2
             property real bearingDeg:   _rotationInfo.bearingDeg
-            property real uncertainty:  _rotationInfo.bearingUncertainty
             property real rSquared:     _rotationInfo.bearingRSquared
-            property bool ambiguous:    _rotationInfo.bearingAmbiguous
 
             property color arrowColor:  rSquared > 0.85 ? "#00e000" : (rSquared > 0.6 ? "#ffcc00" : "#ff3333")
 
@@ -153,21 +151,6 @@ MapQuickItem {
 
                 // Convert bearing to canvas angle (0° = north = up, clockwise positive)
                 var bearingRad = (bearingDeg - 90) * Math.PI / 180;
-
-                // Draw uncertainty arc
-                if (!isNaN(uncertainty) && uncertainty > 0) {
-                    var uncertRad = uncertainty * Math.PI / 180;
-                    var arcStart = bearingRad - uncertRad;
-                    var arcEnd   = bearingRad + uncertRad;
-
-                    ctx.beginPath();
-                    ctx.globalAlpha = 0.25;
-                    ctx.fillStyle = arrowColor;
-                    ctx.moveTo(centerX, centerY);
-                    ctx.arc(centerX, centerY, arrowRadius * 0.95, arcStart, arcEnd, false);
-                    ctx.lineTo(centerX, centerY);
-                    ctx.fill();
-                }
 
                 // Draw bearing arrow line
                 var tipX = centerX + arrowRadius * Math.cos(bearingRad);
@@ -210,9 +193,6 @@ MapQuickItem {
             text: {
                 var label = "BRG " + _rotationInfo.bearingDeg.toFixed(0) + "°";
                 label += "  R² " + _rotationInfo.bearingRSquared.toFixed(2);
-                if (_rotationInfo.bearingAmbiguous) {
-                    label += "  AMB";
-                }
                 return label;
             }
             font.pointSize: ScreenTools.largeFontPointSize

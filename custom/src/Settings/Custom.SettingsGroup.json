@@ -20,22 +20,6 @@
     "default":      3
 },
 {
-    "name":         "rotationKWaitCount",
-    "shortDesc":    "Rotation Wait For K Groups",
-    "label":        "Rotation Wait For K Groups",
-    "type":         "UInt32",
-    "default":      2
-},
-{
-    "name":         "falseAlarmPreset",
-    "shortDesc":    "False Alarm Probability",
-    "label":        "False Alarm Probability",
-    "type":         "uint32",
-    "enumStrings":  "Aggressive (5%),Moderate (1%),Conservative (0.1%),Custom",
-    "enumValues":   "0,1,2,3",
-    "default":      0
-},
-{
     "name":             "falseAlarmProbability",
     "shortDesc":        "Custom False Alarm Probability",
     "label":            "Custom False Alarm Probability",
@@ -69,6 +53,7 @@
 {
     "name":         "detectionFlightMode",
     "shortDesc":    "Detection Flight Mode",
+    "longDesc":     "Rotation modes use the Python detector and controller-computed bearings. Survey Detection uses uavrt_detection and plots confirmed pulses on the map.",
     "label":        "Detection Flight Mode",
     "type":         "uint32",
     "enumStrings":  "Auto Rotation,Manual Rotation,Survey Detection",
@@ -112,17 +97,6 @@
     "default":      false
 },
 {
-    "name":         "rotationType",
-    "shortDesc":    "Rotation Type",
-    "label":        "Rotation Type",
-    "type":         "uint32",
-    "default":      1,
-    "enumStrings":  "Full,Fast",
-    "enumValues":   "1,2",
-    "min":          1,
-    "max":          2
-},
-{
     "name":             "antennaType",
     "shortDesc":        "Antenna Type",
     "label":            "Antenna Type",
@@ -130,15 +104,6 @@
     "enumStrings":      "Omni,Directional",
     "enumValues":       "0,1",
     "default":          1
-},
-{
-    "name":             "detectionMode",
-    "shortDesc":        "Detection Mode",
-    "label":            "Detection Mode",
-    "type":             "uint32",
-    "enumStrings":      "uavrt_detection,Python",
-    "enumValues":       "0,1",
-    "default":          0
 },
 {
     "name":             "detectionMargin",
@@ -168,21 +133,31 @@
     "default":          false
 },
 {
-    "name":         "pythonK",
-    "shortDesc":    "Detector K Value",
-    "label":        "Detector K Value",
+    "name":         "pythonPreLockK",
+    "shortDesc":    "Pre-Lock K (acquisition)",
+    "label":        "Pre-Lock K (acquisition)",
     "type":         "UInt32",
-    "min":          2,
-    "max":          20,
+    "enumStrings":  "5,10,15,20",
+    "enumValues":   "5,10,15,20",
     "default":      20
 },
 {
-    "name":         "pythonFalseAlarmPreset",
+    "name":         "pythonPostLockK",
+    "shortDesc":    "Post-Lock K (measurement)",
+    "label":        "Post-Lock K (measurement)",
+    "type":         "UInt32",
+    "enumStrings":  "3,5,10",
+    "enumValues":   "3,5,10",
+    "default":      5
+},
+{
+    "name":         "pythonFalseAlarmMode",
     "shortDesc":    "False Alarm Probability",
+    "longDesc":     "Sets only acquisition range; bearings are unaffected. Normal is the field setting. Stress test floods the detector with noise locks to exercise candidate rejection - do not fly with it.",
     "label":        "False Alarm Probability",
     "type":         "uint32",
-    "enumStrings":  "Aggressive (5%),Moderate (1%),Conservative (0.1%),Custom",
-    "enumValues":   "0,1,2,3",
+    "enumStrings":  "Normal (5%),Stress test - noisy (25%),Custom",
+    "enumValues":   "0,1,2",
     "default":      0
 },
 {

@@ -11,7 +11,8 @@ import QGroundControl.CustomControls
 SettingsPage {
     property var  _customSettings:  QGroundControl.settingsManager.customSettings
     property var  _tagDatabase:     QGroundControl.corePlugin.tagDatabase
-    property bool _isPythonMode:    _customSettings.detectionMode.rawValue === 1
+    property bool _isPythonMode:    _customSettings.detectionFlightMode.rawValue !== CustomSettings.SurveyDetection
+    property bool _advanced:        QGroundControl.corePlugin.showAdvancedUI
 
     Component {
         id: tagInfoDialogComponent
@@ -118,18 +119,14 @@ SettingsPage {
             Layout.fillWidth:   true
             label:              fact.shortDescription
             fact:               _customSettings.takeoffAltitude
-        }
-
-        LabelledFactComboBox {
-            Layout.fillWidth:   true
-            label:              fact.shortDescription
-            fact:               _customSettings.rotationType
+            visible:            _isPythonMode
         }
 
         LabelledFactComboBox {
             Layout.fillWidth:   true
             label:              fact.shortDescription
             fact:               _customSettings.divisions
+            visible:            _isPythonMode
         }
 
         LabelledFactComboBox {
@@ -148,12 +145,6 @@ SettingsPage {
     SettingsGroupLayout {
         Layout.fillWidth:   true
         heading:            qsTr("Detection")
-
-        LabelledFactComboBox {
-            Layout.fillWidth:   true
-            label:              fact.shortDescription
-            fact:               _customSettings.detectionMode
-        }
 
         LabelledFactTextField {
             Layout.fillWidth:   true
@@ -179,28 +170,36 @@ SettingsPage {
         LabelledFactTextField {
             Layout.fillWidth:   true
             label:              fact.shortDescription
-            fact:               _isPythonMode ? _customSettings.pythonK : _customSettings.k
-        }
-
-        LabelledFactTextField {
-            Layout.fillWidth:   true
-            label:              fact.shortDescription
-            fact:               _customSettings.rotationKWaitCount
+            fact:               _customSettings.k
             visible:            !_isPythonMode
         }
 
         LabelledFactComboBox {
             Layout.fillWidth:   true
             label:              fact.shortDescription
-            fact:               _customSettings.pythonFalseAlarmPreset
+            fact:               _customSettings.pythonPreLockK
             visible:            _isPythonMode
+        }
+
+        LabelledFactComboBox {
+            Layout.fillWidth:   true
+            label:              fact.shortDescription
+            fact:               _customSettings.pythonPostLockK
+            visible:            _isPythonMode
+        }
+
+        LabelledFactComboBox {
+            Layout.fillWidth:   true
+            label:              fact.shortDescription
+            fact:               _customSettings.pythonFalseAlarmMode
+            visible:            _isPythonMode && _advanced
         }
 
         LabelledFactTextField {
             Layout.fillWidth:   true
             label:              fact.shortDescription
             fact:               _customSettings.pythonFalseAlarmProbability
-            visible:            _isPythonMode && _customSettings.pythonFalseAlarmPreset.rawValue === CustomSettings.Custom
+            visible:            _isPythonMode && _advanced && _customSettings.pythonFalseAlarmMode.rawValue === CustomSettings.Custom
         }
 
         LabelledFactTextField {
