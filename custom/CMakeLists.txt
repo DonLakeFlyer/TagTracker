@@ -130,6 +130,8 @@ qt_add_qml_module(CustomControlsModule
 # ============================================================================
 
 set(CUSTOM_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/CompanionLogDownloader.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/CompanionLogDownloader.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CSVLogManager.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CSVLogManager.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomLoggingCategory.cc
@@ -205,7 +207,7 @@ set(CUSTOM_SOURCES ${CUSTOM_SOURCES} PARENT_SCOPE)
 CPMAddPackage(
     NAME              TunnelProtocol
     GITHUB_REPOSITORY DonLakeFlyer/TagTrackerTunnelProtocol
-    GIT_TAG           ccd9dff0b466d090c0305960053a67e12ac1ec50
+    GIT_TAG           f4da01e9fb3d8e517a80b4b923f2efb8292da6e5
     DOWNLOAD_ONLY     TRUE
 )
 
