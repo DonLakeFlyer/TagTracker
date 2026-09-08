@@ -4,12 +4,15 @@
 #include "Fact.h"
 #include "QmlObjectListModel.h"
 #include "QGCApplication.h"
+#include "QGCLoggingCategory.h"
 #include "AppSettings.h"
 #include "SettingsManager.h"
 
 #include <QFile>
 
 //#define DEBUG_TUNER
+
+QGC_LOGGING_CATEGORY(TagDatabaseLog, "Custom.TagDatabase")
 
 Q_APPLICATION_STATIC(TagDatabase, _tagDatabaseInstance);
 
@@ -647,23 +650,24 @@ void TagDatabase::_load()
     _tagManufacturerListModel->clearAndDeleteContents();
     _tagInfoListModel->clearAndDeleteContents();
 
-    if (!QFileInfo(_tagInfoFilePath()).exists() || !QFileInfo(_tagManufacturerFilePath()).exists()) {
-        qDebug() << "Not loading tag info since files are missing";
+    if (QFileInfo(_tagManufacturerFilePath()).exists() && !_loadTagManufacturer()) {
+        _tagManufacturerListModel->clearAndDeleteContents();
         return;
     }
 
-    if (!_loadTagManufacturer()) {
-        goto Error;
-    }
-    if (!_loadTagInfo()) {
-        goto Error;
+    if (_tagManufacturerListModel->count() == 0) {
+        qCDebug(TagDatabaseLog) << "No manufacturers found, seeding default";
+        // Measured on a PDC Lotek collar (Sep 2026): 19 ms pulses, 1.5 s moving / 2.0 s resting
+        TagManufacturer* lotek = new TagManufacturer(this);
+        lotek->_nameFact->setRawValue(QStringLiteral("PDC Lotek"));
+        _tagManufacturerListModel->append(lotek);
     }
 
-    return;
+    if (QFileInfo(_tagInfoFilePath()).exists() && !_loadTagInfo()) {
+        _tagInfoListModel->clearAndDeleteContents();
+    }
 
-Error:
-    _tagManufacturerListModel->clearAndDeleteContents();
-    _tagInfoListModel->clearAndDeleteContents();
+    _updateNextIds();
 }
 
 void TagDatabase::_setupTunerVars()

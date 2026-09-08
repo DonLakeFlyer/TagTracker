@@ -20,7 +20,7 @@ QGCPopupDialog {
 
         QGCButton {
             text:       qsTr("New Manufacturer")
-            onClicked:  manufacturerDialogComponent.createObject(mainWindow, { tagManufacturer: tagDatabase.newTagManufacturer() }).open()
+            onClicked:  manufacturerDialogComponent.createObject(mainWindow, { tagManufacturer: tagDatabase.newTagManufacturer(), isNew: true }).open()
         }
 
         GridLayout {
@@ -118,11 +118,40 @@ QGCPopupDialog {
         QGCPopupDialog {
             id:         manufacturerDialog
             title:      qsTr("Tag Manufacturer")
-            buttons:    Dialog.Ok
+            buttons:    Dialog.Ok | Dialog.Cancel
 
-            property var tagManufacturer
+            property var    tagManufacturer
+            property bool   isNew:  false
 
-            property var _tagDatabase: QGroundControl.corePlugin.tagDatabase
+            property var _tagDatabase:      QGroundControl.corePlugin.tagDatabase
+            property var _originalValues:   ({})
+
+            readonly property var _editedFacts: [
+                tagManufacturer.name,
+                tagManufacturer.ip_msecs_1_id,
+                tagManufacturer.ip_msecs_1,
+                tagManufacturer.ip_msecs_2_id,
+                tagManufacturer.ip_msecs_2,
+                tagManufacturer.pulse_width_msecs,
+                tagManufacturer.ip_uncertainty_msecs,
+                tagManufacturer.ip_jitter_msecs,
+            ]
+
+            Component.onCompleted: {
+                for (const fact of _editedFacts) {
+                    _originalValues[fact.name] = fact.rawValue
+                }
+            }
+
+            onRejected: {
+                if (isNew) {
+                    _tagDatabase.deleteTagManufacturerListItem(tagManufacturer)
+                } else {
+                    for (const fact of _editedFacts) {
+                        fact.rawValue = _originalValues[fact.name]
+                    }
+                }
+            }
 
             onAccepted: {
                 if (tagManufacturer.name.rawValue === "") {
@@ -142,16 +171,7 @@ QGCPopupDialog {
                 spacing: ScreenTools.defaultFontPixelHeight / 2
 
                 Repeater {
-                    model: [
-                        tagManufacturer.name,
-                        tagManufacturer.ip_msecs_1_id,
-                        tagManufacturer.ip_msecs_1,
-                        tagManufacturer.ip_msecs_2_id,
-                        tagManufacturer.ip_msecs_2,
-                        tagManufacturer.pulse_width_msecs,
-                        tagManufacturer.ip_uncertainty_msecs,
-                        tagManufacturer.ip_jitter_msecs,
-                    ]
+                    model: _editedFacts
 
                     LabelledFactTextField {
                         Layout.fillWidth:           true

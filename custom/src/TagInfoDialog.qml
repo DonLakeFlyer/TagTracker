@@ -10,12 +10,32 @@ import QGroundControl.CustomControls
 QGCPopupDialog {
     id:         tagInfoDialog
     title:      qsTr("Tag Info")
-    buttons:    Dialog.Ok
+    buttons:    Dialog.Ok | Dialog.Cancel
 
-    property var tagInfo
+    property var    tagInfo
+    property bool   isNew:  false
 
     property var _tagDatabase:      QGroundControl.corePlugin.tagDatabase
     property var _manufacturerList: _tagDatabase.tagManufacturerList
+    property var _originalValues:   ({})
+
+    readonly property var _editedFacts: [ tagInfo.name, tagInfo.frequencyMHz, tagInfo.manufacturerId ]
+
+    Component.onCompleted: {
+        for (const fact of _editedFacts) {
+            _originalValues[fact.name] = fact.rawValue
+        }
+    }
+
+    onRejected: {
+        if (isNew) {
+            _tagDatabase.deleteTagInfoListItem(tagInfo)
+        } else {
+            for (const fact of _editedFacts) {
+                fact.rawValue = _originalValues[fact.name]
+            }
+        }
+    }
 
     onAccepted: {
         if (tagInfo.name.rawValue === "") {
@@ -52,20 +72,19 @@ QGCPopupDialog {
             onActivated: tagInfo.manufacturerId.rawValue = _manufacturerList.get(index).id.rawValue
 
             Component.onCompleted: {
-                var selectedIndex = -1
-                var listModel = []
-                for (var i=0; i<_manufacturerList.count; i++) {
-                    var manufacturer = _manufacturerList.get(i)
-                    var manufacturerId = manufacturer.id.rawValue
+                let selectedIndex = -1
+                let listModel = []
+                for (let i=0; i<_manufacturerList.count; i++) {
+                    const manufacturer = _manufacturerList.get(i)
                     listModel.push(manufacturer.name.valueString)
-                    if (manufacturerId === tagInfo.manufacturerId.rawValue) {
+                    if (manufacturer.id.rawValue === tagInfo.manufacturerId.rawValue) {
                         selectedIndex = i
                     }
                 }
                 manufacturerCombo.model = listModel
 
                 if (selectedIndex == -1) {
-                    console.warning("tagInfoDialogComponent: manufacturer id not found in list", manufacturerId)
+                    console.warn("tagInfoDialogComponent: manufacturer id not found in list", tagInfo.manufacturerId.rawValue)
                 } else {
                     manufacturerCombo.currentIndex = selectedIndex
                 }
