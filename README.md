@@ -24,8 +24,9 @@ TagTracker provides the following operations via the fly-view actions toolstrip:
 | **Stop Detection** | Stop all pulse detection on the controller. |
 | **Rotate** | Perform an in-place rotation capture while already airborne. |
 | **Airspy Capture** | Capture raw SDR data from the Airspy receiver. |
-| **Save Logs** | Save companion computer logs to USB/SD. |
+| **Save Logs (SD Card)** | Save companion computer logs to the vehicle SD card. |
 | **Clear Logs** | Clear companion computer logs. |
+| **Download Logs (WiFi)** | Copy companion computer logs over WiFi to the QGC log save path. macOS only; requires one-time SSH key setup (see [Downloading Companion Logs](#downloading-companion-logs-macos)). |
 | **Clear Map** | Remove all pulse map items and reset the SNR range. |
 | **Capture Screen** | Screenshot the GCS display. |
 
@@ -95,6 +96,40 @@ Two types of log files are recorded:
 
 - **Full pulse log** (`Pulse-{timestamp}.csv`): Every confirmed pulse for the entire session, including rotation start/stop markers with GPS coordinates.
 - **Rotation pulse log** (`Rotation-{N}.csv`): Per-rotation log files for bearing calculation input.
+
+## Downloading Companion Logs (macOS)
+
+The **Download Logs (WiFi)** action copies the companion computer's log folders (`~/Logs/Logs-<Type>-<timestamp>/`) over WiFi into the QGC log save path (Application Settings → Save Path). It runs `scp` under the hood and is available on macOS only.
+
+Requirements:
+
+- The Mac and the Raspberry Pi are on the same WiFi network and the Pi is reachable as `raspberrypi.local`.
+- Key-based SSH login to `pi@raspberrypi.local` is set up, using a key **without a passphrase**. The download runs non-interactively and cannot prompt for a password or passphrase.
+
+One-time SSH key setup (run in Terminal on the Mac):
+
+```bash
+# Create a key only if you don't already have one.
+# Press Enter for an empty passphrase so the download can run without prompting.
+[ -f ~/.ssh/id_ed25519 ] || ssh-keygen -t ed25519
+
+# Installs your public key on the Pi; enter the Pi password when prompted
+ssh-copy-id pi@raspberrypi.local
+
+# Verify: should return immediately with no password or passphrase prompt
+ssh pi@raspberrypi.local true
+```
+
+If you already had a key and the verify step asks for a passphrase, remove it with `ssh-keygen -p -f ~/.ssh/id_ed25519` (enter the current passphrase, then press Enter twice for an empty one).
+
+No changes are needed on the Pi beyond what `ssh-copy-id` does. If the download reports "Permission denied", the key is not installed on the Pi or still has a passphrase.
+
+After reimaging the Pi's SD card, the Pi gets a new host key and the download fails with "HOST IDENTIFICATION HAS CHANGED". Reset it and reinstall your key:
+
+```bash
+ssh-keygen -R raspberrypi.local
+ssh-copy-id pi@raspberrypi.local
+```
 
 ## Building
 

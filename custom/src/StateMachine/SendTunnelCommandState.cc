@@ -68,7 +68,7 @@ QString SendTunnelCommandState::commandIdToText(uint32_t vhfCommandId)
     case COMMAND_ID_STOP_DETECTION:
         return QStringLiteral("Stop Detection");
     case COMMAND_ID_SAVE_LOGS:
-        return QStringLiteral("Save Logs");
+        return QStringLiteral("Save Logs (SD Card)");
     case COMMAND_ID_CLEAN_LOGS:
         return QStringLiteral("Clean Logs");
     case COMMAND_ID_AIRSPY_STATUS:

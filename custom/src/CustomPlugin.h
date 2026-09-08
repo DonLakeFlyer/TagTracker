@@ -8,6 +8,7 @@
 #include "DetectorList.h"
 #include "TagDatabase.h"
 #include "CSVLogManager.h"
+#include "CompanionLogDownloader.h"
 
 #include <QElapsedTimer>
 #include <QGeoCoordinate>
@@ -50,6 +51,7 @@ public:
     Q_PROPERTY(bool                 protocolCompatible      READ protocolCompatible             NOTIFY protocolCompatibilityChanged)
     Q_PROPERTY(QmlObjectListModel*  detectorList            READ    detectorList                CONSTANT)
     Q_PROPERTY(TagDatabase*         tagDatabase             READ    tagDatabase                 CONSTANT)
+    Q_PROPERTY(CompanionLogDownloader* companionLogDownloader READ companionLogDownloader       CONSTANT)
     Q_PROPERTY(double               maxSNR                  MEMBER  _maxSNR                     NOTIFY maxSNRChanged)
     Q_PROPERTY(double               minSNR                  MEMBER  _minSNR                     NOTIFY minSNRChanged)
     Q_PROPERTY(bool                 activeRotation          MEMBER  _activeRotation             NOTIFY activeRotationChanged)
@@ -75,6 +77,7 @@ public:
     QmlObjectListModel*     rotationInfoList() { return &_rotationInfoList; }
 
     TagDatabase* tagDatabase();
+    CompanionLogDownloader* companionLogDownloader() { return &_companionLogDownloader; }
 
     Q_INVOKABLE void autoDetection      ();
     Q_INVOKABLE void startRotation      (void);
@@ -163,6 +166,7 @@ private:
     QTimer                  _controllerHeartbeatTimer;
 
     CSVLogManager           _csvLogManager;
+    CompanionLogDownloader  _companionLogDownloader;
 
     double                  _maxSNR = qQNaN();
     double                  _minSNR = qQNaN();

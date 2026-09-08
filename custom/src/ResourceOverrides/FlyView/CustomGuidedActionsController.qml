@@ -11,14 +11,15 @@ QtObject {
     readonly property int actionSaveLogs:                   customActionStart + 6
     readonly property int actionClearLogs:                  customActionStart + 7
     readonly property int actionClearMap:                    customActionStart + 8
+    readonly property int actionDownloadLogs:               customActionStart + 9
 
     readonly property string autoDetectionTitle:            qsTr("Go")
     readonly property string startDetectionTitle:           qsTr("Start Detection")
     readonly property string stopDetectionTitle:            qsTr("Stop Detection")
     readonly property string startRotationTitle:            qsTr("Rotate")
     readonly property string rawCaptureTitle:               qsTr("Airspy Capture")
-    readonly property string downloadLogsTitle:             qsTr("Download")
-    readonly property string saveLogsTitle:                 qsTr("Save Logs")
+    readonly property string downloadLogsTitle:             qsTr("Download Logs (WiFi)")
+    readonly property string saveLogsTitle:                 qsTr("Save Logs (SD Card)")
     readonly property string clearLogsTitle:                qsTr("Clear Logs")
     readonly property string clearMapTitle:                 qsTr("Clear Map")
 
@@ -27,8 +28,8 @@ QtObject {
     readonly property string stopDetectionMessage:          qsTr("Stop all pulse detection.")
     readonly property string startRotationMessage:          qsTr("Start rotation in place.")
     readonly property string rawCaptureMessage:             qsTr("Start sdr raw capture.")
-    readonly property string downloadLogsMessage:           qsTr("Download companion logs.")
-    readonly property string saveLogsMessage:               qsTr("Save companion logs.")
+    readonly property string downloadLogsMessage:           qsTr("Download companion logs over WiFi to the log save path.")
+    readonly property string saveLogsMessage:               qsTr("Save companion logs to the vehicle SD card.")
     readonly property string clearLogsMessage:              qsTr("Clear companion logs.")
     readonly property string clearMapMessage:               qsTr("Clear pulse map items.")
 
@@ -74,6 +75,11 @@ QtObject {
             confirmDialog.title = clearMapTitle
             confirmDialog.message = clearMapMessage
             break
+        case actionDownloadLogs:
+            confirmDialog.hideTrigger = true
+            confirmDialog.title = downloadLogsTitle
+            confirmDialog.message = downloadLogsMessage
+            break
         default:
             return false;
         }
@@ -106,6 +112,9 @@ QtObject {
             break
         case actionClearMap:
             QGroundControl.corePlugin.clearMap()
+            break
+        case actionDownloadLogs:
+            QGroundControl.corePlugin.companionLogDownloader.download()
             break
         default:
             return false;

@@ -10,6 +10,7 @@
 import QtQuick
 
 import QGroundControl
+import QGroundControl.Controls
 import QGroundControl.CustomControls
 
 // Custom builds can override this resource to add additional custom actions
@@ -88,6 +89,13 @@ Item {
             visible:    true,
             enabled:    _controllerAvailable,
             action:     _customController.actionClearLogs,
+        },
+
+        {
+            title:      _customController.downloadLogsTitle,
+            visible:    ScreenTools.isMac,
+            enabled:    !QGroundControl.corePlugin.companionLogDownloader.downloading,
+            action:     _customController.actionDownloadLogs,
         },
 
         {
