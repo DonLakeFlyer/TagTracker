@@ -93,7 +93,7 @@ SettingsPage {
                     if (_tagDatabase.tagManufacturerList.count == 0) {
                         mainWindow.showMessageDialog(qsTr("Add Tag"), qsTr("You must add a Manufacturer first."))
                     } else {
-                        tagInfoDialogComponent.createObject(mainWindow, { tagInfo: _tagDatabase.newTagInfo() }).open()
+                        tagInfoDialogComponent.createObject(mainWindow, { tagInfo: _tagDatabase.newTagInfo(), isNew: true }).open()
                     }
                 }
             }

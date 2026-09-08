@@ -18,7 +18,7 @@
     "shortDesc":    "Intra-Pulse Rate 1",
     "type":         "UInt32",
     "units":        "msecs",
-    "default":      1333
+    "default":      1500
 },
 {
     "name":         "ip_msecs_2",
@@ -44,7 +44,7 @@
     "shortDesc":    "Pulse Width",
     "type":         "UInt32",
     "units":        "msecs",
-    "default":      15
+    "default":      19
 },
 {
     "name":         "ip_uncertainty_msecs",
