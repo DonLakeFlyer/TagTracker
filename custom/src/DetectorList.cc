@@ -31,10 +31,8 @@ void DetectorList::setupFromSelectedTags()
     CustomSettings* customSettings = customPlugin->customSettings();
     const bool isPythonMode = customPlugin->isPythonMode();
 
-    // Python heartbeats are a 1 Hz timer independent of K; K only scales the timeout to the tag
-    // cadence, so the longer of the acquisition and measurement cycles is the safe bound
-    const uint32_t pythonK = std::max(customSettings->pythonPreLockK()->rawValue().toUInt(),
-                                      customSettings->pythonPostLockK()->rawValue().toUInt());
+    // Python heartbeats are a 1 Hz timer independent of K; K only scales the timeout to the tag cadence
+    const uint32_t pythonK = customSettings->pythonK()->rawValue().toUInt();
     const uint32_t uavrtK = customSettings->k()->rawValue().toUInt();
 
     for (int i = 0; i < tagInfoList->count(); i++) {

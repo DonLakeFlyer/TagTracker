@@ -48,6 +48,7 @@ Q_APPLICATION_STATIC(CustomPlugin, _corePluginInstance);
 
 CustomPlugin::CustomPlugin(QObject* parent)
     : QGCCorePlugin         (parent)
+    , _customOptions        (new CustomOptions(this))
     , _vehicleFrequency     (0)
     , _lastPulseSendIndex   (-1)
     , _missedPulseCount     (0)
@@ -76,8 +77,6 @@ QGCCorePlugin *CustomPlugin::instance()
 void CustomPlugin::init()
 {
     QGCCorePlugin::init();
-
-    _customOptions = new CustomOptions(nullptr);
 
     // TagTracker logging is on by default; QGC only enables categories the user opted into.
     QGCLoggingCategoryManager::instance()->setCategoryEnabled(QString::fromLatin1(CustomPluginLog().categoryName()), true);
@@ -842,6 +841,7 @@ void CustomPlugin::rotationIsStarting(uint32_t collectionId)
 {
     _activeCollectionId = collectionId;
     _lastCollectionStatus = {};
+    _lastBearingCollectionId = 0;
     _setActiveRotation(true);
 
     // Setup up new RotationInfo
@@ -887,18 +887,20 @@ void CustomPlugin::_handleBearingResult(const mavlink_tunnel_t& tunnel)
         return;
     }
 
-    qCDebug(CustomPluginLog) << "BearingResult received - tag_id:bearing:r2:nValid:bestSNR"
+    qCDebug(CustomPluginLog) << "BearingResult received - tag_id:bearing:r2:nValid:bestSNR:confirmed"
                              << bearingResult.tag_id
                              << bearingResult.bearing_deg
                              << bearingResult.r_squared
                              << bearingResult.n_valid_slices
-                             << bearingResult.best_snr;
+                             << bearingResult.best_snr
+                             << bearingResult.confirmed;
 
     if (_rotationInfoList.count() > 0) {
         auto* rotationInfo = _rotationInfoList.value<RotationInfo*>(_rotationInfoList.count() - 1);
         if (rotationInfo) {
             rotationInfo->setBearingResult(bearingResult.bearing_deg, bearingResult.r_squared,
-                                           bearingResult.n_valid_slices, bearingResult.best_snr);
+                                           bearingResult.n_valid_slices, bearingResult.best_snr,
+                                           bearingResult.confirmed != 0);
         }
     }
     // Any finite estimate beats blind slice order for the next rotation; the
@@ -906,6 +908,8 @@ void CustomPlugin::_handleBearingResult(const mavlink_tunnel_t& tunnel)
     if (std::isfinite(bearingResult.bearing_deg)) {
         _priorBearingDeg = normalizeHeading(bearingResult.bearing_deg);
     }
+    _lastBearingCollectionId = bearingResult.collection_id;
+    emit bearingResultReceived(bearingResult.collection_id);
 }
 
 void CustomPlugin::_handleCollectionStatus(const mavlink_tunnel_t& tunnel)
@@ -921,7 +925,10 @@ void CustomPlugin::_handleCollectionStatus(const mavlink_tunnel_t& tunnel)
     qCDebug(CustomPluginLog) << "Collection status"
                              << status.collection_id << status.slice_id << status.status
                              << status.completed_detectors << status.expected_detectors
-                             << status.error_code;
+                             << status.error_code
+                             << (status.status == COLLECTION_STATUS_REVISIT_REQUESTED
+                                     ? QStringLiteral("revisit %1 deg").arg(status.revisit_heading_deg)
+                                     : QString());
     // Kept so a listener that connects after the message arrived can replay it
     if (status.collection_id == _activeCollectionId) {
         _lastCollectionStatus = status;
@@ -940,11 +947,10 @@ void CustomPlugin::_setActiveRotation(bool active)
 
 int CustomPlugin::maxWaitMSecsForKGroup()
 {
-    // A strong first acquisition (pre-lock K pulses) is held at the same heading
-    // for one confirming post-lock cycle before the detector completes the slice.
-    const uint32_t preLockK  = _customSettings->pythonPreLockK()->rawValue().toUInt();
-    const uint32_t postLockK = _customSettings->pythonPostLockK()->rawValue().toUInt();
-    return TagDatabase::instance()->maxIntraPulseMsecs() * (preLockK + postLockK + 1);
+    // Every heading is one K-pulse cycle (post-lock cycles are the same length
+    // as acquisition); +1 pulse for the segment boundary.
+    const uint32_t k = _customSettings->pythonK()->rawValue().toUInt();
+    return TagDatabase::instance()->maxIntraPulseMsecs() * (k + 1);
 }
 
 double CustomPlugin::normalizeHeading(double heading)

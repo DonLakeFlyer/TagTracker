@@ -1,5 +1,6 @@
 #include "PythonRotateAndCaptureState.h"
 #include "PythonCaptureAtSliceState.h"
+#include "PythonWaitForFinishOutcomeState.h"
 #include "SendTunnelCommandState.h"
 #include "FunctionState.h"
 #include "SayState.h"
@@ -20,8 +21,9 @@ PythonRotateAndCaptureState::PythonRotateAndCaptureState(QState* parentState)
     : CustomState       ("PythonRotateAndCaptureState", parentState)
     , _customPlugin     (qobject_cast<CustomPlugin*>(CustomPlugin::instance()))
     , _customSettings   (_customPlugin->customSettings())
+    , _rotationDivisions(_customSettings->divisions()->rawValue().toInt())
 {
-    const int rotationDivisions     = _customSettings->divisions()->rawValue().toInt();
+    const int rotationDivisions     = _rotationDivisions;
     do {
         _collectionId = QRandomGenerator::global()->generate();
     } while (_collectionId == 0);
@@ -34,6 +36,7 @@ PythonRotateAndCaptureState::PythonRotateAndCaptureState(QState* parentState)
     startCollection.detection_margin          = _customSettings->detectionMargin()->rawValue().toDouble();
     startCollection.confidence_ratio          = _customSettings->confidenceRatio()->rawValue().toDouble();
     startCollection.debug_detector            = _customSettings->debugDetector()->rawValue().toBool() ? 1 : 0;
+    startCollection.antenna_id                = _customSettings->antennaModel()->rawValue().toUInt();
 
     FinishCollection_t finishCollection {};
     finishCollection.header.command = COMMAND_ID_FINISH_COLLECTION;
@@ -48,6 +51,13 @@ PythonRotateAndCaptureState::PythonRotateAndCaptureState(QState* parentState)
     auto rotationBeginState             = new FunctionState("Rotation Begin", this, std::bind(&PythonRotateAndCaptureState::_rotationBegin, this));
     auto startCollectionState           = new SendTunnelCommandState("StartCollection", this, reinterpret_cast<uint8_t*>(&startCollection), sizeof(startCollection), kStartCollectionAckTimeoutMs);
     auto finishCollectionState          = new SendTunnelCommandState("FinishCollection", this, reinterpret_cast<uint8_t*>(&finishCollection), sizeof(finishCollection), kFinishCollectionAckTimeoutMs);
+    auto finishOutcomeState             = new PythonWaitForFinishOutcomeState(this, _collectionId, /*allowRevisit*/ true);
+    // Revisit branch: the slice itself is built once the controller names the heading
+    _revisitState                       = new QState(this);
+    _revisitDone                        = new QFinalState(_revisitState);
+    auto announceRevisitState           = new SayState("Announce Revisit", this, "Confirming bearing");
+    auto finishAfterRevisitState        = new SendTunnelCommandState("FinishCollection after revisit", this, reinterpret_cast<uint8_t*>(&finishCollection), sizeof(finishCollection), kFinishCollectionAckTimeoutMs);
+    auto finishAfterRevisitOutcomeState = new PythonWaitForFinishOutcomeState(this, _collectionId, /*allowRevisit*/ false);
     auto rotationEndState               = new FunctionState("Rotation End",   this, std::bind(&PythonRotateAndCaptureState::_rotationEnd, this));
     auto announceRotateCompleteState    = new SayState("Announce Rotate Complete", this, "Rotation detection complete");
     auto finalState                     = new QFinalState(this);
@@ -61,7 +71,9 @@ PythonRotateAndCaptureState::PythonRotateAndCaptureState(QState* parentState)
             this, sliceOrder[sequenceIndex], sequenceIndex, _collectionId));
     }
 
-    // Transitions: rotationBegin → startRotationDetection → slice[0] → ... → slice[N-1] → stopRotationDetection → rotationEnd
+    // Transitions: rotationBegin → startCollection → slice[0] → ... → slice[N-1] → finishCollection
+    //   → finishOutcome → (bearing) rotationEnd
+    //                   → (revisit) announce → revisit slice → finishCollection again → finishOutcome → rotationEnd
     rotationBeginState->addTransition(rotationBeginState, &FunctionState::advance, startCollectionState);
     startCollectionState->addTransition(startCollectionState, &SendTunnelCommandState::commandSucceeded, sliceStates.first());
 
@@ -70,7 +82,21 @@ PythonRotateAndCaptureState::PythonRotateAndCaptureState(QState* parentState)
     }
     sliceStates.last()->addTransition(sliceStates.last(), &QState::finished, finishCollectionState);
 
-    finishCollectionState->addTransition(finishCollectionState, &SendTunnelCommandState::commandSucceeded, rotationEndState);
+    finishCollectionState->addTransition(finishCollectionState, &SendTunnelCommandState::commandSucceeded, finishOutcomeState);
+    // Direct connection: the revisit slice must exist before the machine processes the transition into it.
+    connect(finishOutcomeState, &PythonWaitForFinishOutcomeState::revisitRequested,
+            this, &PythonRotateAndCaptureState::_buildRevisitSlice, Qt::DirectConnection);
+    finishOutcomeState->addTransition(finishOutcomeState, &PythonWaitForFinishOutcomeState::bearingReceived, rotationEndState);
+    finishOutcomeState->addTransition(finishOutcomeState, &PythonWaitForFinishOutcomeState::revisitRequested, announceRevisitState);
+    announceRevisitState->addTransition(announceRevisitState, &SayState::advance, _revisitState);
+    connect(_revisitState, &QState::entered, this, [this] () {
+        if (!_revisitState->initialState()) {
+            setError(QStringLiteral("Revisit slice was never built for collection %1").arg(_collectionId));
+        }
+    });
+    _revisitState->addTransition(_revisitState, &QState::finished, finishAfterRevisitState);
+    finishAfterRevisitState->addTransition(finishAfterRevisitState, &SendTunnelCommandState::commandSucceeded, finishAfterRevisitOutcomeState);
+    finishAfterRevisitOutcomeState->addTransition(finishAfterRevisitOutcomeState, &PythonWaitForFinishOutcomeState::bearingReceived, rotationEndState);
     rotationEndState->addTransition(rotationEndState, &FunctionState::advance, announceRotateCompleteState);
     announceRotateCompleteState->addTransition(announceRotateCompleteState, &SayState::advance, finalState);
 
@@ -150,6 +176,20 @@ void PythonRotateAndCaptureState::_collectionStatusReceived(uint32_t collectionI
                  .arg(sliceId)
                  .arg(errorDescription)
                  .arg(errorCode));
+}
+
+void PythonRotateAndCaptureState::_buildRevisitSlice(float headingDeg)
+{
+    if (_revisitState->initialState() != nullptr) {
+        return;
+    }
+    // slice_id continues the visit sequence so the controller keys it like any other heading
+    auto revisitSlice = new PythonCaptureAtSliceState(
+        _revisitState, headingDeg, static_cast<uint32_t>(_rotationDivisions + 1), _collectionId,
+        PythonCaptureAtSliceState::ExplicitYaw {});
+    revisitSlice->addTransition(revisitSlice, &QState::finished, _revisitDone);
+    _revisitState->setInitialState(revisitSlice);
+    qCDebug(CustomStateMachineLog) << "Python: revisit slice built for heading" << headingDeg;
 }
 
 void PythonRotateAndCaptureState::_rotationBegin()

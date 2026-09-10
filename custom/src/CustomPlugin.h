@@ -70,6 +70,8 @@ public:
     // True from the moment a rotation state machine starts until it finishes or is stopped
     bool                rotationInProgress() const { return _rotationInProgress; }
     const CollectionStatus_t& lastCollectionStatus() const { return _lastCollectionStatus; }
+    // Collection whose BEARING_RESULT has arrived (0 = none yet for the active collection)
+    uint32_t            lastBearingCollectionId() const { return _lastBearingCollectionId; }
 
     CSVLogManager&          csvLogManager() { return _csvLogManager; }
     void                    rotationIsStarting(uint32_t collectionId = 0);
@@ -115,6 +117,7 @@ signals:
     void rotationInProgressChanged      (bool rotationInProgress);
     void pythonDetectorResultReceived   (uint32_t tagId);  // confirmed, low-confidence, or no-pulse
     void collectionStatusReceived       (uint32_t collectionId, uint32_t sliceId, uint32_t status, uint32_t errorCode);
+    void bearingResultReceived          (uint32_t collectionId);
 
 private slots:
     void _controllerHeartbeatFailed(void);
@@ -143,6 +146,7 @@ private:
     bool                    _rotationInProgress = false;
     uint32_t                _activeCollectionId = 0;
     CollectionStatus_t      _lastCollectionStatus {};
+    uint32_t                _lastBearingCollectionId = 0;
     int                     _controllerStatus   = ControllerStatusIdle;
     float                   _controllerCPUTemp  = 0.0;
     uint32_t                _controllerProtocolVersion = 0;

@@ -46,6 +46,26 @@ PythonCaptureAtSliceState::PythonCaptureAtSliceState(
         _sliceHeadingDegrees += 360.0;
     }
 
+    _buildStates(collectionId, static_cast<uint32_t>(sequenceIndex + 1));
+}
+
+PythonCaptureAtSliceState::PythonCaptureAtSliceState(
+    QState* parentState, double yawDeg, uint32_t sliceId, uint32_t collectionId, ExplicitYaw)
+    : CustomState       ("PythonCaptureAtSliceState", parentState)
+    , _vehicle          (MultiVehicleManager::instance()->activeVehicle())
+    , _customPlugin     (qobject_cast<CustomPlugin*>(CustomPlugin::instance()))
+    , _customSettings   (_customPlugin->customSettings())
+    , _rotationDivisions(_customSettings->divisions()->rawValue().toInt())
+{
+    _sliceHeadingDegrees = fmod(yawDeg, 360.0);
+    if (_sliceHeadingDegrees < 0.0) {
+        _sliceHeadingDegrees += 360.0;
+    }
+    _buildStates(collectionId, sliceId);
+}
+
+void PythonCaptureAtSliceState::_buildStates(uint32_t collectionId, uint32_t sliceId)
+{
     connect(this, &QState::entered, this, [this] () {
         qCDebug(CustomStateMachineLog) << QStringLiteral("Python: rotating to heading %1").arg(_sliceHeadingDegrees) << " - " << Q_FUNC_INFO;
     });
@@ -53,7 +73,7 @@ PythonCaptureAtSliceState::PythonCaptureAtSliceState(
     StartCollectionSlice_t startSlice {};
     startSlice.header.command = COMMAND_ID_START_COLLECTION_SLICE;
     startSlice.collection_id = collectionId;
-    startSlice.slice_id = static_cast<uint32_t>(sequenceIndex + 1);
+    startSlice.slice_id = sliceId;
     startSlice.heading_deg = static_cast<float>(_sliceHeadingDegrees);
 
     // States

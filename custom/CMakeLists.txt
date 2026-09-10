@@ -172,6 +172,8 @@ set(CUSTOM_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/PythonRotateAndCaptureState.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/PythonWaitForDetectionResultState.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/PythonWaitForDetectionResultState.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/PythonWaitForFinishOutcomeState.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/PythonWaitForFinishOutcomeState.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/SayState.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/SendTagsState.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/SendTagsState.h
@@ -207,7 +209,7 @@ set(CUSTOM_SOURCES ${CUSTOM_SOURCES} PARENT_SCOPE)
 CPMAddPackage(
     NAME              TunnelProtocol
     GITHUB_REPOSITORY DonLakeFlyer/TagTrackerTunnelProtocol
-    GIT_TAG           f4da01e9fb3d8e517a80b4b923f2efb8292da6e5
+    GIT_TAG           18ff675c2e8941bd51a11b8a4cc2d646bdbc7fea
     DOWNLOAD_ONLY     TRUE
 )
 

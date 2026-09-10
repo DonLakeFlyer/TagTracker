@@ -109,9 +109,8 @@ SendTunnelCommandState* SendTagsState::_sendTagState(int tagIndex, QState* paren
 
     const bool isPythonMode = customPlugin->isPythonMode();
 
-    tunnelTagInfo.k                                         = isPythonMode ? customSettings->pythonPreLockK()->rawValue().toUInt()
+    tunnelTagInfo.k                                         = isPythonMode ? customSettings->pythonK()->rawValue().toUInt()
                                                                           : customSettings->k()->rawValue().toUInt();
-    tunnelTagInfo.measurement_k                             = isPythonMode ? customSettings->pythonPostLockK()->rawValue().toUInt() : 0;
 
     double falseAlarmProbability;
     if (isPythonMode) {

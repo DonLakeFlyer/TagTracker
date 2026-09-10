@@ -35,13 +35,13 @@ public:
     DEFINE_SETTINGFACT(detectionFlightMode)
     DEFINE_SETTINGFACT(antennaOffset)
     DEFINE_SETTINGFACT(antennaType)
+    DEFINE_SETTINGFACT(antennaModel)
     DEFINE_SETTINGFACT(useSNRForPulseStrength)
     DEFINE_SETTINGFACT(allowMultiTagDetection)
     DEFINE_SETTINGFACT(detectionMargin)
     DEFINE_SETTINGFACT(confidenceRatio)
     DEFINE_SETTINGFACT(debugDetector)
-    DEFINE_SETTINGFACT(pythonPreLockK)
-    DEFINE_SETTINGFACT(pythonPostLockK)
+    DEFINE_SETTINGFACT(pythonK)
     DEFINE_SETTINGFACT(pythonFalseAlarmMode)
     DEFINE_SETTINGFACT(pythonFalseAlarmProbability)
 
@@ -50,6 +50,13 @@ public:
         DirectionalAntenna = 1
     };
     Q_ENUM(AntennaType)
+
+    // Values are TunnelProtocol ANTENNA_ID_*
+    enum AntennaModel {
+        AntennaRA2A = 0,
+        AntennaRA23K = 1
+    };
+    Q_ENUM(AntennaModel)
 
     enum FalseAlarmMode {
         Normal = 0,
