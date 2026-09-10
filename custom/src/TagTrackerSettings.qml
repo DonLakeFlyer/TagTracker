@@ -135,6 +135,13 @@ SettingsPage {
             fact:               _customSettings.antennaType
         }
 
+        LabelledFactComboBox {
+            Layout.fillWidth:   true
+            label:              fact.shortDescription
+            fact:               _customSettings.antennaModel
+            visible:            _isPythonMode
+        }
+
         LabelledFactTextField {
             Layout.fillWidth:   true
             label:              fact.shortDescription
@@ -177,14 +184,7 @@ SettingsPage {
         LabelledFactComboBox {
             Layout.fillWidth:   true
             label:              fact.shortDescription
-            fact:               _customSettings.pythonPreLockK
-            visible:            _isPythonMode
-        }
-
-        LabelledFactComboBox {
-            Layout.fillWidth:   true
-            label:              fact.shortDescription
-            fact:               _customSettings.pythonPostLockK
+            fact:               _customSettings.pythonK
             visible:            _isPythonMode
         }
 

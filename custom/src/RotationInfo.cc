@@ -129,16 +129,18 @@ void RotationInfo::_updateMaxSNR()
     }
 }
 
-void RotationInfo::setBearingResult(float bearingDeg, float rSquared, uint32_t nValidSlices, float bestSNR)
+void RotationInfo::setBearingResult(float bearingDeg, float rSquared, uint32_t nValidSlices, float bestSNR, bool confirmed)
 {
     _bearingDeg = static_cast<double>(bearingDeg);
     _bearingRSquared = static_cast<double>(rSquared);
     // NaN (or any non-finite value): the controller compared its lock candidates
     // and none fitted the antenna pattern well enough to call a bearing.
     _bearingValid = nValidSlices >= 3 && std::isfinite(bearingDeg);
+    _bearingConfirmed = _bearingValid && confirmed;
 
     qCDebug(CustomPluginLog) << "BearingResult applied: bearing" << _bearingDeg << "R²" << _bearingRSquared
-                             << "nValidSlices" << nValidSlices << "bestSNR" << bestSNR << "valid" << _bearingValid;
+                             << "nValidSlices" << nValidSlices << "bestSNR" << bestSNR << "valid" << _bearingValid
+                             << "confirmed" << _bearingConfirmed;
 
     emit bearingChanged();
 }

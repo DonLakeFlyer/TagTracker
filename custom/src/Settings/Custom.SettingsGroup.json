@@ -106,6 +106,16 @@
     "default":          1
 },
 {
+    "name":             "antennaModel",
+    "shortDesc":        "Antenna Model",
+    "longDesc":         "Directional antenna whose reception pattern the controller fits for the bearing. Values match TunnelProtocol ANTENNA_ID_*.",
+    "label":            "Antenna Model",
+    "type":             "uint32",
+    "enumStrings":      "Telonics RA-2AHS (2-element),Telonics RA-23K (3-element)",
+    "enumValues":       "0,1",
+    "default":          0
+},
+{
     "name":             "detectionMargin",
     "shortDesc":        "Detection Margin",
     "label":            "Detection Margin",
@@ -133,22 +143,14 @@
     "default":          false
 },
 {
-    "name":         "pythonPreLockK",
-    "shortDesc":    "Pre-Lock K (acquisition)",
-    "label":        "Pre-Lock K (acquisition)",
+    "name":         "pythonK",
+    "shortDesc":    "K (pulses per heading)",
+    "longDesc":     "Pulses folded at every heading. Each heading dwells K x pulse interval; larger K reaches further.",
+    "label":        "K (pulses per heading)",
     "type":         "UInt32",
     "enumStrings":  "5,10,15,20",
     "enumValues":   "5,10,15,20",
     "default":      20
-},
-{
-    "name":         "pythonPostLockK",
-    "shortDesc":    "Post-Lock K (measurement)",
-    "label":        "Post-Lock K (measurement)",
-    "type":         "UInt32",
-    "enumStrings":  "3,5,10",
-    "enumValues":   "3,5,10",
-    "default":      5
 },
 {
     "name":         "pythonFalseAlarmMode",

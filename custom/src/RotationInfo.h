@@ -20,6 +20,7 @@ public:
     Q_PROPERTY(double bearingDeg READ bearingDeg NOTIFY bearingChanged)
     Q_PROPERTY(double bearingRSquared READ bearingRSquared NOTIFY bearingChanged)
     Q_PROPERTY(bool bearingValid READ bearingValid NOTIFY bearingChanged)
+    Q_PROPERTY(bool bearingConfirmed READ bearingConfirmed NOTIFY bearingChanged)
 
     QmlObjectListModel* slices(void) { return &_slices; }
 
@@ -33,8 +34,11 @@ public:
 
     bool bearingValid(void) const { return _bearingValid; }
 
+    // The winning lock was found independently on >= 2 headings (or on the revisit slice)
+    bool bearingConfirmed(void) const { return _bearingConfirmed; }
+
     void pulseReceived(const TunnelProtocol::PythonPulseInfo_t& pulseInfo);
-    void setBearingResult(float bearingDeg, float rSquared, uint32_t nValidSlices, float bestSNR);
+    void setBearingResult(float bearingDeg, float rSquared, uint32_t nValidSlices, float bestSNR, bool confirmed);
 
     /// Slice strength: signal_psd as dB above the reported noise floor. NaN when noise_psd is invalid
     /// (not a measurement); 0 when the noise-subtracted power is <= 0 (still a locked measurement).
@@ -60,4 +64,5 @@ private:
     double _bearingDeg = qQNaN();
     double _bearingRSquared = qQNaN();
     bool _bearingValid = false;
+    bool _bearingConfirmed = false;
 };

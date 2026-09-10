@@ -198,14 +198,20 @@ void TagTrackerPulseDisplayTest::_bearingResultValidity()
     RotationInfo rotationInfo(8);
     QSignalSpy bearingSpy(&rotationInfo, &RotationInfo::bearingChanged);
 
-    rotationInfo.setBearingResult(bearingDeg, 0.9f, nValidSlices, 20.0f);
+    rotationInfo.setBearingResult(bearingDeg, 0.9f, nValidSlices, 20.0f, /*confirmed*/ false);
 
     QCOMPARE(rotationInfo.bearingValid(), expectedValid);
+    QCOMPARE(rotationInfo.bearingConfirmed(), false);
     QCOMPARE(bearingSpy.count(), 1);
     if (expectedValid) {
         QCOMPARE(rotationInfo.bearingDeg(), static_cast<double>(bearingDeg));
         QCOMPARE(rotationInfo.bearingRSquared(), static_cast<double>(0.9f));
     }
+
+    // Confirmed-only change must still notify the UI; confirmation never survives an invalid bearing
+    rotationInfo.setBearingResult(bearingDeg, 0.9f, nValidSlices, 20.0f, /*confirmed*/ true);
+    QCOMPARE(rotationInfo.bearingConfirmed(), expectedValid);
+    QCOMPARE(bearingSpy.count(), 2);
 }
 
 UT_REGISTER_TEST(TagTrackerPulseDisplayTest, TestLabel::Unit)

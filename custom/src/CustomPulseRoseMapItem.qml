@@ -191,8 +191,11 @@ MapQuickItem {
             anchors.bottomMargin:       -ScreenTools.defaultFontPixelHeight * 2
             visible:                    _rotationInfo.bearingValid
             text: {
-                var label = "BRG " + _rotationInfo.bearingDeg.toFixed(0) + "°";
+                let label = "BRG " + _rotationInfo.bearingDeg.toFixed(0) + "°";
                 label += "  R² " + _rotationInfo.bearingRSquared.toFixed(2);
+                if (!_rotationInfo.bearingConfirmed) {
+                    label += "  " + qsTr("unconfirmed");
+                }
                 return label;
             }
             font.pointSize: ScreenTools.largeFontPointSize
