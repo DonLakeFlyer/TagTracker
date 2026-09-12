@@ -131,6 +131,43 @@ MapQuickItem {
             }
         }
 
+        // Sector highlight: the rose slice the fitted bearing falls in.
+        // Sector-level ("drive that way") is the operator's deliverable.
+        Canvas {
+            id:             sectorCanvas
+            anchors.fill:   parent
+            visible:        _rotationInfo.bearingValid && _rotationInfo.bearingSector >= 0
+
+            property real centerX:      width / 2
+            property real centerY:      height / 2
+            property int  sector:       _rotationInfo.bearingSector
+            property bool confirmed:    _rotationInfo.bearingConfirmed
+
+            onPaint: {
+                var ctx = getContext("2d");
+                ctx.reset();
+                if (sector < 0) {
+                    return;
+                }
+                var sliceRad = (Math.PI * 2) / _sliceCount;
+                var startRad = (-90 - _sliceSize / 2 + _sliceSize * sector) * Math.PI / 180;
+                ctx.beginPath();
+                ctx.globalAlpha = 1.0;
+                ctx.strokeStyle = confirmed ? "#00e000" : "#c0c0c0";
+                ctx.lineWidth = 4;
+                ctx.setLineDash(confirmed ? [] : [6, 6]);
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, width / 2, startRad, startRad + sliceRad, false);
+                ctx.lineTo(centerX, centerY);
+                ctx.stroke();
+            }
+
+            Connections {
+                target: _rotationInfo
+                function onBearingChanged() { sectorCanvas.requestPaint() }
+            }
+        }
+
         // Bearing arrow overlay
         Canvas {
             id:             bearingArrowCanvas
@@ -142,8 +179,10 @@ MapQuickItem {
             property real arrowRadius:  width / 2
             property real bearingDeg:   _rotationInfo.bearingDeg
             property real rSquared:     _rotationInfo.bearingRSquared
+            property bool confirmed:    _rotationInfo.bearingConfirmed
 
-            property color arrowColor:  rSquared > 0.85 ? "#00e000" : (rSquared > 0.6 ? "#ffcc00" : "#ff3333")
+            // Unconfirmed: grey whatever the fit quality, so a one-heading lock never reads as a result
+            property color arrowColor:  !confirmed ? "#c0c0c0" : (rSquared > 0.85 ? "#00e000" : (rSquared > 0.6 ? "#ffcc00" : "#ff3333"))
 
             onPaint: {
                 var ctx = getContext("2d");
@@ -184,23 +223,28 @@ MapQuickItem {
             }
         }
 
-        // Bearing text label
+        // Bearing text label: sector, bearing, fit quality and outcome state.
+        // Shown once a BEARING_RESULT has arrived, including "nothing heard".
         Text {
             anchors.horizontalCenter:   parent.horizontalCenter
             anchors.bottom:             parent.bottom
             anchors.bottomMargin:       -ScreenTools.defaultFontPixelHeight * 2
-            visible:                    _rotationInfo.bearingValid
+            visible:                    _rotationInfo.bearingReceived
             text: {
-                let label = "BRG " + _rotationInfo.bearingDeg.toFixed(0) + "°";
-                label += "  R² " + _rotationInfo.bearingRSquared.toFixed(2);
-                if (!_rotationInfo.bearingConfirmed) {
-                    label += "  " + qsTr("unconfirmed");
+                if (!_rotationInfo.bearingValid) {
+                    return qsTr("Nothing heard");
                 }
+                let label = qsTr("Sector %1").arg(_rotationInfo.bearingSector + 1);
+                label += "  BRG " + _rotationInfo.bearingDeg.toFixed(0) + "°";
+                label += "  R² " + _rotationInfo.bearingRSquared.toFixed(2);
+                label += "  " + _rotationInfo.bearingStateText;
                 return label;
             }
             font.pointSize: ScreenTools.largeFontPointSize
             font.bold:      true
-            color:          _rotationInfo.bearingRSquared > 0.85 ? "#00e000" : (_rotationInfo.bearingRSquared > 0.6 ? "#ffcc00" : "#ff3333")
+            color:          !_rotationInfo.bearingValid ? "white"
+                            : !_rotationInfo.bearingConfirmed ? "#c0c0c0"
+                            : _rotationInfo.bearingRSquared > 0.85 ? "#00e000" : (_rotationInfo.bearingRSquared > 0.6 ? "#ffcc00" : "#ff3333")
             style:          Text.Outline
             styleColor:     "black"
         }

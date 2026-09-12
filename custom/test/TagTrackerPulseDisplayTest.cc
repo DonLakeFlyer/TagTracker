@@ -152,15 +152,15 @@ void TagTrackerPulseDisplayTest::_sliceVisitOrder_data()
     QTest::addColumn<double>("antennaOffsetDeg");
     QTest::addColumn<QList<int>>("expected");
 
-    QTest::newRow("no prior, 8 slices spreads")      << 8  << qQNaN() << 0.0   << QList<int>{0, 2, 4, 6, 1, 3, 5, 7};
-    QTest::newRow("no prior, 16 slices sequential")  << 16 << qQNaN() << 0.0   << QList<int>{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
-    QTest::newRow("prior north alternates outward")  << 8  << 0.0     << 0.0   << QList<int>{0, 1, 7, 2, 6, 3, 5, 4};
-    QTest::newRow("prior east")                      << 8  << 90.0    << 0.0   << QList<int>{2, 3, 1, 4, 0, 5, 7, 6};
-    QTest::newRow("prior rounds to nearest slice")   << 8  << 100.0   << 0.0   << QList<int>{2, 3, 1, 4, 0, 5, 7, 6};
-    QTest::newRow("antenna offset shifts first")     << 8  << 90.0    << 45.0  << QList<int>{3, 4, 2, 5, 1, 6, 0, 7};
-    QTest::newRow("negative sum wraps below 0")      << 8  << 10.0    << -45.0 << QList<int>{7, 0, 6, 1, 5, 2, 4, 3};
-    QTest::newRow("near 360 wraps to slice 0")       << 8  << 350.0   << 0.0   << QList<int>{0, 1, 7, 2, 6, 3, 5, 4};
-    QTest::newRow("sum past 360 wraps")              << 8  << 350.0   << 45.0  << QList<int>{1, 2, 0, 3, 7, 4, 6, 5};
+    QTest::newRow("no prior, 8 slices clockwise")    << 8  << qQNaN() << 0.0   << QList<int>{0, 1, 2, 3, 4, 5, 6, 7};
+    QTest::newRow("no prior, 16 slices clockwise")   << 16 << qQNaN() << 0.0   << QList<int>{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+    QTest::newRow("prior north starts at 0")         << 8  << 0.0     << 0.0   << QList<int>{0, 1, 2, 3, 4, 5, 6, 7};
+    QTest::newRow("prior east starts at 2")          << 8  << 90.0    << 0.0   << QList<int>{2, 3, 4, 5, 6, 7, 0, 1};
+    QTest::newRow("prior rounds to nearest slice")   << 8  << 100.0   << 0.0   << QList<int>{2, 3, 4, 5, 6, 7, 0, 1};
+    QTest::newRow("antenna offset shifts first")     << 8  << 90.0    << 45.0  << QList<int>{3, 4, 5, 6, 7, 0, 1, 2};
+    QTest::newRow("negative sum wraps below 0")      << 8  << 10.0    << -45.0 << QList<int>{7, 0, 1, 2, 3, 4, 5, 6};
+    QTest::newRow("near 360 wraps to slice 0")       << 8  << 350.0   << 0.0   << QList<int>{0, 1, 2, 3, 4, 5, 6, 7};
+    QTest::newRow("sum past 360 wraps")              << 8  << 350.0   << 45.0  << QList<int>{1, 2, 3, 4, 5, 6, 7, 0};
 }
 
 void TagTrackerPulseDisplayTest::_sliceVisitOrder()
@@ -183,7 +183,9 @@ void TagTrackerPulseDisplayTest::_bearingResultValidity_data()
     const float nan = std::numeric_limits<float>::quiet_NaN();
 
     QTest::newRow("finite, enough slices")  << 123.4f << 3u << true;
-    QTest::newRow("finite, too few slices") << 123.4f << 2u << false;
+    // The controller applies its confidence floor; one detected heading is still a bearing.
+    QTest::newRow("finite, one slice")      << 123.4f << 1u << true;
+    QTest::newRow("finite, no slices")      << 123.4f << 0u << false;
     QTest::newRow("NaN sentinel")           << nan    << 5u << false;
     QTest::newRow("+Inf")                   << inf    << 5u << false;
     QTest::newRow("-Inf")                   << -inf   << 5u << false;
@@ -212,6 +214,100 @@ void TagTrackerPulseDisplayTest::_bearingResultValidity()
     rotationInfo.setBearingResult(bearingDeg, 0.9f, nValidSlices, 20.0f, /*confirmed*/ true);
     QCOMPARE(rotationInfo.bearingConfirmed(), expectedValid);
     QCOMPARE(bearingSpy.count(), 2);
+}
+
+void TagTrackerPulseDisplayTest::_bearingState()
+{
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+
+    RotationInfo waiting(8);
+    QVERIFY(!waiting.bearingReceived());
+    QCOMPARE(waiting.bearingState(), RotationInfo::NothingHeard);
+    QCOMPARE(waiting.bearingSector(), -1);
+
+    RotationInfo nothing(8);
+    nothing.setBearingResult(nan, 0.0f, 0u, 0.0f, false);
+    QVERIFY(nothing.bearingReceived());
+    QCOMPARE(nothing.bearingState(), RotationInfo::NothingHeard);
+    QCOMPARE(nothing.bearingStateText(), QStringLiteral("nothing heard"));
+    QCOMPARE(nothing.bearingSector(), -1);
+
+    // Candidates seen but none fitted the pattern: bearing is NaN even with detections
+    RotationInfo rejected(8);
+    rejected.setBearingResult(nan, 0.1f, 4u, 12.0f, false);
+    QCOMPARE(rejected.bearingState(), RotationInfo::NothingHeard);
+
+    RotationInfo unconfirmed(8);
+    unconfirmed.setBearingResult(100.0f, 0.5f, 1u, 12.0f, false);
+    QCOMPARE(unconfirmed.bearingState(), RotationInfo::Unconfirmed);
+    QCOMPARE(unconfirmed.bearingStateText(), QStringLiteral("unconfirmed"));
+    QCOMPARE(unconfirmed.bearingSector(), 2);
+
+    RotationInfo confirmed(8);
+    confirmed.setBearingResult(100.0f, 0.9f, 3u, 20.0f, true);
+    QCOMPARE(confirmed.bearingState(), RotationInfo::Confirmed);
+    QCOMPARE(confirmed.bearingStateText(), QStringLiteral("confirmed"));
+    QCOMPARE(confirmed.bearingSector(), 2);
+}
+
+void TagTrackerPulseDisplayTest::_bearingSector_data()
+{
+    QTest::addColumn<double>("headingDeg");
+    QTest::addColumn<int>("sliceCount");
+    QTest::addColumn<int>("expectedSector");
+
+    // 8 slices: centres every 45 deg, boundaries at 22.5 + 45 n
+    QTest::newRow("8: on-grid 0")         << 0.0    << 8 << 0;
+    QTest::newRow("8: on-grid 90")        << 90.0   << 8 << 2;
+    QTest::newRow("8: on-grid 315")       << 315.0  << 8 << 7;
+    QTest::newRow("8: just below edge")   << 22.4   << 8 << 0;
+    QTest::newRow("8: just above edge")   << 22.6   << 8 << 1;
+    QTest::newRow("8: wraps to 0")        << 359.0  << 8 << 0;
+    QTest::newRow("8: 330 is last slice") << 330.0  << 8 << 7;
+    QTest::newRow("8: negative input")    << -45.0  << 8 << 7;
+    QTest::newRow("8: over 360")          << 405.0  << 8 << 1;
+    // 16 slices: centres every 22.5 deg
+    QTest::newRow("16: on-grid 22.5")     << 22.5   << 16 << 1;
+    QTest::newRow("16: 100")              << 100.0  << 16 << 4;
+    QTest::newRow("16: wraps to 0")       << 355.0  << 16 << 0;
+    QTest::newRow("no slices")            << 90.0   << 0  << -1;
+    QTest::newRow("NaN heading")          << std::numeric_limits<double>::quiet_NaN() << 8 << -1;
+}
+
+void TagTrackerPulseDisplayTest::_bearingSector()
+{
+    QFETCH(double, headingDeg);
+    QFETCH(int, sliceCount);
+    QFETCH(int, expectedSector);
+
+    QCOMPARE(RotationInfo::sectorForHeading(headingDeg, sliceCount), expectedSector);
+}
+
+void TagTrackerPulseDisplayTest::_outcomeAnnouncement()
+{
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+
+    QCOMPARE(PythonRotateAndCaptureState::outcomeAnnouncement(nullptr),
+             QStringLiteral("Rotation detection complete"));
+
+    RotationInfo waiting(8);
+    QCOMPARE(PythonRotateAndCaptureState::outcomeAnnouncement(&waiting),
+             QStringLiteral("Rotation detection complete"));
+
+    RotationInfo nothing(8);
+    nothing.setBearingResult(nan, 0.0f, 0u, 0.0f, false);
+    QCOMPARE(PythonRotateAndCaptureState::outcomeAnnouncement(&nothing),
+             QStringLiteral("Rotation complete. Nothing heard"));
+
+    RotationInfo unconfirmed(8);
+    unconfirmed.setBearingResult(134.6f, 0.5f, 1u, 12.0f, false);
+    QCOMPARE(PythonRotateAndCaptureState::outcomeAnnouncement(&unconfirmed),
+             QStringLiteral("Rotation complete. Unconfirmed, sector 4, bearing 135 degrees"));
+
+    RotationInfo confirmed(8);
+    confirmed.setBearingResult(134.6f, 0.9f, 3u, 20.0f, true);
+    QCOMPARE(PythonRotateAndCaptureState::outcomeAnnouncement(&confirmed),
+             QStringLiteral("Rotation complete. Tag confirmed, sector 4, bearing 135 degrees"));
 }
 
 UT_REGISTER_TEST(TagTrackerPulseDisplayTest, TestLabel::Unit)

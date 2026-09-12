@@ -133,14 +133,55 @@ void RotationInfo::setBearingResult(float bearingDeg, float rSquared, uint32_t n
 {
     _bearingDeg = static_cast<double>(bearingDeg);
     _bearingRSquared = static_cast<double>(rSquared);
+    _bearingReceived = true;
     // NaN (or any non-finite value): the controller compared its lock candidates
-    // and none fitted the antenna pattern well enough to call a bearing.
-    _bearingValid = nValidSlices >= 3 && std::isfinite(bearingDeg);
+    // and none fitted the antenna pattern well enough to call a bearing. The
+    // controller already applies its confidence floor, so a finite value is
+    // shown whatever the slice count.
+    _bearingValid = nValidSlices > 0 && std::isfinite(bearingDeg);
     _bearingConfirmed = _bearingValid && confirmed;
 
     qCDebug(CustomPluginLog) << "BearingResult applied: bearing" << _bearingDeg << "R²" << _bearingRSquared
                              << "nValidSlices" << nValidSlices << "bestSNR" << bestSNR << "valid" << _bearingValid
-                             << "confirmed" << _bearingConfirmed;
+                             << "confirmed" << _bearingConfirmed << "state" << bearingStateText()
+                             << "sector" << bearingSector();
 
     emit bearingChanged();
+}
+
+RotationInfo::BearingState RotationInfo::bearingState(void) const
+{
+    if (!_bearingValid) {
+        return NothingHeard;
+    }
+    return _bearingConfirmed ? Confirmed : Unconfirmed;
+}
+
+QString RotationInfo::bearingStateText(void) const
+{
+    switch (bearingState()) {
+    case Confirmed:
+        return tr("confirmed");
+    case Unconfirmed:
+        return tr("unconfirmed");
+    case NothingHeard:
+    default:
+        return tr("nothing heard");
+    }
+}
+
+int RotationInfo::sectorForHeading(double headingDeg, int sliceCount)
+{
+    if (sliceCount <= 0 || !std::isfinite(headingDeg)) {
+        return -1;
+    }
+    const double normalized = CustomPlugin::normalizeHeading(headingDeg);
+    const double sliceDegrees = 360.0 / sliceCount;
+    // Slice i is centred on i * sliceDegrees; 359.9 deg wraps back to slice 0.
+    return static_cast<int>(std::lround(normalized / sliceDegrees)) % sliceCount;
+}
+
+int RotationInfo::bearingSector(void) const
+{
+    return _bearingValid ? sectorForHeading(_bearingDeg, _cSlices) : -1;
 }

@@ -23,4 +23,8 @@ private slots:
     void _sliceVisitOrder();
     void _bearingResultValidity_data();
     void _bearingResultValidity();
+    void _bearingState();
+    void _bearingSector_data();
+    void _bearingSector();
+    void _outcomeAnnouncement();
 };

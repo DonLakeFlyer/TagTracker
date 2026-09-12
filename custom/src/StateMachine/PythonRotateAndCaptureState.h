@@ -11,6 +11,7 @@ class CustomSettings;
 class FunctionState;
 class DetectorList;
 class QFinalState;
+class RotationInfo;
 
 // Full-rotation state machine for Python detection mode. Owns one persistent
 // collection: START_COLLECTION → one PythonCaptureAtSliceState per heading →
@@ -25,10 +26,12 @@ class PythonRotateAndCaptureState : public CustomState
 public:
     PythonRotateAndCaptureState(QState* parentState);
 
-    // Heading-index visit order. With a finite prior bearing: nearest slice first, then
-    // alternating outward clockwise/counter-clockwise. Without one: spread order for 8
-    // slices, sequential otherwise.
+    // Heading-index visit order: one clockwise sweep, each yaw one slice (45 deg at 8).
+    // Starts at the slice nearest a finite prior bearing, otherwise at slice 0.
     static QList<int> sliceVisitOrder(int rotationDivisions, double priorBearingDeg, double antennaOffsetDeg);
+
+    // Spoken at the end of the rotation: confirmed / unconfirmed with sector and bearing, or nothing heard
+    static QString outcomeAnnouncement(const RotationInfo* rotationInfo);
 
 private slots:
     void _collectionStatusReceived(uint32_t collectionId, uint32_t sliceId, uint32_t status, uint32_t errorCode);
@@ -37,6 +40,7 @@ private slots:
 private:
     void _rotationBegin();
     void _rotationEnd();
+    void _announceOutcome();
 
     CustomPlugin*   _customPlugin       = nullptr;
     CustomSettings* _customSettings     = nullptr;
