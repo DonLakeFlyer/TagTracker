@@ -8,6 +8,7 @@
 #include "CustomSettings.h"
 #include "CustomLoggingCategory.h"
 #include "DetectorList.h"
+#include "RotationInfo.h"
 #include "TagDatabase.h"
 #include "TunnelProtocol.h"
 
@@ -59,7 +60,7 @@ PythonRotateAndCaptureState::PythonRotateAndCaptureState(QState* parentState)
     auto finishAfterRevisitState        = new SendTunnelCommandState("FinishCollection after revisit", this, reinterpret_cast<uint8_t*>(&finishCollection), sizeof(finishCollection), kFinishCollectionAckTimeoutMs);
     auto finishAfterRevisitOutcomeState = new PythonWaitForFinishOutcomeState(this, _collectionId, /*allowRevisit*/ false);
     auto rotationEndState               = new FunctionState("Rotation End",   this, std::bind(&PythonRotateAndCaptureState::_rotationEnd, this));
-    auto announceRotateCompleteState    = new SayState("Announce Rotate Complete", this, "Rotation detection complete");
+    auto announceRotateCompleteState    = new SayState("Announce Rotate Complete", this, [this] { return outcomeAnnouncement(_lastRotationInfo()); });
     auto finalState                     = new QFinalState(this);
 
     // Build the per-slice states
@@ -120,30 +121,17 @@ QList<int> PythonRotateAndCaptureState::sliceVisitOrder(int rotationDivisions, d
         return sliceOrder;
     }
 
+    int firstSlice = 0;
     if (std::isfinite(priorBearingDeg)) {
         const double degreesPerSlice = 360.0 / rotationDivisions;
         double bearingDeg = std::fmod(priorBearingDeg + antennaOffsetDeg, 360.0);
         if (bearingDeg < 0) {
             bearingDeg += 360.0;
         }
-        const int firstSlice = static_cast<int>(std::lround(bearingDeg / degreesPerSlice)) % rotationDivisions;
-        sliceOrder.append(firstSlice);
-        for (int distance = 1; sliceOrder.count() < rotationDivisions; ++distance) {
-            const int clockwise = (firstSlice + distance) % rotationDivisions;
-            const int counterClockwise = (firstSlice - distance + rotationDivisions) % rotationDivisions;
-            if (!sliceOrder.contains(clockwise)) {
-                sliceOrder.append(clockwise);
-            }
-            if (sliceOrder.count() < rotationDivisions && !sliceOrder.contains(counterClockwise)) {
-                sliceOrder.append(counterClockwise);
-            }
-        }
-    } else if (rotationDivisions == 8) {
-        sliceOrder = {0, 2, 4, 6, 1, 3, 5, 7};
-    } else {
-        for (int i = 0; i < rotationDivisions; ++i) {
-            sliceOrder.append(i);
-        }
+        firstSlice = static_cast<int>(std::lround(bearingDeg / degreesPerSlice)) % rotationDivisions;
+    }
+    for (int i = 0; i < rotationDivisions; ++i) {
+        sliceOrder.append((firstSlice + i) % rotationDivisions);
     }
     return sliceOrder;
 }
@@ -202,4 +190,36 @@ void PythonRotateAndCaptureState::_rotationBegin()
 void PythonRotateAndCaptureState::_rotationEnd()
 {
     _customPlugin->rotationIsEnding();
+}
+
+QString PythonRotateAndCaptureState::outcomeAnnouncement(const RotationInfo* rotationInfo)
+{
+    if (!rotationInfo) {
+        return tr("Rotation detection complete");
+    }
+    switch (rotationInfo->bearingState()) {
+    case RotationInfo::Confirmed:
+        return tr("Rotation complete. Tag confirmed, sector %1, bearing %2 degrees")
+            .arg(rotationInfo->bearingSector() + 1)
+            .arg(qRound(rotationInfo->bearingDeg()));
+    case RotationInfo::Unconfirmed:
+        return tr("Rotation complete. Unconfirmed, sector %1, bearing %2 degrees")
+            .arg(rotationInfo->bearingSector() + 1)
+            .arg(qRound(rotationInfo->bearingDeg()));
+    case RotationInfo::Heard:
+        return tr("Rotation complete. Tag heard, no bearing");
+    case RotationInfo::NothingHeard:
+        return tr("Rotation complete. Nothing heard");
+    case RotationInfo::Pending:
+    default:
+        return tr("Rotation detection complete");
+    }
+}
+
+const RotationInfo* PythonRotateAndCaptureState::_lastRotationInfo() const
+{
+    auto rotationInfoList = _customPlugin->rotationInfoList();
+    return rotationInfoList->count() > 0
+        ? rotationInfoList->value<RotationInfo*>(rotationInfoList->count() - 1)
+        : nullptr;
 }
