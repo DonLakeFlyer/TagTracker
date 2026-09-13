@@ -118,12 +118,13 @@
 {
     "name":             "detectionMargin",
     "shortDesc":        "Detection Margin",
+    "longDesc":         "Multiplier on the detector's per-heading threshold. The threshold is derived from each dwell's own data, so 1.0 is the honest false-alarm rate; below 1.0 trades false alarms for range.",
     "label":            "Detection Margin",
     "type":             "double",
     "decimalPlaces":    2,
     "min":              0.01,
     "max":              2.0,
-    "default":          0.90
+    "default":          1.0
 },
 {
     "name":             "confidenceRatio",
