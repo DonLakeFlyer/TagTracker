@@ -1,9 +1,9 @@
 """Shared helpers + sys.path bootstrap for install_dependencies submodules.
 
 Layout note: this file lives at tools/setup/install_dependencies/_common.py.
-parents[2] resolves to `tools/` in-repo, OR to `/tmp/` inside the Docker
-builders (which COPY the package to `/tmp/qt/install_dependencies/` and
-`tools/common/` to `/tmp/common/`). Both contexts expose `common/` one
+parents[2] resolves to `tools/` in-repo, OR to `/tmp/tools/` inside Docker
+builders (which COPY the package to `/tmp/tools/setup/install_dependencies/` and
+the shared packages alongside it). Both contexts expose `common/` one
 level above the package.
 """
 
@@ -14,7 +14,6 @@ import shlex
 import shutil
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 _tools_dir = Path(__file__).resolve().parents[2]
@@ -26,6 +25,7 @@ from common.env import is_ci  # noqa: E402  re-exported for submodules
 from common.gh_actions import append_github_env  # noqa: E402
 from common.io import require_tar_data_filter  # noqa: E402  re-exported for submodules
 from common.logging import log_error, log_info, log_warn  # noqa: E402  re-exported for submodules
+from common.net import download_with_retry  # noqa: E402
 from common.platform import is_linux, is_macos, is_windows  # noqa: E402
 
 APT_BASE_OPTIONS: list[str] = [
@@ -180,40 +180,21 @@ def run_pacman_install_with_retry(
     return False
 
 
-def run_pipx_install(
-    dry_run: bool = False,
-    max_attempts: int = 3,
-    retry_backoff_seconds: float = 5.0,
-) -> bool:
-    """Install shared pipx tools with bounded retries for package-index outages."""
-    # Late import to avoid a circular dep at module load time.
-    from ._packages import PIPX_PACKAGES
+def install_build_tools(dry_run: bool = False) -> bool:
+    """Install the shared locked build profile and expose its executable directory."""
+    from common.gh_actions import append_github_path
+    from qgc_tools.python_env import executable, sync_groups
 
-    if max_attempts < 1:
-        raise ValueError("max_attempts must be positive")
-    if retry_backoff_seconds < 0:
-        raise ValueError("retry_backoff_seconds must be non-negative")
-
-    print("\nInstalling pipx packages...")
-    run_command(["pipx", "ensurepath"], dry_run)
-    for pkg in PIPX_PACKAGES:
-        installed = False
-        for attempt in range(1, max_attempts + 1):
-            if run_command(["pipx", "install", pkg], dry_run):
-                installed = True
-                break
-            if attempt >= max_attempts:
-                break
-            delay = retry_backoff_seconds * attempt
-            log_warn(
-                f"pipx install {pkg} failed (attempt {attempt}/{max_attempts}); "
-                f"retrying in {delay:g}s..."
-            )
-            if delay > 0 and not dry_run:
-                time.sleep(delay)
-        if not installed:
-            log_error(f"Failed to install pipx package: {pkg}")
-            return False
+    try:
+        environment = sync_groups("build", dry_run=dry_run)
+    except (OSError, ValueError, subprocess.CalledProcessError) as error:
+        log_error(f"Could not install build tools: {error}")
+        return False
+    if not dry_run:
+        scripts = str(executable("cmake", environment).parent)
+        os.environ["PATH"] = f"{scripts}{os.pathsep}{os.environ.get('PATH', '')}"
+        if is_ci():
+            append_github_path(scripts)
     return True
 
 
@@ -302,7 +283,7 @@ def _set_env_var_ci(name: str, value: str) -> None:
 
 def _set_env_var_local(name: str, value: str) -> None:
     """Set a machine-level environment variable via Windows registry."""
-    if not is_windows():
+    if sys.platform != "win32":
         raise RuntimeError("Local env var persistence is only supported on Windows")
     import winreg
 
@@ -327,7 +308,7 @@ def add_to_path(path_entry: str) -> None:
             with open(github_path, "a", encoding="utf-8") as f:
                 f.write(f"{path_entry}\n")
     else:
-        if not is_windows():
+        if sys.platform != "win32":
             raise RuntimeError("Local PATH persistence is only supported on Windows")
         import winreg
 
@@ -352,39 +333,17 @@ def download_file(
     *,
     warn_on_failure: bool = False,
 ) -> bool:
-    """Download a file from a URL."""
+    """Download with bounded retries using only bootstrap-safe standard-library dependencies."""
     if dry_run:
         print(f"  Would download: {url} -> {dest.name}")
         return True
 
     try:
-        import httpx
-
-        transport = httpx.HTTPTransport(retries=retries)
-        with httpx.Client(
-            transport=transport,
-            timeout=timeout,
-            headers={"User-Agent": "qgc-deps-installer/1.0"},
-            follow_redirects=True,
-        ) as client:
-            print(f"  Downloading {dest.name}...")
-            with client.stream("GET", url) as response:
-                response.raise_for_status()
-                with open(dest, "wb") as out:
-                    for chunk in response.iter_bytes(chunk_size=65536):
-                        out.write(chunk)
+        download_with_retry(url, dest, attempts=retries + 1, timeout=timeout)
         return True
-    except ImportError:
-        import urllib.request
-
-        req = urllib.request.Request(url, headers={"User-Agent": "qgc-deps-installer/1.0"})
-        print(f"  Downloading {dest.name}...")
-        with urllib.request.urlopen(req, timeout=timeout) as response, open(dest, "wb") as out:
-            shutil.copyfileobj(response, out)
-        return True
-    except Exception as e:
+    except (OSError, RuntimeError) as error:
         log = log_warn if warn_on_failure else log_error
-        log(f"Failed to download {url}: {e}")
+        log(f"Failed to download {url}: {error}")
         return False
 
 
@@ -404,6 +363,7 @@ __all__ = [
     "get_config_value",
     "get_dnf_install_command",
     "has_command",
+    "install_build_tools",
     "is_ci",
     "is_ubuntu",
     "log_error",
@@ -414,6 +374,5 @@ __all__ = [
     "run_command",
     "run_dnf_install_with_retry",
     "run_pacman_install_with_retry",
-    "run_pipx_install",
     "set_env_var",
 ]

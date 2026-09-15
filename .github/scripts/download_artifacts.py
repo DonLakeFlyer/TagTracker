@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import concurrent.futures
+import json
 import sys
 from pathlib import Path
 from typing import Any
@@ -27,7 +28,7 @@ ensure_tools_dir(__file__)
 
 from common.artifact_metadata import write_run_artifact_metadata
 from common.gh_actions import gh, list_run_artifacts, list_workflow_runs_for_sha
-from common.github_runs import (
+from qgc_tools.workflow_runs import (
     add_workflow_run_query_args,
     group_runs_by_name,
     resolve_workflow_runs,
@@ -165,6 +166,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default="",
         help="Optional output JSON path to write run artifact metadata (name + size_in_bytes)",
     )
+    parser.add_argument(
+        "--include-failed",
+        action="store_true",
+        help="Download diagnostics from failed completed builds too",
+    )
+    parser.add_argument(
+        "--strict-runs", action="store_true", help="Require exact successful snapshot identities"
+    )
+    parser.add_argument(
+        "--allow-missing",
+        action="store_true",
+        help="Allow absent diagnostic artifacts selected by prefix (not valid for strict runs)",
+    )
     return parser.parse_args(argv)
 
 
@@ -182,18 +196,53 @@ def main(argv: list[str] | None = None) -> int:
     if not head_sha:
         print("Error: --head-sha is required", file=sys.stderr)
         return 1
+    if args.allow_missing and (args.strict_runs or not artifact_prefixes):
+        print(
+            "Error: --allow-missing requires artifact prefixes and cannot be used with --strict-runs",
+            file=sys.stderr,
+        )
+        return 1
 
     print(f"Finding completed workflow runs for commit {head_sha}...")
 
     all_runs = resolve_workflow_runs(repo, head_sha, args.runs_file, list_workflow_runs_for_sha)
     if all_runs is None:
         return 1
+    if args.strict_runs:
+        if not args.runs_file:
+            print("Error: strict downloads require a run snapshot", file=sys.stderr)
+            return 1
+        for workflow in workflows:
+            selected = [run for run in all_runs if run.get("name") == workflow]
+            if (
+                len(selected) != 1
+                or selected[0].get("head_sha") != head_sha
+                or selected[0].get("status") != "completed"
+                or selected[0].get("conclusion") != "success"
+                or (event and selected[0].get("event") != event)
+            ):
+                print(f"Error: invalid release snapshot for {workflow}", file=sys.stderr)
+                return 1
+            saved = selected[0]
+            current = json.loads(gh("api", f"repos/{repo}/actions/runs/{saved['id']}").stdout)
+            if any(
+                current.get(key) != saved.get(key)
+                for key in ("head_sha", "run_attempt", "status", "conclusion")
+            ):
+                print(
+                    f"Error: release run was rerun after selection: {saved['id']}", file=sys.stderr
+                )
+                return 1
     preloaded_artifacts: dict[int, list[dict[str, Any]]] = {}
     had_successful_runs = bool(select_latest_successful_runs(all_runs, workflows, event=event))
     if artifact_prefixes:
         runs = []
         grouped_runs = group_runs_by_name(
-            all_runs, workflows, event=event, status="completed", conclusion="success"
+            all_runs,
+            workflows,
+            event=event,
+            status="completed",
+            conclusion="" if args.include_failed else "success",
         )
         for workflow_name in workflows:
             candidates = grouped_runs.get(workflow_name, [])
@@ -210,7 +259,19 @@ def main(argv: list[str] | None = None) -> int:
     else:
         runs = select_latest_successful_runs(all_runs, workflows, event=event)
 
+    if args.strict_runs and len(runs) != len(workflows):
+        print("Error: selected release run is missing required artifacts", file=sys.stderr)
+        return 1
+
     if not runs:
+        if args.allow_missing:
+            print(
+                f"No diagnostic artifacts match prefixes {artifact_prefixes!r} for SHA {head_sha}; "
+                "continuing with build status only"
+            )
+            if artifact_metadata_out is not None:
+                write_run_artifact_metadata(artifact_metadata_out, preloaded_artifacts)
+            return 0
         if artifact_prefixes and had_successful_runs:
             print(
                 f"No successful workflow runs with artifacts matching prefixes {artifact_prefixes!r} "
@@ -318,7 +379,7 @@ def main(argv: list[str] | None = None) -> int:
             size_mb = path.stat().st_size / 1024 / 1024
             print(f"  - {path.name}: {size_mb:.1f} MB")
 
-    if failed and not files:
+    if failed:
         return 1
     if artifact_prefixes and not files:
         return 2
