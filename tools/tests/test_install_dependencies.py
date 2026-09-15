@@ -1,10 +1,12 @@
-#!/usr/bin/env python3
 """Tests for tools/setup/install_dependencies."""
 
 from __future__ import annotations
 
+import io
+from email.message import Message
 from typing import TYPE_CHECKING
 from unittest.mock import call, patch
+from urllib.error import HTTPError
 
 import pytest
 from setup.install_dependencies import (
@@ -14,7 +16,7 @@ from setup.install_dependencies import (
     JUST_MIN_VERSION,
     MACOS_PACKAGES,
     PACKAGE_NAME_RE,
-    PIPX_PACKAGES,
+    PYTHON_BUILD_TOOLS,
     _arch,
     _detect_just_version,
     _fedora,
@@ -58,7 +60,7 @@ def test_macos_packages_not_empty() -> None:
 
 
 def test_pipx_packages_not_empty() -> None:
-    assert PIPX_PACKAGES
+    assert PYTHON_BUILD_TOOLS
 
 
 def test_get_debian_packages_all_returns_no_optional() -> None:
@@ -92,8 +94,9 @@ def test_cross_arm64_excluded_from_aggregate() -> None:
 
 
 def test_sysroot_script_single_sources_cross_arm64() -> None:
-    script = (REPO_ROOT / "deploy" / "docker" / "install-sysroot-aarch64.sh").read_text()
-    assert "--category cross_arm64" in script
+    script = (REPO_ROOT / "deploy" / "docker" / "install_sysroot_aarch64.py").read_text()
+    assert '"--category",' in script
+    assert '"cross_arm64",' in script
     for pkg in ("libxcb1-dev", "libgstreamer1.0-dev", "libssl-dev"):
         assert f"{pkg}:arm64" not in script, (
             f"{pkg} should be sourced from cross_arm64, not hardcoded"
@@ -315,14 +318,49 @@ def test_download_file_dry_run(tmp_path: Path) -> None:
     assert not dest.exists()
 
 
-def test_download_file_network_error(tmp_path: Path) -> None:
+@pytest.mark.parametrize("warn_on_failure", [False, True])
+def test_download_file_network_error(tmp_path: Path, warn_on_failure: bool) -> None:
     from setup.install_dependencies import download_file
 
     dest = tmp_path / "test.bin"
-    # Mock httpx to raise, then fall through to urllib which also raises
-    with patch("urllib.request.urlopen", side_effect=OSError("unreachable")):
-        result = download_file("https://example.com/test.bin", dest, dry_run=False)
+    with (
+        patch("urllib.request.urlopen", side_effect=OSError("unreachable")) as request,
+        patch("common.net.time.sleep") as sleep,
+        patch.object(install_common, "log_warn") as warn,
+        patch.object(install_common, "log_error") as error,
+    ):
+        result = download_file(
+            "https://example.com/test.bin", dest, retries=2, warn_on_failure=warn_on_failure
+        )
     assert result is False
+    assert request.call_count == 3
+    assert sleep.call_count == 2
+    assert warn.call_count == int(warn_on_failure)
+    assert error.call_count == int(not warn_on_failure)
+    assert not dest.exists()
+
+
+@pytest.mark.parametrize("recover", [False, True])
+def test_download_file_http_error_without_httpx(tmp_path: Path, recover: bool) -> None:
+    from setup.install_dependencies import download_file
+
+    url = "https://example.com/just.tar.gz"
+    dest = tmp_path / "just.tar.gz"
+    failure = HTTPError(url, 500, "Internal Server Error", Message(), None)
+    response = io.BytesIO(b"archive") if recover else failure
+    with (
+        patch.dict("sys.modules", {"httpx": None}),
+        patch("urllib.request.urlopen", side_effect=[failure, response]) as request,
+        patch("common.net.time.sleep") as sleep,
+    ):
+        assert download_file(url, dest, retries=1, timeout=1.5) is recover
+    assert request.call_count == 2
+    assert all(call.kwargs["timeout"] == 1.5 for call in request.call_args_list)
+    sleep.assert_called_once_with(5.0)
+    if recover:
+        assert dest.read_bytes() == b"archive"
+    else:
+        assert not dest.exists()
 
 
 def test_run_apt_install_with_retry_success_first_try() -> None:
@@ -349,44 +387,15 @@ def test_run_apt_install_with_retry_refreshes_index_then_retries() -> None:
     )
 
 
-def test_run_pipx_install_retries_with_backoff() -> None:
-    with (
-        patch("setup.install_dependencies._packages.PIPX_PACKAGES", ["cmake"]),
-        patch.object(
-            install_common,
-            "run_command",
-            side_effect=[True, False, False, True],
-        ) as mock_run,
-        patch.object(install_common.time, "sleep") as mock_sleep,
-    ):
-        result = install_common.run_pipx_install(
-            max_attempts=3,
-            retry_backoff_seconds=2,
-        )
-
-    assert result is True
-    assert mock_run.call_args_list == [
-        call(["pipx", "ensurepath"], False),
-        call(["pipx", "install", "cmake"], False),
-        call(["pipx", "install", "cmake"], False),
-        call(["pipx", "install", "cmake"], False),
-    ]
-    assert mock_sleep.call_args_list == [call(2), call(4)]
+def test_install_build_tools_uses_locked_profile(tmp_path: Path) -> None:
+    with patch("qgc_tools.python_env.sync_groups", return_value=tmp_path) as sync:
+        assert install_common.install_build_tools(dry_run=True)
+    sync.assert_called_once_with("build", dry_run=True)
 
 
-def test_run_pipx_install_fails_after_retry_limit() -> None:
-    with (
-        patch("setup.install_dependencies._packages.PIPX_PACKAGES", ["cmake"]),
-        patch.object(install_common, "run_command", side_effect=[True, False, False]),
-        patch.object(install_common.time, "sleep") as mock_sleep,
-    ):
-        result = install_common.run_pipx_install(
-            max_attempts=2,
-            retry_backoff_seconds=0,
-        )
-
-    assert result is False
-    mock_sleep.assert_not_called()
+def test_install_build_tools_propagates_setup_failure() -> None:
+    with patch("qgc_tools.python_env.sync_groups", side_effect=FileNotFoundError("uv missing")):
+        assert not install_common.install_build_tools()
 
 
 def test_get_brew_install_command_filters_already_installed() -> None:
@@ -620,35 +629,35 @@ def test_install_fedora_installs_packages_pipx_then_cleans() -> None:
     with (
         patch.object(_fedora, "get_fedora_packages", return_value=["cmake"]),
         patch.object(_fedora._c, "run_dnf_install_with_retry", return_value=True) as dnf,
-        patch.object(_fedora._c, "run_pipx_install", return_value=True) as pipx,
+        patch.object(_fedora._c, "install_build_tools", return_value=True) as build_tools,
         patch.object(_fedora._c, "run_command", return_value=True) as cleanup,
     ):
         assert _fedora.install_fedora(dry_run=False) is True
     dnf.assert_called_once_with(["cmake"], False, sudo=True)
-    pipx.assert_called_once_with(False)
+    build_tools.assert_called_once_with(False)
     cleanup.assert_called_once_with(["dnf", "clean", "all"], False, sudo=True)
 
 
 def test_install_fedora_skip_system_packages_skips_dnf_and_cleanup() -> None:
     with (
         patch.object(_fedora._c, "run_dnf_install_with_retry", return_value=True) as dnf,
-        patch.object(_fedora._c, "run_pipx_install", return_value=True) as pipx,
+        patch.object(_fedora._c, "install_build_tools", return_value=True) as build_tools,
         patch.object(_fedora._c, "run_command", return_value=True) as cleanup,
     ):
         assert _fedora.install_fedora(dry_run=False, skip_system_packages=True) is True
     dnf.assert_not_called()
     cleanup.assert_not_called()
-    pipx.assert_called_once_with(False)
+    build_tools.assert_called_once_with(False)
 
 
 def test_install_fedora_returns_false_when_dnf_fails() -> None:
     with (
         patch.object(_fedora, "get_fedora_packages", return_value=["cmake"]),
         patch.object(_fedora._c, "run_dnf_install_with_retry", return_value=False),
-        patch.object(_fedora._c, "run_pipx_install", return_value=True) as pipx,
+        patch.object(_fedora._c, "install_build_tools", return_value=True) as build_tools,
     ):
         assert _fedora.install_fedora(dry_run=False) is False
-    pipx.assert_not_called()
+    build_tools.assert_not_called()
 
 
 def test_install_fedora_unknown_category_returns_false() -> None:
@@ -665,13 +674,13 @@ def test_install_arch_syncs_installs_then_cleans() -> None:
         patch.object(_arch, "get_arch_packages", return_value=["cmake"]),
         patch.object(_arch._c, "run_command", return_value=True) as run_command,
         patch.object(_arch._c, "run_pacman_install_with_retry", return_value=True) as pac,
-        patch.object(_arch._c, "run_pipx_install", return_value=True) as pipx,
+        patch.object(_arch._c, "install_build_tools", return_value=True) as build_tools,
     ):
         assert _arch.install_arch(dry_run=False) is True
     run_command.assert_any_call(["pacman", "-Syu", "--noconfirm"], False, sudo=True)
     run_command.assert_any_call(["pacman", "-Sc", "--noconfirm"], False, sudo=True)
     pac.assert_called_once_with(["cmake"], False, sudo=True)
-    pipx.assert_called_once_with(False)
+    build_tools.assert_called_once_with(False)
 
 
 def test_install_arch_aborts_when_sync_fails() -> None:
@@ -688,9 +697,9 @@ def test_install_arch_category_skips_pipx_and_cleanup() -> None:
         patch.object(_arch, "get_arch_packages", return_value=["cmake"]),
         patch.object(_arch._c, "run_command", return_value=True) as run_command,
         patch.object(_arch._c, "run_pacman_install_with_retry", return_value=True),
-        patch.object(_arch._c, "run_pipx_install", return_value=True) as pipx,
+        patch.object(_arch._c, "install_build_tools", return_value=True) as build_tools,
     ):
         assert _arch.install_arch(dry_run=False, category="gstreamer") is True
-    pipx.assert_not_called()
+    build_tools.assert_not_called()
     cleanup_calls = [c for c in run_command.call_args_list if c.args[0][:2] == ["pacman", "-Sc"]]
     assert cleanup_calls == []

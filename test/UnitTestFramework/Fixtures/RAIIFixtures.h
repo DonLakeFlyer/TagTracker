@@ -1,18 +1,20 @@
 #pragma once
 
+#include <memory>
+#include <optional>
+
 #include <QtCore/QByteArray>
-#include <QtCore/QList>
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
 #include <QtCore/QJsonParseError>
+#include <QtCore/QList>
 #include <QtCore/QTemporaryDir>
 #include <QtCore/QTemporaryFile>
 #include <QtCore/QUrl>
 #include <QtCore/QVariant>
 #include <QtNetwork/QNetworkReply>
 
-#include <memory>
-
+#include "MAVLinkEnums.h"
 #include "MAVLinkMessageType.h"
 
 class RunGuard;
@@ -227,6 +229,28 @@ private:
     const char* _name;
     QByteArray _value;
     bool _wasSet;
+};
+
+// ============================================================================
+// MavCommandAckTimeoutFixture - short MavCommandQueue ack timeout for timeout-driven tests
+// ============================================================================
+
+/// Shortens the COMMAND_ACK timeout for tests whose outcome depends on at least one ack window
+/// expiring (no ack, or ack only after a retry), so the retry/give-up path doesn't wait the full
+/// production window. Restores the previous override on destruction.
+class MavCommandAckTimeoutFixture
+{
+public:
+    static constexpr int kDefaultTimeoutMs = 500;
+
+    explicit MavCommandAckTimeoutFixture(int timeoutMs = kDefaultTimeoutMs);
+    ~MavCommandAckTimeoutFixture();
+
+    MavCommandAckTimeoutFixture(const MavCommandAckTimeoutFixture&) = delete;
+    MavCommandAckTimeoutFixture& operator=(const MavCommandAckTimeoutFixture&) = delete;
+
+private:
+    std::optional<int> _previousOverride;
 };
 
 // ============================================================================

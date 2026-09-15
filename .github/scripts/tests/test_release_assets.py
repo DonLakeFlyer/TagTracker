@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import json
+import shutil
 from typing import TYPE_CHECKING
 
 import pytest
 import yaml
 from _helpers import REPO_ROOT
-from common.io import ensure_sha256_sidecar
+from android_matrix import build_matrix
+from common.io import ensure_sha256_sidecar, sha256_file
 from release_assets import (
     REQUIRED_DEPENDENCY_SBOMS,
+    REQUIRED_PACKAGES,
     REQUIRED_PLATFORM_SBOMS,
     collect_release_assets,
 )
@@ -17,6 +21,7 @@ from release_assets import (
 if TYPE_CHECKING:
     from pathlib import Path
 
+ANDROID_RELEASE_ARTIFACT = "QGroundControl-linux-arm64-v8a-armeabi-v7a"
 PACKAGE_PATHS = (
     "QGroundControl-x86_64/QGroundControl-x86_64.AppImage",
     "QGroundControl-aarch64/QGroundControl-aarch64.AppImage",
@@ -24,7 +29,7 @@ PACKAGE_PATHS = (
     "QGroundControl-installer-AMD64/QGroundControl-installer-AMD64.exe",
     "QGroundControl-installer-ARM64/QGroundControl-installer-ARM64.exe",
     "QGroundControl-installer-AMD64-ARM64/QGroundControl-installer-AMD64-ARM64.exe",
-    "QGroundControl-linux/QGroundControl.apk",
+    f"{ANDROID_RELEASE_ARTIFACT}/QGroundControl.apk",
     "QGroundControl-ios/QGroundControl.ipa",
 )
 
@@ -42,6 +47,15 @@ def _create_complete_release(tmp_path: Path) -> tuple[Path, list[Path]]:
         package.parent.mkdir(parents=True, exist_ok=True)
         package.write_bytes(relative_path.encode())
         ensure_sha256_sidecar(package)
+        package.with_name(package.name + ".build.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "commit": "abc",
+                    "artifact": {"name": package.name, "sha256": sha256_file(package)},
+                }
+            )
+        )
         if package.suffix == ".AppImage":
             package.with_name(f"{package.name}.zsync").write_text("zsync\n", encoding="utf-8")
 
@@ -51,7 +65,10 @@ def _create_complete_release(tmp_path: Path) -> tuple[Path, list[Path]]:
         sbom.write_text(SPDX_DOCUMENT, encoding="utf-8")
 
     for sbom_name in REQUIRED_DEPENDENCY_SBOMS:
-        sbom = artifacts / sbom_name.removesuffix(".dependencies.cdx.json") / sbom_name
+        artifact_name = sbom_name.removesuffix(".dependencies.cdx.json")
+        if artifact_name == "QGroundControl-linux":
+            artifact_name = ANDROID_RELEASE_ARTIFACT
+        sbom = artifacts / artifact_name / sbom_name
         sbom.parent.mkdir(parents=True, exist_ok=True)
         sbom.write_text(CYCLONEDX_DEPENDENCY_DOCUMENT, encoding="utf-8")
 
@@ -66,9 +83,68 @@ def test_collect_release_assets_requires_complete_validated_set(tmp_path: Path) 
 
     assets = collect_release_assets(artifacts, source_sboms)
 
-    assert len(assets) == 36
+    assert len(assets) == 44
     assert assets == sorted(assets, key=lambda path: path.as_posix())
     assert all(path.is_file() for path in assets)
+
+
+def test_release_android_selector_matches_official_producer_and_stable_sboms(
+    tmp_path: Path,
+) -> None:
+    workflow = yaml.safe_load((REPO_ROOT / ".github/workflows/android.yml").read_text())
+    package = workflow["jobs"]["build"]["env"]["PACKAGE"]
+    official = next(leg for leg in build_matrix(is_pr=False) if leg["primary"])
+    artifact_name = f"{package}-{official['host']}-{official['artifact_abi_suffix']}"
+    assert artifact_name == ANDROID_RELEASE_ARTIFACT
+    assert dict(REQUIRED_PACKAGES)["Android APK"] == f"{artifact_name}/*.apk"
+    assert "QGroundControl-linux.sbom.spdx.json" in REQUIRED_PLATFORM_SBOMS
+    assert "QGroundControl-linux.dependencies.cdx.json" in REQUIRED_DEPENDENCY_SBOMS
+
+    artifacts, source_sboms = _create_complete_release(tmp_path)
+    assets = collect_release_assets(artifacts, source_sboms, head_sha="abc")
+    assert artifacts / artifact_name / "QGroundControl.apk" in assets
+    assert artifacts / artifact_name / "QGroundControl.apk.sha256" in assets
+    assert artifacts / artifact_name / "QGroundControl.apk.build.json" in assets
+    assert artifacts / artifact_name / "QGroundControl-linux.dependencies.cdx.json" in assets
+    assert any(path.name == "QGroundControl-linux.sbom.spdx.json" for path in assets)
+
+
+@pytest.mark.parametrize(
+    "other_artifact",
+    [
+        "QGroundControl-linux-arm64-v8a",
+        "QGroundControl-mac-arm64-v8a",
+        "QGroundControl-linux",
+        "QGroundControl-linux-armeabi-v7a-arm64-v8a",
+    ],
+)
+def test_release_never_substitutes_another_android_package(
+    tmp_path: Path, other_artifact: str
+) -> None:
+    artifacts, source_sboms = _create_complete_release(tmp_path)
+    (artifacts / ANDROID_RELEASE_ARTIFACT).rename(artifacts / other_artifact)
+
+    with pytest.raises(ValueError, match=r"Android APK.*found 0"):
+        collect_release_assets(artifacts, source_sboms, head_sha="abc")
+
+
+def test_release_ignores_single_abi_pr_package_when_official_package_exists(tmp_path: Path) -> None:
+    artifacts, source_sboms = _create_complete_release(tmp_path)
+    single_abi = next(leg for leg in build_matrix(is_pr=True) if leg["primary"])
+    pr_artifact = f"QGroundControl-{single_abi['host']}-{single_abi['artifact_abi_suffix']}"
+    pr_directory = artifacts / pr_artifact
+    pr_directory.mkdir()
+    official_directory = artifacts / ANDROID_RELEASE_ARTIFACT
+    for name in (
+        "QGroundControl.apk",
+        "QGroundControl.apk.sha256",
+        "QGroundControl.apk.build.json",
+    ):
+        shutil.copyfile(official_directory / name, pr_directory / name)
+
+    assets = collect_release_assets(artifacts, source_sboms, head_sha="abc")
+    assert official_directory / "QGroundControl.apk" in assets
+    assert not any(path.parent == pr_directory for path in assets)
 
 
 def test_collect_release_assets_rejects_missing_or_bad_checksum(tmp_path: Path) -> None:
@@ -131,6 +207,8 @@ def test_release_uses_platform_sboms_without_reattesting() -> None:
         "head-sha": "${{ github.sha }}",
         "workflows": "Linux,Windows,MacOS,Android,iOS",
         "event": "workflow_dispatch",
+        "runs-file": "release-build-runs.json",
+        "strict-runs": "true",
         "output-dir": "artifacts",
         "artifact-prefixes": "QGroundControl,sbom-",
     }
@@ -153,8 +231,8 @@ def test_attestation_actions_publish_checksum_and_resolved_sbom_output() -> None
     ci_steps = ci_workflow["jobs"]["test-ci-scripts"]["steps"]
     checkout = next(step for step in ci_steps if step["name"] == "Checkout")
     sparse_checkout = set(checkout["with"]["sparse-checkout"].splitlines())
-    assert ".github/actions/attest-and-upload" in sparse_checkout
-    assert ".github/actions/attest-sbom" in sparse_checkout
+    assert ".github" in sparse_checkout or ".github/actions/attest-and-upload" in sparse_checkout
+    assert ".github" in sparse_checkout or ".github/actions/attest-sbom" in sparse_checkout
 
     upload_action = yaml.safe_load(
         (REPO_ROOT / ".github/actions/attest-and-upload/action.yml").read_text()
@@ -186,3 +264,20 @@ def test_attestation_actions_publish_checksum_and_resolved_sbom_output() -> None
 
     sbom_action = yaml.safe_load((REPO_ROOT / ".github/actions/attest-sbom/action.yml").read_text())
     assert sbom_action["outputs"]["sbom-path"]["value"] == "${{ steps.check.outputs.sbom-path }}"
+
+
+def test_release_rejects_manifest_from_another_commit(tmp_path):
+    artifacts, sboms = _create_complete_release(tmp_path)
+    with pytest.raises(ValueError, match="commit does not match"):
+        collect_release_assets(artifacts, sboms, head_sha="different")
+
+
+def test_release_rejects_manifest_for_another_payload(tmp_path):
+    artifacts, sboms = _create_complete_release(tmp_path)
+    package = artifacts / PACKAGE_PATHS[0]
+    manifest = package.with_name(package.name + ".build.json")
+    data = json.loads(manifest.read_text())
+    data["artifact"]["sha256"] = "a" * 64
+    manifest.write_text(json.dumps(data))
+    with pytest.raises(ValueError, match="does not match package"):
+        collect_release_assets(artifacts, sboms)

@@ -3,11 +3,45 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from typing import TYPE_CHECKING
 
+import pytest
 from _helpers import REPO_ROOT
 from plan_docker_builds import build_args_str, load_variants, plan_builds
 
 _DOCKER_DIR = REPO_ROOT / "deploy" / "docker"
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"fuse": "false"},
+        {"build_args": {"BASE_REF": 1}},
+        {"selector": "unknown"},
+        {"target": None},
+        {"ci_variant": ""},
+    ],
+)
+def test_variant_loader_rejects_invalid_fields(tmp_path: Path, change: dict) -> None:
+    variant = dict(load_variants()[0]) | change
+    manifest = tmp_path / "variants.json"
+    manifest.write_text(json.dumps({"variants": [variant]}))
+    with pytest.raises(ValueError):
+        load_variants(manifest)
+
+
+@pytest.mark.parametrize("field", ["id", "ci_variant"])
+def test_variant_loader_rejects_duplicate_identity(tmp_path: Path, field: str) -> None:
+    variants = load_variants()[:2]
+    variants[1][field] = variants[0][field]
+    manifest = tmp_path / "variants.json"
+    manifest.write_text(json.dumps({"variants": variants}))
+    with pytest.raises(ValueError, match="duplicates"):
+        load_variants(manifest)
+
 
 # Build-arg strings pinned independently of variants.json so a bad edit to the
 # JSON is caught here, not silently propagated into the CI matrix.
@@ -15,7 +49,6 @@ _LINUX_2204_BUILD_ARGS = "\n".join(
     [
         "BASE_REF=ubuntu:22.04@sha256:4f838adc7181d9039ac795a7d0aba05a9bd9ecd480d294483169c5def983b64d",
         "APT_EXTRA=gcc-12 g++-12",
-        "PIP_CMAKE=cmake>=3.25,<4",
         "CC_PIN=gcc-12",
         "CXX_PIN=g++-12",
     ]
@@ -41,7 +74,7 @@ _LINUX_ARCH_BUILD_ARGS = "\n".join(
 
 
 def test_plan_builds_pull_request_filters_by_changes():
-    plan = plan_builds("pull_request", linux_changed=True, android_changed=False)
+    plan = plan_builds("pull_request", linux_changed=True, android_changed=False, full_matrix=True)
     assert plan["has_jobs"] is True
     assert plan["matrix"]["include"] == [
         {
@@ -205,30 +238,6 @@ def test_every_variant_has_required_fields():
         assert v["selector"] in ("linux", "android")
 
 
-def test_variant_info_helper_matches_json():
-    """_variant_info.py (consumed by run-docker.sh) emits the JSON's build args."""
-    out = subprocess.run(
-        [sys.executable, str(_DOCKER_DIR / "_variant_info.py"), "fedora"],
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout
-    assert "target=linux" in out
-    assert "default_image=qgc-fedora-docker" in out
-    assert "fuse=0" in out
-    assert "SETUP_BASE=setup-base-dnf.sh" in out
-
-
-def test_variant_info_helper_rejects_unknown():
-    result = subprocess.run(
-        [sys.executable, str(_DOCKER_DIR / "_variant_info.py"), "nope"],
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 1
-    assert "Unknown variant" in result.stderr
-
-
 def test_docker_compose_is_in_sync_with_variants():
     result = subprocess.run(
         [sys.executable, str(_DOCKER_DIR / "gen_compose.py"), "--check"],
@@ -242,8 +251,45 @@ def test_build_args_str_preserves_order():
     assert build_args_str({"A": "1", "B": "2"}) == "A=1\nB=2"
 
 
-def test_run_docker_sh_has_no_hardcoded_build_args():
-    """Variant build args live only in variants.json, not duplicated in the shell wrapper."""
-    text = (_DOCKER_DIR / "run-docker.sh").read_text()
-    assert "--build-arg" not in text
-    assert json.loads((_DOCKER_DIR / "variants.json").read_text())["variants"]
+def test_application_pr_uses_representative_docker_variants():
+    plan = plan_builds("pull_request", True, True)
+    assert [row["platform"] for row in plan["matrix"]["include"]] == [
+        "Linux-Ubuntu-24.04",
+        "Android",
+    ]
+
+
+@pytest.mark.parametrize(
+    "files",
+    [
+        None,
+        ["deploy/docker/Dockerfile"],
+        ["cmake/CPack.cmake"],
+        [".github/build-config.json"],
+        ["tools/setup/install_dependencies/_debian.py"],
+        ["src/Vehicle/CMakeLists.txt"],
+        [".github/actions/docker/action.yml"],
+        ["tools/uv.lock"],
+    ],
+)
+def test_toolchain_and_unknown_diffs_use_full_matrix(files):
+    from plan_docker_builds import needs_full_matrix
+
+    assert needs_full_matrix(files)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "src/Vehicle/Vehicle.cc",
+        ".github/ISSUE_TEMPLATE/bug.yml",
+        ".github/workflows/analysis.yml",
+        "tools/analyze.py",
+        "tools/tests/test_install_qt.py",
+        "deploy/multipass/build.sh",
+    ],
+)
+def test_unrelated_changes_do_not_require_full_matrix(path):
+    from plan_docker_builds import needs_full_matrix
+
+    assert not needs_full_matrix([path])

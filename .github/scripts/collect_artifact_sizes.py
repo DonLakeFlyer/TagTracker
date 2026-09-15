@@ -16,12 +16,12 @@ ensure_tools_dir(__file__)
 from common.artifact_metadata import ArtifactMetadataError, read_run_artifact_metadata
 from common.format import format_bytes
 from common.gh_actions import list_run_artifacts, list_workflow_runs_for_sha, parse_csv_list
-from common.github_runs import (
+from common.io import write_json
+from qgc_tools.workflow_runs import (
     add_workflow_run_query_args,
     resolve_workflow_runs,
     select_latest_runs_by_name,
 )
-from common.io import write_json
 
 _DISTRIBUTABLE_PREFIXES = (
     "QGroundControl",
@@ -141,6 +141,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default="",
         help="Path to run artifact metadata JSON (name + size_in_bytes) to avoid per-run API calls",
     )
+    parser.add_argument(
+        "--require-artifacts",
+        action="store_true",
+        help="Fail when no distributable artifacts are available for a baseline",
+    )
     return parser.parse_args(argv)
 
 
@@ -174,11 +179,14 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     output_path = Path(args.output_file)
+    write_json(output_path, {"head_sha": args.head_sha, "artifacts": artifacts})
     if artifacts:
-        write_json(output_path, {"artifacts": artifacts})
         print(f"Wrote {len(artifacts)} artifacts to {output_path}")
     else:
         print("No artifacts found")
+        if args.require_artifacts:
+            print("Error: cannot publish an empty artifact-size baseline", file=sys.stderr)
+            return 1
 
     return 0
 

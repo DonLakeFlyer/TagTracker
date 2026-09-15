@@ -1,8 +1,15 @@
 #include "LoggingCategoryModelTest.h"
+
+#include <QtCore/QThread>
+#include <QtCore/QUuid>
 #include <QtTest/QSignalSpy>
 
-#include "LoggingCategoryModel.h"
+#include <atomic>
+#include <thread>
 
+#include "LoggingCategoryModel.h"
+#include "QGCLoggingCategory.h"
+#include "QGCLoggingCategoryManager.h"
 
 // ---------------------------------------------------------------------------
 // QGCLoggingCategoryItem
@@ -175,7 +182,7 @@ void LoggingCategoryModelTest::_testTreeModelInsertSingleLevel()
 
     auto* item = new QGCLoggingCategoryItem(QStringLiteral("Leaf"),
                                             QStringLiteral("Leaf"), false, &model);
-    model.insertCategory(QStringList{QStringLiteral("Leaf")}, QStringLiteral("Leaf"), item);
+    model.insertCategory(QStringList{QStringLiteral("Leaf")}, item);
 
     QCOMPARE(rowsInsertedSpy.count(), 1);
     QCOMPARE(model.rowCount(), 1);
@@ -195,8 +202,7 @@ void LoggingCategoryModelTest::_testTreeModelInsertNestedCreatesIntermediate()
     LoggingCategoryTreeModel model;
     auto* leaf = new QGCLoggingCategoryItem(QStringLiteral("Baz"),
                                             QStringLiteral("Foo.Bar.Baz"), false, &model);
-    model.insertCategory(QStringList{QStringLiteral("Foo"), QStringLiteral("Bar"), QStringLiteral("Baz")},
-                         QStringLiteral("Foo.Bar.Baz"), leaf);
+    model.insertCategory(QStringList{QStringLiteral("Foo"), QStringLiteral("Bar"), QStringLiteral("Baz")}, leaf);
 
     QCOMPARE(model.rowCount(), 1);
     const QModelIndex fooIdx = model.index(0, 0);
@@ -222,7 +228,7 @@ void LoggingCategoryModelTest::_testTreeModelDataRoles()
     LoggingCategoryTreeModel model;
     auto* item = new QGCLoggingCategoryItem(QStringLiteral("L"), QStringLiteral("Full.L"),
                                             true, &model);
-    model.insertCategory(QStringList{QStringLiteral("L")}, QStringLiteral("Full.L"), item);
+    model.insertCategory(QStringList{QStringLiteral("L")}, item);
 
     using Roles = LoggingCategoryTreeModel::Roles;
     const QModelIndex idx = model.index(0, 0);
@@ -248,3 +254,37 @@ void LoggingCategoryModelTest::_testTreeModelRoleNames()
 }
 
 UT_REGISTER_TEST(LoggingCategoryModelTest, TestLabel::Unit, TestLabel::Utilities)
+
+void LoggingCategoryModelTest::_testWorkerRegistrationUpdatesManagerModels()
+{
+    QGCLoggingCategoryManager::init();
+    auto* manager = QGCLoggingCategoryManager::instance();
+    QVERIFY(manager);
+    auto* flat = manager->flatCategoryModel();
+    auto* tree = manager->treeCategoryModel();
+    const auto name = QStringLiteral("WorkerRegistration_%1.Leaf").arg(QUuid::createUuid().toString(QUuid::Id128));
+    QSignalSpy flatInserted(flat, &QAbstractItemModel::rowsInserted);
+    QSignalSpy treeInserted(tree, &QAbstractItemModel::rowsInserted);
+    std::atomic_bool wrongThread = false;
+    QObject connectionContext;
+    const auto checkThread = [&] {
+        if (QThread::currentThread() != manager->thread())
+            wrongThread = true;
+    };
+    connect(flat, &QAbstractItemModel::rowsInserted, &connectionContext, checkThread, Qt::DirectConnection);
+    connect(tree, &QAbstractItemModel::rowsInserted, &connectionContext, checkThread, Qt::DirectConnection);
+    std::thread producer([&] {
+        const QGCLoggingCategory first(name);
+        const QGCLoggingCategory duplicate(name);
+    });
+    producer.join();
+    QVERIFY(!flat->findByFullName(name));
+    QTRY_VERIFY_WITH_TIMEOUT(flat->findByFullName(name), TestTimeout::shortMs());
+    QCOMPARE(flatInserted.count(), 1);
+    QCOMPARE(treeInserted.count(), 2);  // The unique parent and its leaf.
+    QVERIFY(!wrongThread);
+    const auto root = tree->match(tree->index(0, 0), static_cast<int>(LoggingCategoryTreeModel::Roles::FullNameRole),
+                                  name, 2, Qt::MatchExactly | Qt::MatchRecursive);
+    QCOMPARE(root.size(), 1);
+    QCOMPARE(flat->findByFullName(name)->thread(), manager->thread());
+}

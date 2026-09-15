@@ -10,8 +10,10 @@
 #include "MockLinkMissionItemHandler.h"
 
 #include <QtCore/QElapsedTimer>
+#include <QtCore/QList>
 #include <QtCore/QMap>
 #include <QtCore/QMutex>
+#include <QtCore/QPair>
 #include <QtCore/QSet>
 #include <QtPositioning/QGeoCoordinate>
 
@@ -67,6 +69,12 @@ public:
     void setCalibrationPose(MockLinkPX4Calibration::Pose pose) const { _mockLinkPX4Calibration->setPose(pose); }
 
     MockLinkFTP *mockLinkFTP() const;
+    MockLinkGimbal *mockLinkGimbal() const { return _mockLinkGimbal; }
+
+    /// Test API: pins the simulated vehicle attitude (degrees) in place of the default sinusoid.
+    /// Heading reported by Vehicle::heading() is truncated to whole degrees, so pass integral yaw.
+    void setVehicleAttitudeOverrideDeg(float rollDeg, float pitchDeg, float yawDeg);
+    void clearVehicleAttitudeOverride();
 
     /// Set the armed state of the simulated vehicle
     void setArmed(bool armed) { if (armed) _mavBaseMode |= MAV_MODE_FLAG_SAFETY_ARMED; else _mavBaseMode &= ~MAV_MODE_FLAG_SAFETY_ARMED; }
@@ -172,6 +180,8 @@ public:
 
     /// Returns the number of standalone PARAM_REQUEST_READ requests for _HASH_CHECK received
     int hashCheckRequestCount() const { return _hashCheckRequestCount; }
+    /// Index-based PARAM_REQUEST_READs received, in arrival order: (componentId, paramIndex)
+    QList<QPair<int, int>> paramRequestReadIndexLog() const { return _paramRequestReadIndexLog; }
 
     /// Change a float parameter value directly on MockLink (for testing cache invalidation)
     void setMockParamValue(int componentId, const QString &paramName, float value);
@@ -201,6 +211,8 @@ public:
     void setRemoteIDArmStatus(uint8_t status, const QString& error);
 
     static MockLink *startPX4MockLink(MockConfiguration::Options options = MockConfiguration::OptionNone, MockConfiguration::FailureMode_t failureMode = MockConfiguration::FailNone, MockConfiguration::VideoStreamType videoStreamType = MockConfiguration::VideoStreamNone);
+    /// Starts a MockLink from a fully caller-configured MockConfiguration (ownership transfers to LinkManager)
+    static MockLink *startMockLink(MockConfiguration *mockConfig) { return _startMockLink(mockConfig); }
     static MockLink *startPX4MockLinkWithMission(MockConfiguration::Options options = MockConfiguration::OptionNone, MockConfiguration::FailureMode_t failureMode = MockConfiguration::FailNone);
     static MockLink *startGenericMockLink(MockConfiguration::Options options = MockConfiguration::OptionNone, MockConfiguration::FailureMode_t failureMode = MockConfiguration::FailNone, MockConfiguration::VideoStreamType videoStreamType = MockConfiguration::VideoStreamNone);
     static MockLink *startNoInitialConnectMockLink(MockConfiguration::Options options = MockConfiguration::OptionNone, MockConfiguration::FailureMode_t failureMode = MockConfiguration::FailNone);
@@ -275,6 +287,9 @@ private:
     void _handleParamRequestList(const mavlink_message_t &msg);
     void _handleParamSet(const mavlink_message_t &msg);
     void _handleParamRequestRead(const mavlink_message_t &msg);
+    bool _shouldSkipParamSend(int componentId, const QString &paramName, int paramIndex) const;
+    bool _shouldSkipParamRead(int componentId, const QString &paramName, int paramIndex);
+    bool _hasNonDefaultParamComponent() const;
     void _handleFTP(const mavlink_message_t &msg);
     void _handleCommandLong(const mavlink_message_t &msg);
     void _handleCommandInt(const mavlink_message_t &msg);
@@ -370,6 +385,16 @@ private:
     MockLinkPX4Calibration *const _mockLinkPX4Calibration = nullptr;
     MockLinkFTP *const _mockLinkFTP = nullptr;
 
+    // Written by test thread, read by worker thread in _sendAttitudeQuaternion; one lock so a frame never mixes old and new angles
+    struct AttitudeOverride {
+        bool enabled = false;
+        float rollRad = 0.0f;
+        float pitchRad = 0.0f;
+        float yawRad = 0.0f;
+    };
+    mutable QMutex _attitudeOverrideMutex;
+    AttitudeOverride _attitudeOverride;
+
     const MockConfiguration::VideoStreamType _requestedVideoStreamType = MockConfiguration::VideoStreamNone;
     MockVideoStreamServer *_videoStreamServer = nullptr;
     // Served state is written on the connect/disconnect thread and read from the worker
@@ -450,6 +475,7 @@ private:
     bool _paramRequestReadFailureFirstAttemptPending = false;
     bool _hashCheckNoResponse = false;
     int _hashCheckRequestCount = 0;
+    QList<QPair<int, int>> _paramRequestReadIndexLog;
     bool _paramRequestListHashCheckSent = false;
     bool _resetSysAutostartOnParamReset = false;
 
@@ -529,6 +555,13 @@ private:
     static constexpr const char *_failParam = "COM_FLTMODE6";
 
     static constexpr uint8_t _vehicleComponentId = MAV_COMP_ID_AUTOPILOT1;
+
+    // Simulated DroneCAN node exposed as its own param component (FailMissingParamOnAllRequestsNonDefaultComponent and friends)
+    static constexpr uint8_t _nonDefaultParamComponentId = 125;
+    static constexpr const char *_nonDefaultFailParam = "BATT_MONITOR";
+    static constexpr int _sharedFailParamIndex = 1;         ///< FailMissingParamSharedIndexAcrossComponents: index missing on both components
+    static constexpr int _nonDefaultStreamedParamCount = 2; ///< FailNonDefaultComponentDead/Lossy: params that make it through the stream
+    QSet<QPair<int, int>> _nonDefaultReadAttempted;         ///< FailNonDefaultComponentLossy: (component, index) reads already dropped once
 
     static constexpr uint16_t _logDownloadLogId = 0;        ///< Id of siumulated log file
     static constexpr uint32_t _logDownloadFileSize = 1000;  ///< Size of simulated log file
