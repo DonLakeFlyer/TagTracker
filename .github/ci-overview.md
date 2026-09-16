@@ -19,8 +19,9 @@ container-local dependency paths resolve to the correct repositories.
 
 Docker's BuildKit cache uses `type=gha,version=2`, scoped by variant and target. On RunsOn,
 `runs-on/action@v2` initializes [Magic Cache](https://runs-on.com/docs/performance/caching/docker/)
-before Buildx to store layers in S3. Only non-PR jobs export caches. Fork PRs use GitHub-hosted
-runners and the ordinary GHA cache backend, without access to the private S3 cache.
+before Buildx to store layers in S3. Only non-PR jobs export caches. Upstream builds, including
+PRs from forks, use RunsOn and Magic Cache. Workflows running in independent forks retain
+GitHub-hosted runners and the ordinary GHA cache backend.
 
 ClusterFuzzLite PR runs use the bundled seed corpus without querying historical GitHub artifacts
 (`NO_CLUSTERFUZZ_DEPLOYMENT=true`). This also disables previous-build crash comparison: reproducible
@@ -313,7 +314,8 @@ Gradle, Flatpak, iOS target Qt SDK, and GitHub-hosted uv/Python caching remain d
   use Python entrypoints. Shell remains for installing Python itself and loading container
   login profiles. Docker Qt installation uses `tools/setup/install_qt.py install --from-config`
   and the shared Python retry policy. Native package smoke-test failures still uninstall
-  the package, and VM cleanup only deletes successfully created instances.
+  the package, and Multipass cleanup only deletes successfully created instances.
+  Vagrant teardown requires an attempted VM startup and surfaces cleanup failures.
 - **CMake entrypoint**: Platform workflows configure through `cmake-configure`, which requires
   `qt-cmake` by default. Android is the explicit exception and supplies its target Qt toolchain and
   prefix to plain CMake.
