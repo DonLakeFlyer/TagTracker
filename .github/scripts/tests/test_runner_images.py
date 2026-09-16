@@ -69,6 +69,12 @@ def test_memory_heavy_pools_retain_a_16_gib_floor(pool: str) -> None:
     assert min(_load_yaml(".github/runs-on.yml")["runners"][pool]["ram"]) >= 16
 
 
+def test_analysis_pool_provides_16_cpus_and_matching_memory() -> None:
+    runner = _load_yaml(".github/runs-on.yml")["runners"]["linux-x64-analyzer"]
+    assert runner["cpu"] == [16]
+    assert min(runner["ram"]) >= 64
+
+
 @pytest.mark.parametrize("pool", ["linux-x64-emulator", "linux-x64-vm-builder"])
 def test_virtualized_pools_require_nested_virtualization(pool: str) -> None:
     runner = _load_yaml(".github/runs-on.yml")["runners"][pool]
@@ -84,12 +90,28 @@ def test_vm_builds_do_not_use_the_smaller_android_emulator_pool() -> None:
         assert "/runner=linux-x64-vm-builder" in route
         assert "linux-x64-emulator" not in route
         assert "github.repository_owner == 'mavlink'" in route
-        assert "github.event_name != 'pull_request'" in route
+        assert "github.event" not in route
         assert "|| 'ubuntu-latest'" in route
         cache_step = next(step for step in job["steps"] if step.get("uses") == "runs-on/action@v2")
         assert "if" not in cache_step
     for event in ("push", "pull_request"):
         assert ".github/runs-on.yml" in workflow["on"][event]["paths"]
+
+
+def test_vagrant_cleanup_requires_attempted_startup_and_surfaces_errors() -> None:
+    workflow = _load_yaml(".github/workflows/vm-builds.yml")
+    steps = workflow["jobs"]["vagrant-build"]["steps"]
+    build = next(step for step in steps if step.get("id") == "build")
+    cleanup = next(step for step in steps if step["name"] == "Destroy VM")
+
+    assert build["run"] == "sg libvirt -c 'vagrant up --provider=libvirt'"
+    assert steps.index(build) < steps.index(cleanup)
+    assert cleanup["if"] == (
+        "${{ always() && steps.build.outcome != 'skipped' && steps.build.outcome != '' }}"
+    )
+    assert cleanup["working-directory"] == build["working-directory"] == "deploy/vagrant"
+    assert cleanup["run"] == "sg libvirt -c 'vagrant destroy -f'"
+    assert not cleanup.get("continue-on-error", False)
 
 
 @pytest.mark.parametrize(
