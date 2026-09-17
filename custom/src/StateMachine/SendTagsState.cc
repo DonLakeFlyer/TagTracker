@@ -19,18 +19,17 @@ SendTagsState::SendTagsState(QState* parent)
     auto tagDatabase = TagDatabase::instance();
 
     // Do we have any selected tags?
-    bool foundSelectedTag = false;
     for (int i=0; i<tagDatabase->tagInfoListModel()->count(); i++) {
         TagInfo* tagInfo = tagDatabase->tagInfoListModel()->value<TagInfo*>(i);
         if (tagInfo->selected()->rawValue().toUInt()) {
-            foundSelectedTag = true;
-            break;
+            _tagCount++;
         }
     }
-    if (!foundSelectedTag) {
+    if (_tagCount == 0) {
         qCWarning(CustomStateMachineLog) << Q_FUNC_INFO << "No tags are available/selected to send.";
         return;
     }
+    _uploadId = SendTunnelCommandState::nextRequestId();
 
     auto sendStartTags      = _sendStartTagsState(this);
     auto sendEndTags        = _sendEndTagsState(this);
@@ -48,7 +47,7 @@ SendTagsState::SendTagsState(QState* parent)
             continue;
         }
 
-        auto sendTagState = _sendTagState(i, this);
+        auto sendTagState = _sendTagState(i, static_cast<uint32_t>(sendTagStateList.count()), this);
         if (!firstSendTagState) {
             firstSendTagState = sendTagState;
         }
@@ -79,13 +78,15 @@ SendTagsState::SendTagsState(QState* parent)
 
 SendTunnelCommandState* SendTagsState::_sendStartTagsState(QState* parent)
 {
-    StartTagsInfo_t startTagsInfo;
+    StartTagsInfo_t startTagsInfo {};
     startTagsInfo.header.command  = COMMAND_ID_START_TAGS;
+    startTagsInfo.upload_id       = _uploadId;
+    startTagsInfo.tag_count       = _tagCount;
 
     return new SendTunnelCommandState("StartTagsCommand", parent, (uint8_t*)&startTagsInfo, sizeof(startTagsInfo));
 }
 
-SendTunnelCommandState* SendTagsState::_sendTagState(int tagIndex, QState* parent)
+SendTunnelCommandState* SendTagsState::_sendTagState(int tagIndex, uint32_t uploadIndex, QState* parent)
 {
     auto tagDatabase = TagDatabase::instance();
     auto tagInfoListModel = tagDatabase->tagInfoListModel();
@@ -99,6 +100,8 @@ SendTunnelCommandState* SendTagsState::_sendTagState(int tagIndex, QState* paren
     memset(&tunnelTagInfo, 0, sizeof(tunnelTagInfo));
 
     tunnelTagInfo.header.command = COMMAND_ID_TAG;
+    tunnelTagInfo.upload_id                                 = _uploadId;
+    tunnelTagInfo.tag_index                                 = uploadIndex;
     tunnelTagInfo.id                                        = tagInfo->id()->rawValue().toUInt();
     tunnelTagInfo.frequency_hz                              = tagInfo->frequencyMHz()->rawValue().toDouble() * 1000000;
     tunnelTagInfo.pulse_width_msecs                         = tagManufacturer->pulse_width_msecs()->rawValue().toUInt();
@@ -142,8 +145,10 @@ SendTunnelCommandState* SendTagsState::_sendTagState(int tagIndex, QState* paren
 
 SendTunnelCommandState* SendTagsState::_sendEndTagsState(QState* parent)
 {
-    EndTagsInfo_t endTagsInfo;
+    EndTagsInfo_t endTagsInfo {};
     endTagsInfo.header.command = COMMAND_ID_END_TAGS;
+    endTagsInfo.upload_id      = _uploadId;
+    endTagsInfo.tag_count      = _tagCount;
 
     return new SendTunnelCommandState("EndTagsCommand", parent, (uint8_t*)&endTagsInfo, sizeof(endTagsInfo));
 }

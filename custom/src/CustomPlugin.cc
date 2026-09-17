@@ -756,6 +756,7 @@ void CustomPlugin::_sendCollectionCancel()
 
     FinishCollection_t finishCollection {};
     finishCollection.header.command = COMMAND_ID_FINISH_COLLECTION;
+    finishCollection.header.request_id = SendTunnelCommandState::nextRequestId();
     finishCollection.collection_id = _activeCollectionId;
     finishCollection.disposition = COLLECTION_FINISH_CANCEL;
 

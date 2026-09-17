@@ -16,8 +16,15 @@ PythonWaitForFinishOutcomeState::PythonWaitForFinishOutcomeState(
     _timeoutTimer.setInterval(timeoutMsecs);
     connect(&_timeoutTimer, &QTimer::timeout, this, [this] () {
         _disconnectAll();
-        setError(QStringLiteral("No bearing result or revisit request from controller for collection %1")
-                     .arg(_collectionId));
+        if (_retryCount < kMaxRetries) {
+            ++_retryCount;
+            qCWarning(CustomStateMachineLog) << "Python: no finish outcome for collection" << _collectionId
+                                             << "- re-sending FINISH_COLLECTION, retry" << _retryCount;
+            emit outcomeTimedOut();
+            return;
+        }
+        setError(QStringLiteral("No bearing result or revisit request from controller for collection %1 after %2 retries")
+                     .arg(_collectionId).arg(_retryCount));
     });
 
     // Leaf state: the parent branches on revisitRequested/bearingReceived. No

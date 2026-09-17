@@ -89,6 +89,8 @@ PythonRotateAndCaptureState::PythonRotateAndCaptureState(QState* parentState)
             this, &PythonRotateAndCaptureState::_buildRevisitSlice, Qt::DirectConnection);
     finishOutcomeState->addTransition(finishOutcomeState, &PythonWaitForFinishOutcomeState::bearingReceived, rotationEndState);
     finishOutcomeState->addTransition(finishOutcomeState, &PythonWaitForFinishOutcomeState::revisitRequested, announceRevisitState);
+    // Outcome frames carry no ACK: re-send FINISH and the controller replays them.
+    finishOutcomeState->addTransition(finishOutcomeState, &PythonWaitForFinishOutcomeState::outcomeTimedOut, finishCollectionState);
     announceRevisitState->addTransition(announceRevisitState, &SayState::advance, _revisitState);
     connect(_revisitState, &QState::entered, this, [this] () {
         if (!_revisitState->initialState()) {
@@ -98,6 +100,7 @@ PythonRotateAndCaptureState::PythonRotateAndCaptureState(QState* parentState)
     _revisitState->addTransition(_revisitState, &QState::finished, finishAfterRevisitState);
     finishAfterRevisitState->addTransition(finishAfterRevisitState, &SendTunnelCommandState::commandSucceeded, finishAfterRevisitOutcomeState);
     finishAfterRevisitOutcomeState->addTransition(finishAfterRevisitOutcomeState, &PythonWaitForFinishOutcomeState::bearingReceived, rotationEndState);
+    finishAfterRevisitOutcomeState->addTransition(finishAfterRevisitOutcomeState, &PythonWaitForFinishOutcomeState::outcomeTimedOut, finishAfterRevisitState);
     rotationEndState->addTransition(rotationEndState, &FunctionState::advance, announceRotateCompleteState);
     announceRotateCompleteState->addTransition(announceRotateCompleteState, &SayState::advance, finalState);
 
