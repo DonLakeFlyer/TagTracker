@@ -101,7 +101,6 @@ const QVariantList& CustomPlugin::toolBarIndicators(void)
     _toolbarIndicators = QGCCorePlugin::toolBarIndicators();
 
     _toolbarIndicators.append(QVariant::fromValue(QUrl::fromUserInput("qrc:/qml/ControllerIndicator.qml")));
-    _toolbarIndicators.append(QVariant::fromValue(QUrl::fromUserInput("qrc:/qml/EmergencyStopIndicator.qml")));
     return _toolbarIndicators;
 }
 
