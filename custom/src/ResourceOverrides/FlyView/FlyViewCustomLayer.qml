@@ -32,6 +32,7 @@ Item {
 
     property var _customPlugin:     QGroundControl.corePlugin
     property var _customSettings:   QGroundControl.settingsManager.customSettings
+    property var _guidedController: globals.guidedControllerFlyView
 
     QGCPalette { id: qgcPal; colorGroupEnabled: true }
 
@@ -47,21 +48,36 @@ Item {
     property real   _tickPixelIncrement:    _tickSNRIncrement * _pixelsPerSNR
 
 
-    // since this file is a placeholder for the custom layer in a standard build, we will just pass through the parent insets
     QGCToolInsets {
         id:                     _toolInsets
         leftEdgeTopInset:       parentToolInsets.leftEdgeTopInset
         leftEdgeCenterInset:    parentToolInsets.leftEdgeCenterInset
-        leftEdgeBottomInset:    parentToolInsets.leftEdgeBottomInset
+        leftEdgeBottomInset:    emergencyStopButton.visible ? Math.max(parentToolInsets.leftEdgeBottomInset, emergencyStopButton.width + emergencyStopButton.anchors.leftMargin) : parentToolInsets.leftEdgeBottomInset
         rightEdgeTopInset:      parentToolInsets.rightEdgeTopInset
         rightEdgeCenterInset:   parentToolInsets.rightEdgeCenterInset
         rightEdgeBottomInset:   parentToolInsets.rightEdgeBottomInset
         topEdgeLeftInset:       parentToolInsets.topEdgeLeftInset
         topEdgeCenterInset:     parentToolInsets.topEdgeCenterInset
         topEdgeRightInset:      parentToolInsets.topEdgeRightInset
-        bottomEdgeLeftInset:    parentToolInsets.bottomEdgeLeftInset
+        bottomEdgeLeftInset:    emergencyStopButton.visible ? emergencyStopButton.anchors.bottomMargin + emergencyStopButton.height + ScreenTools.defaultFontPixelWidth : parentToolInsets.bottomEdgeLeftInset
         bottomEdgeCenterInset:  parentToolInsets.bottomEdgeCenterInset
         bottomEdgeRightInset:   parentToolInsets.bottomEdgeRightInset
+    }
+
+    // TagTracker shows emergency stop whenever the vehicle is armed, not just while flying.
+    QGCButton {
+        id:                     emergencyStopButton
+        anchors.left:           parent.left
+        anchors.bottom:         parent.bottom
+        anchors.leftMargin:     ScreenTools.defaultFontPixelWidth
+        anchors.bottomMargin:   parentToolInsets.bottomEdgeLeftInset + ScreenTools.defaultFontPixelWidth
+        text:                   qsTr("EMERGENCY STOP")
+        backgroundColor:        "red"
+        textColor:              "white"
+        fontWeight:             Font.Bold
+        visible:                _guidedController.showEmergenyStop ||
+                                (_guidedController.showDisarm && QGroundControl.corePlugin.options.flyView.guidedBarShowEmergencyStop)
+        onClicked:              _guidedController.confirmAction(_guidedController.actionEmergencyStop)
     }
 
     Rectangle {

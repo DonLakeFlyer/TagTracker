@@ -62,7 +62,6 @@ qt_add_resources(${CMAKE_PROJECT_NAME} custom_qml_overrides
 set(CUSTOM_URL_LOADED_QML
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ControllerIndicator.qml"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/CustomPulseRoseMapItem.qml"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/EmergencyStopIndicator.qml"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/PulseMapItem.qml"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/TagTrackerSettings.qml"
 )
