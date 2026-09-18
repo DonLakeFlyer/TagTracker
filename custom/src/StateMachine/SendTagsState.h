@@ -14,8 +14,9 @@ public:
 private:
     SendTunnelCommandState* _sendStartTagsState(QState* parent);
     SendTunnelCommandState* _sendEndTagsState(QState* parent);
-    SendTunnelCommandState* _sendTagState(int tagIndex, QState* parent);
+    SendTunnelCommandState* _sendTagState(int tagIndex, uint32_t uploadIndex, QState* parent);
     void _setupDetectorList();
 
-    int _nextTagIndexToSend = 0;
+    uint32_t _uploadId = 0;     // identifies this START_TAGS..END_TAGS set to the controller
+    uint32_t _tagCount = 0;     // selected tags in the set
 };

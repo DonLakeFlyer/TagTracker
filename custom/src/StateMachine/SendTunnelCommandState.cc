@@ -12,6 +12,8 @@
 #include "QGCApplication.h"
 #include "AudioOutput.h"
 
+#include <QRandomGenerator>
+
 using namespace TunnelProtocol;
 
 SendTunnelCommandState::SendTunnelCommandState(const QString& stateName, QState* parentState, uint8_t* payload, size_t payloadSize, int ackTimeoutMs)
@@ -25,8 +27,17 @@ SendTunnelCommandState::SendTunnelCommandState(const QString& stateName, QState*
     _ackResponseTimer.setSingleShot(true);
     _ackResponseTimer.setInterval(ackTimeoutMs);
 
-    connect(this, &QState::entered, this, &SendTunnelCommandState::_sendTunnelCommand);
+    connect(this, &QState::entered, this, &SendTunnelCommandState::_startCommand);
     connect(this, &QState::exited, this, &SendTunnelCommandState::_disconnectAll);
+}
+
+uint32_t SendTunnelCommandState::nextRequestId()
+{
+    static uint32_t next = QRandomGenerator::global()->generate();
+    if (++next == 0) {
+        ++next;   // 0 means "no request id" on the wire
+    }
+    return next;
 }
 
 SendTunnelCommandState::~SendTunnelCommandState()
@@ -88,6 +99,18 @@ QString SendTunnelCommandState::commandIdToText(uint32_t vhfCommandId)
     }
 }
 
+void SendTunnelCommandState::_startCommand()
+{
+    // Each entry is a new command; retries from the ACK timer keep this id.
+    _retryCount = 0;
+    _requestId  = nextRequestId();
+    HeaderInfo_t tunnelHeader {};
+    memcpy(&tunnelHeader, _payload, sizeof(tunnelHeader));
+    tunnelHeader.request_id = _requestId;
+    memcpy(_payload, &tunnelHeader, sizeof(tunnelHeader));
+    _sendTunnelCommand();
+}
+
 void SendTunnelCommandState::_sendTunnelCommand()
 {
     HeaderInfo_t tunnelHeader {};
@@ -143,7 +166,8 @@ void SendTunnelCommandState::_sendTunnelCommand()
                     &msg,
                     &tunnel);
 
-        qCDebug(CustomStateMachineLog) << "SendTunnelCommandState::_sendTunnelCommand: Sending tunnel command - " << commandIdToText(_sentTunnelCommand);
+        qCDebug(CustomStateMachineLog) << "SendTunnelCommandState::_sendTunnelCommand: Sending tunnel command - " << commandIdToText(_sentTunnelCommand)
+                                       << "request_id" << _requestId << "attempt" << (_retryCount + 1);
 
         _vehicle->sendMessageOnLinkThreadSafe(sharedLink.get(), msg);
     }
@@ -155,12 +179,12 @@ void SendTunnelCommandState::_handleTunnelCommandAck(const mavlink_tunnel_t& tun
 
     memcpy(&ack, tunnel.payload, sizeof(ack));
 
-    if (ack.command == _sentTunnelCommand) {
+    if (ack.request_id == _requestId && ack.command == _sentTunnelCommand) {
         auto sentTunnelCommand = _sentTunnelCommand;
 
         _disconnectAll();
 
-        qCDebug(CustomStateMachineLog) << "Tunnel command ack received - command:result" << commandIdToText(ack.command) << ack.result;
+        qCDebug(CustomStateMachineLog) << "Tunnel command ack received - command:request_id:result" << commandIdToText(ack.command) << ack.request_id << ack.result;
         if (ack.result == COMMAND_RESULT_SUCCESS) {
             emit commandSucceeded();
         } else {
@@ -180,9 +204,11 @@ void SendTunnelCommandState::_handleTunnelCommandAck(const mavlink_tunnel_t& tun
             }
         }
     } else {
-        qCWarning(CustomStateMachineLog) << "SendTunnelCommandState::_handleTunnelCommandAck: Received unexpected command id ack expected:actual" <<
-                      commandIdToText(_sentTunnelCommand) <<
-                      commandIdToText(ack.command);
+        // A late ACK for an earlier attempt or command; the controller will
+        // answer the current request_id separately.
+        qCWarning(CustomStateMachineLog) << "SendTunnelCommandState::_handleTunnelCommandAck: Ignoring stale ack expected:actual" <<
+                      commandIdToText(_sentTunnelCommand) << _requestId <<
+                      commandIdToText(ack.command) << ack.request_id;
     }
 }
 

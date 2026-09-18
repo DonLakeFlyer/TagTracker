@@ -18,6 +18,10 @@ public:
     ~SendTunnelCommandState();
 
     static QString commandIdToText(uint32_t command);
+    /// Fresh per new command; retries of that command reuse it so the
+    /// controller can replay the original ACK. Randomly seeded per process so a
+    /// restarted GCS cannot collide with ids the controller still remembers.
+    static uint32_t nextRequestId();
 
 signals:
     void commandSucceeded();
@@ -25,6 +29,7 @@ signals:
 private slots:
     void _ackResponseTimedOut();
     void _mavlinkMessageReceived(const mavlink_message_t& message);
+    void _startCommand();
     void _sendTunnelCommand();
     void _disconnectAll();
     QString _commandResultToString(uint32_t result);
@@ -38,6 +43,7 @@ private:
     size_t      _payloadSize = 0;
     QTimer      _ackResponseTimer;
     uint32_t    _sentTunnelCommand = 0;
+    uint32_t    _requestId = 0;
     int         _retryCount = 0;
     int         _maxRetries = 2;
 };

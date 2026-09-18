@@ -208,7 +208,7 @@ set(CUSTOM_SOURCES ${CUSTOM_SOURCES} PARENT_SCOPE)
 CPMAddPackage(
     NAME              TunnelProtocol
     GITHUB_REPOSITORY DonLakeFlyer/TagTrackerTunnelProtocol
-    GIT_TAG           18ff675c2e8941bd51a11b8a4cc2d646bdbc7fea
+    GIT_TAG           177bd4237186d3a13b9c23e4b803519d34968b73
     DOWNLOAD_ONLY     TRUE
 )
 
