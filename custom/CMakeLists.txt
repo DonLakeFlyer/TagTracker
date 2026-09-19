@@ -145,6 +145,8 @@ set(CUSTOM_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/DetectorInfo.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/DetectorList.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/DetectorList.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/OperationProgress.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/OperationProgress.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/PulseMapItem.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/PythonDetectorInfo.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/PythonDetectorInfo.h
@@ -190,11 +192,14 @@ set(CUSTOM_SOURCES
 
 if(QGC_BUILD_TESTING)
     list(APPEND CUSTOM_SOURCES
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/OperationProgressTest.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/OperationProgressTest.h
         ${CMAKE_CURRENT_SOURCE_DIR}/test/TagTrackerPulseDisplayTest.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/test/TagTrackerPulseDisplayTest.h
     )
 
     include(QGCTest)
+    add_qgc_test(OperationProgressTest LABELS Unit)
     add_qgc_test(TagTrackerPulseDisplayTest LABELS Unit)
 endif()
 
@@ -208,7 +213,7 @@ set(CUSTOM_SOURCES ${CUSTOM_SOURCES} PARENT_SCOPE)
 CPMAddPackage(
     NAME              TunnelProtocol
     GITHUB_REPOSITORY DonLakeFlyer/TagTrackerTunnelProtocol
-    GIT_TAG           177bd4237186d3a13b9c23e4b803519d34968b73
+    GIT_TAG           81ed30ac81aa898aab1b6ea56bd6fb25463e3c86
     DOWNLOAD_ONLY     TRUE
 )
 

@@ -9,6 +9,7 @@
 #include "TagDatabase.h"
 #include "CSVLogManager.h"
 #include "CompanionLogDownloader.h"
+#include "OperationProgress.h"
 
 #include <QElapsedTimer>
 #include <QGeoCoordinate>
@@ -52,6 +53,7 @@ public:
     Q_PROPERTY(QmlObjectListModel*  detectorList            READ    detectorList                CONSTANT)
     Q_PROPERTY(TagDatabase*         tagDatabase             READ    tagDatabase                 CONSTANT)
     Q_PROPERTY(CompanionLogDownloader* companionLogDownloader READ companionLogDownloader       CONSTANT)
+    Q_PROPERTY(OperationProgress*   operationProgress       READ    operationProgress           CONSTANT)
     Q_PROPERTY(double               maxSNR                  MEMBER  _maxSNR                     NOTIFY maxSNRChanged)
     Q_PROPERTY(double               minSNR                  MEMBER  _minSNR                     NOTIFY minSNRChanged)
     Q_PROPERTY(bool                 activeRotation          MEMBER  _activeRotation             NOTIFY activeRotationChanged)
@@ -80,6 +82,7 @@ public:
 
     TagDatabase* tagDatabase();
     CompanionLogDownloader* companionLogDownloader() { return &_companionLogDownloader; }
+    OperationProgress*      operationProgress() { return &_operationProgress; }
 
     Q_INVOKABLE void autoDetection      ();
     Q_INVOKABLE void startRotation      (void);
@@ -132,6 +135,7 @@ private:
     void    _handleTunnelHeartbeat      (const mavlink_tunnel_t& tunnel);
     void    _handleBearingResult        (const mavlink_tunnel_t& tunnel);
     void    _handleCollectionStatus     (const mavlink_tunnel_t& tunnel);
+    void    _handleOperationProgress    (const mavlink_tunnel_t& tunnel);
     void    _updateSNRRange             (double snr);
     void    _say                        (QString text);
     bool    _useSNRForPulseStrength     (void) { return _customSettings->useSNRForPulseStrength()->rawValue().toBool(); }
@@ -171,6 +175,7 @@ private:
 
     CSVLogManager           _csvLogManager;
     CompanionLogDownloader  _companionLogDownloader;
+    OperationProgress       _operationProgress;
 
     double                  _maxSNR = qQNaN();
     double                  _minSNR = qQNaN();

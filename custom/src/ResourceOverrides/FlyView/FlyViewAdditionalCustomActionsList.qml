@@ -28,6 +28,8 @@ Item {
     property var    _activeVehicle:         QGroundControl.multiVehicleManager.activeVehicle
     property bool   _controllerAvailable:   _activeVehicle && !QGroundControl.corePlugin.controllerLostHeartbeat
     property var    _customSettings:        QGroundControl.settingsManager.customSettings
+    // The controller runs one long-running operation at a time and NACKs a second one.
+    property bool   _controllerBusy:        QGroundControl.corePlugin.operationProgress.running
 
     on_ControllerStatusChanged: _updateStartStop(_controllerStatus)
 
@@ -61,7 +63,7 @@ Item {
         {
             title:      _customController.startDetectionTitle,
             visible:    _customSettings.detectionFlightMode.rawValue === CustomSettings.SurveyDetection,
-            enabled:    _controllerAvailable && _startDetectionEnabled,
+            enabled:    _controllerAvailable && _startDetectionEnabled && !_controllerBusy,
             action:     _customController.actionStartDetection,
         },
         {
@@ -73,21 +75,21 @@ Item {
         {
             title:      _customController.rawCaptureTitle,
             visible:    _customSettings.detectionFlightMode.rawValue !== CustomSettings.Auto,
-            enabled:    _controllerAvailable && (QGroundControl.corePlugin.controllerStatus == CustomPlugin.ControllerStatusHasTags || QGroundControl.corePlugin.controllerStatus == CustomPlugin.ControllerStatusIdle),
+            enabled:    _controllerAvailable && !_controllerBusy && (QGroundControl.corePlugin.controllerStatus == CustomPlugin.ControllerStatusHasTags || QGroundControl.corePlugin.controllerStatus == CustomPlugin.ControllerStatusIdle),
             action:     _customController.actionRawCapture,
         },
 
         {
             title:      _customController.saveLogsTitle,
             visible:    true,
-            enabled:    _controllerAvailable,
+            enabled:    _controllerAvailable && !_controllerBusy,
             action:     _customController.actionSaveLogs,
         },
 
         {
             title:      _customController.clearLogsTitle,
             visible:    true,
-            enabled:    _controllerAvailable,
+            enabled:    _controllerAvailable && !_controllerBusy,
             action:     _customController.actionClearLogs,
         },
 
