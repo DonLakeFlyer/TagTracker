@@ -39,6 +39,7 @@
 #include <QThread>
 #include <QFinalState>
 #include <algorithm>
+#include <cstring>
 
 using namespace TunnelProtocol;
 
@@ -176,10 +177,24 @@ bool CustomPlugin::mavlinkMessage(Vehicle *vehicle, LinkInterface *link, const m
         case COMMAND_ID_COLLECTION_STATUS:
             _handleCollectionStatus(tunnel);
             return false;
+        case COMMAND_ID_OPERATION_PROGRESS:
+            _handleOperationProgress(tunnel);
+            return false;
         }
     }
 
     return true;
+}
+
+void CustomPlugin::_handleOperationProgress(const mavlink_tunnel_t& tunnel)
+{
+    if (tunnel.payload_length != sizeof(OperationProgress_t)) {
+        qCWarning(CustomPluginLog) << "OPERATION_PROGRESS payload size" << tunnel.payload_length << "expected" << sizeof(OperationProgress_t);
+        return;
+    }
+    OperationProgress_t frame;
+    memcpy(&frame, tunnel.payload, sizeof(frame));
+    _operationProgress.handleFrame(frame);
 }
 
 void CustomPlugin::_handleTunnelHeartbeat(const mavlink_tunnel_t& tunnel)
@@ -684,6 +699,7 @@ const QmlObjectListModel* CustomPlugin::customMapItems(void)
 void CustomPlugin::_controllerHeartbeatFailed()
 {
     _controllerLostHeartbeat = true;
+    _operationProgress.reset();
     emit controllerLostHeartbeatChanged();
     emit protocolCompatibilityChanged();
 }

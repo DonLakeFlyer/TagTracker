@@ -80,71 +80,147 @@ Item {
         onClicked:              _guidedController.confirmAction(_guidedController.actionEmergencyStop)
     }
 
-    Rectangle {
-        id:                 pulseOverlayBackground
-        anchors.top:        parent.top
-        anchors.right:      parent.right
-        anchors.topMargin:  ScreenTools.defaultFontPixelWidth
-        anchors.rightMargin: ScreenTools.defaultFontPixelWidth
-        width:              pulseOverlay.width + ScreenTools.defaultFontPixelWidth * 2
-        height:             pulseOverlay.height + ScreenTools.defaultFontPixelWidth * 2
-        color:              Qt.rgba(qgcPal.window.r, qgcPal.window.g, qgcPal.window.b, 0.75)
-        radius:             ScreenTools.defaultFontPixelWidth / 2
-        visible:            _customPlugin.detectorList.count > 0 && !_customPlugin.controllerLostHeartbeat
+    ColumnLayout {
+        anchors.top:            parent.top
+        anchors.right:          parent.right
+        anchors.bottom:         parent.bottom
+        anchors.margins:        ScreenTools.defaultFontPixelWidth
+        anchors.bottomMargin:   parentToolInsets.bottomEdgeRightInset + ScreenTools.defaultFontPixelWidth
+        spacing:                ScreenTools.defaultFontPixelHeight / 4
 
-        ColumnLayout {
-            id:                 pulseOverlay
-            anchors.centerIn:   parent
-            spacing:            2
+        // Controller long-running operation (raw capture, log save/delete, detection start/stop)
+        Rectangle {
+            id:                     operationCard
+            Layout.alignment:       Qt.AlignRight
+            Layout.preferredWidth:  ScreenTools.defaultFontPixelWidth * 26
+            Layout.preferredHeight: operationColumn.height + ScreenTools.defaultFontPixelWidth * 2
+            color:                  Qt.rgba(qgcPal.window.r, qgcPal.window.g, qgcPal.window.b, 0.75)
+            radius:                 ScreenTools.defaultFontPixelWidth / 2
+            visible:                _operation.active
 
-            Repeater {
-                model: _customPlugin.detectorList
+            property var _operation: _customPlugin.operationProgress
 
-                RowLayout {
-                    property real maxStrength:  _customSettings.maxPulseStrength.rawValue
+            ColumnLayout {
+                id:                 operationColumn
+                anchors.left:       parent.left
+                anchors.right:      parent.right
+                anchors.margins:    ScreenTools.defaultFontPixelWidth
+                anchors.verticalCenter: parent.verticalCenter
+                spacing:            ScreenTools.defaultFontPixelHeight / 4
+
+                QGCLabel {
+                    Layout.fillWidth:   true
+                    text:               operationCard._operation.title
+                    font.bold:          true
+                    elide:              Text.ElideRight
+                }
+
+                Rectangle {
+                    id:                     operationBar
+                    Layout.fillWidth:       true
+                    Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 0.75
+                    color:                  qgcPal.windowShade
+                    radius:                 height / 4
+                    clip:                   true
+
+                    property bool indeterminate: operationCard._operation.fraction < 0 && operationCard._operation.running
+
+                    readonly property int  _sweepMSecs:    900
+                    readonly property real _sweepDistance: width - operationFill.width
 
                     Rectangle {
-                        id:                     pulseRect
-                        Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 1.5
-                        Layout.preferredWidth:  ScreenTools.defaultFontPixelWidth * 20
-                        color:                  object.heartbeatLost ? "red" : (object.lastPulseNoPulse ? "gray" : "transparent")
+                        id:             operationFill
+                        anchors.top:    parent.top
+                        anchors.bottom: parent.bottom
+                        radius:         parent.radius
+                        color:          operationCard._operation.failed ? "red" : qgcPal.colorGreen
+                        width:          operationBar.indeterminate ? parent.width / 4 : parent.width * Math.max(0, Math.min(1, operationCard._operation.running ? operationCard._operation.fraction : 1))
+                        x:              0
 
-                        Rectangle {
-                            property real filteredSNR: Math.max(0, Math.min(object.lastPulseStrength, maxStrength))
-
-                            anchors.rightMargin:    maxStrength <= 0 ? parent.width : ((maxStrength - filteredSNR) / maxStrength) * parent.width
-                            anchors.fill:           parent
-                            color:                  object.lastPulseLowConfidence ? "orange" : "green"
-                            visible:                !object.heartbeatLost && !object.lastPulseNoPulse && !object.waitingForFirstPulse
-                        }
-
-                        QGCLabel {
-                            anchors.fill:           parent
-                            text:                   object.waitingForFirstPulse ? qsTr("Waiting...") : (object.lastPulseNoPulse ? qsTr("No Pulse ×%1").arg(object.noPulseCount) : Math.max(0, Math.min(object.lastPulseStrength, maxStrength)).toFixed(1))
-                            font.bold:              true
-                            color:                  (object.lastPulseNoPulse || object.heartbeatLost) ? "white" : "black"
-                            horizontalAlignment:    Text.AlignHCenter
-                            verticalAlignment:      Text.AlignVCenter
+                        SequentialAnimation on x {
+                            running:    operationBar.indeterminate && operationCard.visible
+                            loops:      Animation.Infinite
+                            onStopped:  operationFill.x = 0
+                            NumberAnimation { from: 0; to: operationBar._sweepDistance; duration: operationBar._sweepMSecs; easing.type: Easing.InOutQuad }
+                            NumberAnimation { from: operationBar._sweepDistance; to: 0; duration: operationBar._sweepMSecs; easing.type: Easing.InOutQuad }
                         }
                     }
 
                     QGCLabel {
-                        text:               object.rateLabel !== "" ? object.rateLabel : object.tagLabel[0]
-                        visible:            !object.lastPulseNoPulse && !object.waitingForFirstPulse
-                        color:              qgcPal.text
-                        verticalAlignment:  Text.AlignVCenter
+                        anchors.centerIn:   parent
+                        text:               operationCard._operation.failed ? qsTr("Failed")
+                                            : (!operationCard._operation.running ? qsTr("Done")
+                                            : (operationCard._operation.fraction < 0 ? "" : Math.round(operationCard._operation.fraction * 100) + "%"))
+                        font.pointSize:     ScreenTools.smallFontPointSize
+                        font.bold:          true
+                    }
+                }
+
+                QGCLabel {
+                    Layout.fillWidth:   true
+                    text:               operationCard._operation.message
+                    font.pointSize:     ScreenTools.smallFontPointSize
+                    elide:              Text.ElideMiddle
+                    visible:            text !== "" && text !== operationCard._operation.title
+                }
+            }
+        }
+
+        Rectangle {
+            id:                     pulseOverlayBackground
+            Layout.alignment:       Qt.AlignRight
+            Layout.preferredWidth:  pulseOverlay.width + ScreenTools.defaultFontPixelWidth * 2
+            Layout.preferredHeight: pulseOverlay.height + ScreenTools.defaultFontPixelWidth * 2
+            color:                  Qt.rgba(qgcPal.window.r, qgcPal.window.g, qgcPal.window.b, 0.75)
+            radius:                 ScreenTools.defaultFontPixelWidth / 2
+            visible:                _customPlugin.detectorList.count > 0 && !_customPlugin.controllerLostHeartbeat
+
+            ColumnLayout {
+                id:                 pulseOverlay
+                anchors.centerIn:   parent
+                spacing:            2
+
+                Repeater {
+                    model: _customPlugin.detectorList
+
+                    RowLayout {
+                        property real maxStrength:  _customSettings.maxPulseStrength.rawValue
+
+                        Rectangle {
+                            id:                     pulseRect
+                            Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 1.5
+                            Layout.preferredWidth:  ScreenTools.defaultFontPixelWidth * 20
+                            color:                  object.heartbeatLost ? "red" : (object.lastPulseNoPulse ? "gray" : "transparent")
+
+                            Rectangle {
+                                property real filteredSNR: Math.max(0, Math.min(object.lastPulseStrength, maxStrength))
+
+                                anchors.rightMargin:    maxStrength <= 0 ? parent.width : ((maxStrength - filteredSNR) / maxStrength) * parent.width
+                                anchors.fill:           parent
+                                color:                  object.lastPulseLowConfidence ? "orange" : "green"
+                                visible:                !object.heartbeatLost && !object.lastPulseNoPulse && !object.waitingForFirstPulse
+                            }
+
+                            QGCLabel {
+                                anchors.fill:           parent
+                                text:                   object.waitingForFirstPulse ? qsTr("Waiting...") : (object.lastPulseNoPulse ? qsTr("No Pulse ×%1").arg(object.noPulseCount) : Math.max(0, Math.min(object.lastPulseStrength, maxStrength)).toFixed(1))
+                                font.bold:              true
+                                color:                  (object.lastPulseNoPulse || object.heartbeatLost) ? "white" : "black"
+                                horizontalAlignment:    Text.AlignHCenter
+                                verticalAlignment:      Text.AlignVCenter
+                            }
+                        }
+
+                        QGCLabel {
+                            text:               object.rateLabel !== "" ? object.rateLabel : object.tagLabel[0]
+                            visible:            !object.lastPulseNoPulse && !object.waitingForFirstPulse
+                            color:              qgcPal.text
+                            verticalAlignment:  Text.AlignVCenter
+                        }
                     }
                 }
             }
         }
-    }
-
-    ColumnLayout {
-        anchors.margins:    ScreenTools.defaultFontPixelWidth
-        anchors.top:        pulseOverlayBackground.visible ? pulseOverlayBackground.bottom : parent.top
-        anchors.right:      parent.right
-        height:             parent.height - (pulseOverlayBackground.visible ? pulseOverlayBackground.height : 0) - (anchors.margins * 2) - parentToolInsets.bottomEdgeRightInset
-        spacing:            ScreenTools.defaultFontPixelHeight / 4
 
         Rectangle {
             id:                 snrGradient
@@ -183,6 +259,12 @@ Item {
                     }
                 }
             }
+        }
+
+        // Keeps the cards pinned to the top when the gradient is hidden
+        Item {
+            Layout.fillHeight:  true
+            visible:            !snrGradient.visible
         }
     }
 }
