@@ -88,17 +88,20 @@ Item {
         anchors.bottomMargin:   parentToolInsets.bottomEdgeRightInset + ScreenTools.defaultFontPixelWidth
         spacing:                ScreenTools.defaultFontPixelHeight / 4
 
-        // Controller long-running operation (raw capture, log save/delete, detection start/stop)
-        Rectangle {
+        // Progress card shared by controller operations and the WiFi log download.
+        component OperationCard: Rectangle {
             id:                     operationCard
             Layout.alignment:       Qt.AlignRight
             Layout.preferredWidth:  ScreenTools.defaultFontPixelWidth * 26
             Layout.preferredHeight: operationColumn.height + ScreenTools.defaultFontPixelWidth * 2
             color:                  Qt.rgba(qgcPal.window.r, qgcPal.window.g, qgcPal.window.b, 0.75)
             radius:                 ScreenTools.defaultFontPixelWidth / 2
-            visible:                _operation.active
 
-            property var _operation: _customPlugin.operationProgress
+            property string title
+            property string message
+            property real   fraction:   -1      // 0..1, or -1 when indeterminate
+            property bool   running:    true
+            property bool   failed:     false
 
             ColumnLayout {
                 id:                 operationColumn
@@ -110,7 +113,7 @@ Item {
 
                 QGCLabel {
                     Layout.fillWidth:   true
-                    text:               operationCard._operation.title
+                    text:               operationCard.title
                     font.bold:          true
                     elide:              Text.ElideRight
                 }
@@ -123,7 +126,7 @@ Item {
                     radius:                 height / 4
                     clip:                   true
 
-                    property bool indeterminate: operationCard._operation.fraction < 0 && operationCard._operation.running
+                    property bool indeterminate: operationCard.fraction < 0 && operationCard.running
 
                     readonly property int  _sweepMSecs:    900
                     readonly property real _sweepDistance: width - operationFill.width
@@ -133,8 +136,8 @@ Item {
                         anchors.top:    parent.top
                         anchors.bottom: parent.bottom
                         radius:         parent.radius
-                        color:          operationCard._operation.failed ? "red" : qgcPal.colorGreen
-                        width:          operationBar.indeterminate ? parent.width / 4 : parent.width * Math.max(0, Math.min(1, operationCard._operation.running ? operationCard._operation.fraction : 1))
+                        color:          operationCard.failed ? "red" : qgcPal.colorGreen
+                        width:          operationBar.indeterminate ? parent.width / 4 : parent.width * Math.max(0, Math.min(1, operationCard.running ? operationCard.fraction : 1))
                         x:              0
 
                         SequentialAnimation on x {
@@ -148,9 +151,9 @@ Item {
 
                     QGCLabel {
                         anchors.centerIn:   parent
-                        text:               operationCard._operation.failed ? qsTr("Failed")
-                                            : (!operationCard._operation.running ? qsTr("Done")
-                                            : (operationCard._operation.fraction < 0 ? "" : Math.round(operationCard._operation.fraction * 100) + "%"))
+                        text:               operationCard.failed ? qsTr("Failed")
+                                            : (!operationCard.running ? qsTr("Done")
+                                            : (operationCard.fraction < 0 ? "" : Math.round(operationCard.fraction * 100) + "%"))
                         font.pointSize:     ScreenTools.smallFontPointSize
                         font.bold:          true
                     }
@@ -158,12 +161,31 @@ Item {
 
                 QGCLabel {
                     Layout.fillWidth:   true
-                    text:               operationCard._operation.message
+                    text:               operationCard.message
                     font.pointSize:     ScreenTools.smallFontPointSize
                     elide:              Text.ElideMiddle
-                    visible:            text !== "" && text !== operationCard._operation.title
+                    visible:            text !== "" && text !== operationCard.title
                 }
             }
+        }
+
+        // Controller long-running operation (raw capture, log save/delete, detection start/stop)
+        OperationCard {
+            property var _operation: _customPlugin.operationProgress
+
+            visible:    _operation.active
+            title:      _operation.title
+            message:    _operation.message
+            fraction:   _operation.fraction
+            running:    _operation.running
+            failed:     _operation.failed
+        }
+
+        // scp gives no machine-readable progress, so the WiFi download is always indeterminate.
+        OperationCard {
+            visible:    _customPlugin.companionLogDownloader.downloading
+            title:      _guidedController._customController.downloadLogsTitle
+            message:    qsTr("Copying companion logs over WiFi...")
         }
 
         Rectangle {
