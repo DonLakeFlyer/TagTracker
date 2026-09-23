@@ -147,6 +147,8 @@ set(CUSTOM_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/DetectorList.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/OperationProgress.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/OperationProgress.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/PulseLogSidecar.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/PulseLogSidecar.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/PulseMapItem.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/PythonDetectorInfo.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/PythonDetectorInfo.h
@@ -196,6 +198,8 @@ if(QGC_BUILD_TESTING)
     list(APPEND CUSTOM_SOURCES
         ${CMAKE_CURRENT_SOURCE_DIR}/test/OperationProgressTest.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/test/OperationProgressTest.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/PulseLogFolderTest.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/PulseLogFolderTest.h
         ${CMAKE_CURRENT_SOURCE_DIR}/test/TagTrackerPulseDisplayTest.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/test/TagTrackerPulseDisplayTest.h
         ${CMAKE_CURRENT_SOURCE_DIR}/test/TunnelProtocolTextTest.cc
@@ -204,6 +208,7 @@ if(QGC_BUILD_TESTING)
 
     include(QGCTest)
     add_qgc_test(OperationProgressTest LABELS Unit)
+    add_qgc_test(PulseLogFolderTest LABELS Integration Vehicle)
     add_qgc_test(TagTrackerPulseDisplayTest LABELS Unit)
     add_qgc_test(TunnelProtocolTextTest LABELS Unit)
 endif()
