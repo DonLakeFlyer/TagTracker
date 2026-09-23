@@ -1,15 +1,19 @@
 #include "CSVLogManager.h"
-#include "CustomLoggingCategory.h"
-#include "TunnelProtocol.h"
-#include "CustomPlugin.h"
 
-#include "SettingsManager.h"
-#include "AppSettings.h"
-#include "QGCApplication.h"
-#include "MultiVehicleManager.h"
-#include "Vehicle.h"
-
+#include <QCoreApplication>
+#include <QDir>
+#include <QFileInfo>
 #include <QGeoCoordinate>
+
+#include "AppSettings.h"
+#include "CustomLoggingCategory.h"
+#include "CustomPlugin.h"
+#include "MultiVehicleManager.h"
+#include "PulseLogSidecar.h"
+#include "QGCApplication.h"
+#include "SettingsManager.h"
+#include "TunnelProtocol.h"
+#include "Vehicle.h"
 
 using namespace TunnelProtocol;
 
@@ -18,9 +22,59 @@ CSVLogManager::CSVLogManager(QObject* parent)
 {
 }
 
+void CSVLogManager::init()
+{
+    // Queued so QGroundControl has saved the telemetry file before the folder is closed.
+    // MAVLinkProtocol saves it from its own vehicleRemoved slot, which is connected after ours.
+    connect(MultiVehicleManager::instance(), &MultiVehicleManager::vehicleRemoved, this,
+            &CSVLogManager::_vehicleRemoved, Qt::QueuedConnection);
+}
+
 QString CSVLogManager::logSavePath(void)
 {
+    if (!_logSavePathOverride.isEmpty()) {
+        return _logSavePathOverride;
+    }
     return SettingsManager::instance()->appSettings()->logSavePath();
+}
+
+void CSVLogManager::_vehicleRemoved()
+{
+    // QGroundControl ends the telemetry recording only when the last vehicle goes
+    if (MultiVehicleManager::instance()->vehicles()->count() == 0) {
+        connectionEnded();
+    }
+}
+
+void CSVLogManager::connectionEnded()
+{
+    if (_connectionFolder.isEmpty()) {
+        return;
+    }
+    const QString folder = _connectionFolder;
+    _connectionFolder.clear();
+    qCDebug(CustomPluginLog) << "Log folder closed:" << folder;
+    emit connectionFolderClosed(folder);
+}
+
+bool CSVLogManager::_openConnectionFolder(const QDateTime& now)
+{
+    if (!_connectionFolder.isEmpty()) {
+        return true;
+    }
+
+    const QString folder = QString("%1/%2").arg(logSavePath(), now.toString("yyyy-MM-dd-hh-mm-ss-zzz"));
+    if (!QDir().mkpath(folder)) {
+        qgcApp()->showAppMessage(QString("Unable to create log folder %1").arg(folder));
+        return false;
+    }
+
+    _connectionFolder = folder;
+    _connectionFolderHasVehicle = MultiVehicleManager::instance()->activeVehicle() != nullptr;
+    // Rotation logs are numbered per folder, so numbering never collides with an earlier connection's
+    _csvRotationCount = 1;
+    qCDebug(CustomPluginLog) << "Log folder opened:" << folder << "vehicle:" << _connectionFolderHasVehicle;
+    return true;
 }
 
 void CSVLogManager::csvStartFullPulseLog(void)
@@ -30,13 +84,26 @@ void CSVLogManager::csvStartFullPulseLog(void)
         return;
     }
 
-    _csvFullPulseLogFile.setFileName(QString("%1/Pulse-%2.csv").arg(logSavePath(), QDateTime::currentDateTime().toString("yyyy-MM-dd-hh-mm-ss-zzz").toLocal8Bit().data()));
+    const QDateTime now = QDateTime::currentDateTime();
+    if (!_openConnectionFolder(now)) {
+        return;
+    }
+
+    _csvFullPulseLogFile.setFileName(
+        QString("%1/Pulse-%2.csv")
+            .arg(_connectionFolder, now.toString("yyyy-MM-dd-hh-mm-ss-zzz").toLocal8Bit().data()));
     qCDebug(CustomPluginLog) << "Full CSV Pulse logging to:" << _csvFullPulseLogFile.fileName();
     if (!_csvFullPulseLogFile.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Unbuffered)) {
         qgcApp()->showAppMessage(QString("Open of full pulse csv log file failed: %1").arg(_csvFullPulseLogFile.errorString()));
         return;
     }
     _csvWritePulseHeader(_csvFullPulseLogFile);
+
+    Vehicle* vehicle = MultiVehicleManager::instance()->activeVehicle();
+    _sidecarPath = PulseLogSidecar::pathForPulseLog(_csvFullPulseLogFile.fileName());
+    PulseLogSidecar::write(
+        _sidecarPath, PulseLogSidecar::create(QFileInfo(_csvFullPulseLogFile.fileName()).fileName(), now,
+                                              vehicle ? vehicle->id() : -1, QCoreApplication::applicationVersion()));
 }
 
 void CSVLogManager::csvStopFullPulseLog(void)
@@ -45,14 +112,15 @@ void CSVLogManager::csvStopFullPulseLog(void)
         // Closing mid-rotation must still leave a paired STOP_ROTATION row
         csvLogRotationStop();
         _csvFullPulseLogFile.close();
-    }
-}
 
-void CSVLogManager::csvClearPrevRotationLogs(void)
-{
-    QDir csvLogDir(logSavePath(), {"Rotation-*.csv"});
-    for (const QString & filename: csvLogDir.entryList()){
-        csvLogDir.remove(filename);
+        PulseLogSidecar::setValue(_sidecarPath, PulseLogSidecar::keyStopUtc,
+                                  PulseLogSidecar::utcString(QDateTime::currentDateTime()));
+        _sidecarPath.clear();
+
+        // No vehicle means no telemetry recording and no disconnect to close the folder, so each such run gets its own
+        if (!_connectionFolderHasVehicle) {
+            connectionEnded();
+        }
     }
 }
 
@@ -63,7 +131,11 @@ void CSVLogManager::csvStartRotationPulseLog()
         return;
     }
 
-    _csvRotationPulseLogFile.setFileName(QString("%1/Rotation-%2.csv").arg(logSavePath()).arg(_csvRotationCount++));
+    if (!_openConnectionFolder(QDateTime::currentDateTime())) {
+        return;
+    }
+
+    _csvRotationPulseLogFile.setFileName(QString("%1/Rotation-%2.csv").arg(_connectionFolder).arg(_csvRotationCount++));
     qCDebug(CustomPluginLog) << "Rotation CSV Pulse logging to:" << _csvRotationPulseLogFile.fileName();
     if (!_csvRotationPulseLogFile.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Unbuffered)) {
         qgcApp()->showAppMessage(QString("Open of rotation pulse csv log file failed: %1").arg(_csvRotationPulseLogFile.errorString()));

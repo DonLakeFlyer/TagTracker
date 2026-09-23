@@ -104,7 +104,7 @@ void CustomPlugin::init()
     // TagTracker logging is on by default; QGC only enables categories the user opted into.
     QGCLoggingCategoryManager::instance()->setCategoryEnabled(QString::fromLatin1(CustomPluginLog().categoryName()), true);
 
-    _csvLogManager.csvClearPrevRotationLogs();
+    _csvLogManager.init();
 }
 
 void CustomPlugin::linkConfigurationsLoaded(LinkManager* linkManager)
