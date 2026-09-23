@@ -161,6 +161,8 @@ set(CUSTOM_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/TagDatabase.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/TunnelProtocolText.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/TunnelProtocolText.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/TelemetryPairing.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/TelemetryPairing.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/UavrtDetectorInfo.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/UavrtDetectorInfo.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/CustomState.cc
@@ -204,6 +206,8 @@ if(QGC_BUILD_TESTING)
         ${CMAKE_CURRENT_SOURCE_DIR}/test/TagTrackerPulseDisplayTest.h
         ${CMAKE_CURRENT_SOURCE_DIR}/test/TunnelProtocolTextTest.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/test/TunnelProtocolTextTest.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/TelemetryPairingTest.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/TelemetryPairingTest.h
     )
 
     include(QGCTest)
@@ -211,6 +215,7 @@ if(QGC_BUILD_TESTING)
     add_qgc_test(PulseLogFolderTest LABELS Integration Vehicle)
     add_qgc_test(TagTrackerPulseDisplayTest LABELS Unit)
     add_qgc_test(TunnelProtocolTextTest LABELS Unit)
+    add_qgc_test(TelemetryPairingTest LABELS Unit)
 endif()
 
 set(CUSTOM_SOURCES ${CUSTOM_SOURCES} PARENT_SCOPE)
