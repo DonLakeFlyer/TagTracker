@@ -3,6 +3,7 @@
 #include <QtCore/QDateTime>
 #include <QtCore/QDir>
 #include <QtCore/QFile>
+#include <QtCore/QFileInfo>
 #include <QtCore/QJsonObject>
 #include <QtCore/QRegularExpression>
 #include <QtCore/QTemporaryDir>
@@ -281,6 +282,47 @@ void TelemetryPairingTest::_pairAllSkipsOpenFolderAndRepeatsSafely()
     QCOMPARE(summary.noTelemetry, 1);
     QCOMPARE(tlogsIn(first), QStringList({QStringLiteral("first.tlog")}));
     QCOMPARE(telemetryNames(first), QStringList({QStringLiteral("first.tlog")}));
+}
+
+void TelemetryPairingTest::_pairAllIgnoresCompanionLogFolders()
+{
+    QTemporaryDir telemetryDir;
+    QTemporaryDir logDir;
+    QVERIFY(telemetryDir.isValid() && logDir.isValid());
+    const quint64 t = baseUsecs();
+
+    QVERIFY(writeFile(telemetryDir.filePath(QStringLiteral("flight.tlog")), recording(t, t + 60 * UsecsPerMinute)));
+    const QString flight = makeFolder(logDir.path(), QStringLiteral("flight"), {t + 10 * UsecsPerMinute});
+
+    // Download Logs (WiFi) copies the companion computer's folders into the same log directory.
+    // This one is from the same flight, so its times fall inside the telemetry file's span.
+    const QString companion = QDir(logDir.path()).filePath(QStringLiteral("Logs-Detectors-2026-09-24_04-17-50"));
+    QVERIFY(QDir().mkpath(companion));
+    for (const QString& name : {QStringLiteral("MavlinkTagController.log"), QStringLiteral("detector_2.config"),
+                                QStringLiteral("detector_2.log"), QStringLiteral("spectro_segment.2.1.csv"),
+                                QStringLiteral("data_record.2.1.bin"), QStringLiteral("analysis.md")}) {
+        QVERIFY(writeFile(QDir(companion).filePath(name), name.toUtf8()));
+    }
+    const auto snapshot = [&companion]() {
+        QStringList entries;
+        for (const QFileInfo& info :
+             QDir(companion).entryInfoList(QDir::AllEntries | QDir::NoDotAndDotDot | QDir::Hidden, QDir::Name)) {
+            entries.append(QStringLiteral("%1 %2 %3")
+                               .arg(info.fileName())
+                               .arg(info.size())
+                               .arg(info.lastModified().toMSecsSinceEpoch()));
+        }
+        return entries;
+    };
+    const QStringList before = snapshot();
+
+    const TelemetryPairing::Summary summary = TelemetryPairing::pairAll(logDir.path(), telemetryDir.path());
+    QCOMPARE(summary.paired, 1);
+    QCOMPARE(summary.noTelemetry, 0);
+    QCOMPARE(summary.ambiguous, 0);
+    QCOMPARE(summary.errors, 0);
+    QCOMPARE(tlogsIn(flight), QStringList({QStringLiteral("flight.tlog")}));
+    QCOMPARE(snapshot(), before);
 }
 
 UT_REGISTER_TEST(TelemetryPairingTest, TestLabel::Unit)
