@@ -1,12 +1,15 @@
 #pragma once
 
+#include <chrono>
+#include <functional>
+
 #include <QtCore/QByteArray>
 #include <QtCore/QVector>
 
 #include "MonotonicClock.h"
 #include "NTRIPError.h"
 #include "NTRIPTransport.h"
-#include "RTCMFrame.h"
+#include "RTCMFramer.h"
 
 class MockNTRIPTransport : public NTRIPTransport
 {
@@ -31,7 +34,10 @@ public:
         _started = false;
         _stopped = true;
         stopCount++;
-        emit finished();
+        const auto callback = onStop;
+        if (callback) {
+            callback();
+        }
     }
 
     void sendNMEA(const QByteArray& nmea) override { sentNmea.append(nmea); }
@@ -42,12 +48,15 @@ public:
 
     void simulateConnect() { emit connected(); }
 
-    void simulateError(NTRIPError code, const QString& detail) { emit error(code, detail); }
+    void simulateError(NTRIPError code, const QString& detail, std::chrono::milliseconds retryAfter = {})
+    {
+        emit error(NTRIPFailure{code, detail, retryAfter});
+    }
 
     void simulateRtcmData(const QByteArray& data, int messageId = 0,
                           qint64 receivedAtMs = static_cast<qint64>(MonotonicClock::nowUs() / 1000))
     {
-        const bool valid = RTCM::isValidFrame(data);
+        const bool valid = RTCMFramer::isValidFrame(data);
         emit correctionFrameReceived(
             {.data = data,
              .messageId = messageId,
@@ -55,8 +64,6 @@ public:
              .valid = valid,
              .filtered = valid && !lastWhitelist.isEmpty() && !lastWhitelist.contains(messageId)});
     }
-
-    void simulateDisconnect() { emit finished(); }
 
     void simulatePlaintextWarning() { emit plaintextCredentialsWarning(); }
 
@@ -69,6 +76,7 @@ public:
     bool autoConnect = true;
     int startCount = 0;
     int stopCount = 0;
+    std::function<void()> onStop;
     QVector<QByteArray> sentNmea;
     QVector<int> lastWhitelist;
 

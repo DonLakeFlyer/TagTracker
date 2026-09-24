@@ -31,6 +31,7 @@ class MockLink : public LinkInterface
 {
     Q_OBJECT
     friend class MockLinkFTP;
+    friend class StandardModesTest;
 
 public:
     explicit MockLink(SharedLinkConfigurationPtr &config, QObject *parent = nullptr);
@@ -129,6 +130,9 @@ public:
     /// Unit test support: bumps the AVAILABLE_MODES_MONITOR sequence number, which unlocks the
     /// delayed flight mode and causes QGC to re-query standard modes.
     void bumpAvailableModesMonitorSequence() { ++_availableModesMonitorSeqNumber; }
+
+    /// Unit test support: sends every vehicle->QGC message twice, as when two links receive the same traffic.
+    void setDuplicateResponses(bool duplicate) { _duplicateResponses = duplicate; }
 
     enum RequestMessageFailureMode_t {
         FailRequestMessageNone,
@@ -430,6 +434,7 @@ private:
 
     double _vehicleAltitudeAMSL = _defaultVehicleHomeAltitude;
     std::atomic<bool> _commLost = false;
+    std::atomic<bool> _duplicateResponses = false;
     bool _mavlinkV2Upgraded = false;    ///< True once outgoing traffic has switched from v1 to v2
     bool _signingEnabled = false;
     bool _highLatencyTransmissionEnabled = true;
@@ -447,9 +452,9 @@ private:
     QMutex _paramRequestListMutex;
 
     // Mavlink standard modes worker information
-    int _availableModesWorkerNextModeIndex = 0;         ///< 0: not active, +index: next mode the send in sequence, -index: send a single mode (indices are 1-based)
+    int _availableModesWorkerNextModeIndex = 0;  ///< 0: inactive; otherwise the next one-based streaming index
     /// Protects _availableModesWorkerNextModeIndex from check-then-set and read-modify-write races:
-    ///   - Main thread: _handleRequestMessageAvailableModes() checking/starting/stopping worker
+    ///   - Main thread: _handleRequestMessageAvailableModes() checking/starting a stream
     ///   - Worker thread: _availableModesWorker() incrementing index every 2ms (500Hz)
     QMutex _availableModesWorkerMutex;
     /// Sequence number sent in AVAILABLE_MODES_MONITOR. Written from the test (main) thread via

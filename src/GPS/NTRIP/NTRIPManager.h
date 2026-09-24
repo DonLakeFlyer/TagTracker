@@ -9,17 +9,16 @@
 #include <QtQmlIntegration/QtQmlIntegration>
 
 #include "GPSCorrectionSourceRegistration.h"
+#include "NTRIPConfiguration.h"
 #include "NTRIPConnectionStats.h"
 #include "NTRIPGgaProvider.h"
 #include "NTRIPSourceTableController.h"
 #include "NTRIPTransport.h"
-#include "NTRIPTransportConfig.h"
-#include "RTCMFrameDecoder.h"
+#include "RTCMDecodedFrame.h"
 
 Q_DECLARE_LOGGING_CATEGORY(NTRIPManagerLog)
 
 class NTRIPSettings;
-class RTCMMavlink;
 class GPSCorrectionManager;
 
 /// Manages the NTRIP caster connection lifecycle as an explicit event-driven
@@ -35,7 +34,6 @@ class NTRIPManager : public QObject
     QML_UNCREATABLE("")
     Q_MOC_INCLUDE("NTRIPConnectionStats.h")
     Q_MOC_INCLUDE("NTRIPSourceTableController.h")
-    Q_MOC_INCLUDE("RTCMMavlink.h")
     Q_PROPERTY(ConnectionStatus connectionStatus READ connectionStatus NOTIFY connectionStatusChanged)
     Q_PROPERTY(QString statusMessage READ statusMessage NOTIFY statusMessageChanged)
     Q_PROPERTY(QString securityWarning READ securityWarning NOTIFY securityWarningChanged)
@@ -43,8 +41,6 @@ class NTRIPManager : public QObject
     Q_PROPERTY(QString ggaSource READ ggaSource NOTIFY ggaSourceChanged)
     Q_PROPERTY(NTRIPSourceTableController* sourceTableController READ sourceTableController CONSTANT)
     Q_PROPERTY(NTRIPConnectionStats* connectionStats READ connectionStats CONSTANT)
-    // Injection precedes init and QML bindings.
-    Q_PROPERTY(RTCMMavlink* rtcmMavlink READ rtcmMavlink CONSTANT)
 
 public:
     /// Public connection status. Numeric values are stable — QML binds against them.
@@ -74,7 +70,7 @@ public:
     {
         StartRequested,       ///< startNTRIP() called or settings enable went true.
         StopRequested,        ///< stopNTRIP() called or settings enable went false.
-        ConfigInvalid,        ///< NTRIPTransportConfig::isValid() returned false.
+        ConfigInvalid,        ///< Connection configuration failed validation.
         TransportConnected,   ///< NTRIPTransport emitted connected().
         RTCMBeforeConnected,  ///< RTCM data arrived before the connected() signal was processed.
         TransportError,       ///< NTRIPTransport emitted a retryable error.
@@ -108,9 +104,6 @@ public:
 
     NTRIPConnectionStats* connectionStats() { return &_stats; }
 
-    /// Compatibility view of the injected manager's shared MAVLink output.
-    RTCMMavlink* rtcmMavlink() const;
-
     Q_INVOKABLE void fetchMountpoints();
 
     Q_INVOKABLE void selectMountpoint(const QString& mountpoint)
@@ -125,6 +118,8 @@ public:
     /// Inject before init(); the caller retains ownership.
     void setCorrectionManager(GPSCorrectionManager* manager);
 
+    void setGgaPositionProvider(NTRIPGgaProvider::PositionSource source, NTRIPGgaProvider::PositionProvider provider);
+
     void startNTRIP();
     void stopNTRIP();
 
@@ -138,15 +133,15 @@ signals:
 private:
     /// Dispatch an event. Returns true if a transition was found and taken.
     /// Events with no matching row for the current state are ignored (debug log).
-    bool _dispatch(Event ev, const QString& detail = {});
+    bool _dispatch(Event ev, const QString& detail = {}, std::chrono::milliseconds retryAfter = {});
 
     /// Commit a state change. Updates _connectionStatus/_statusMessage and
     /// emits change signals *before* invoking entry actions so recursive
     /// dispatches from entry actions observe the new state, not the old.
-    void _enterState(ConnectionStatus to, const QString& detail);
+    void _enterState(ConnectionStatus to, const QString& detail, std::chrono::milliseconds retryAfter = {});
 
     /// Per-state side effects (start transport, tear down, schedule reconnect, etc.).
-    void _onEnterState(ConnectionStatus from, ConnectionStatus to);
+    void _onEnterState(ConnectionStatus from, ConnectionStatus to, std::chrono::milliseconds retryAfter);
 
     /// Default user-visible message for a state. Callers may override via detail.
     static QString _defaultMessageFor(ConnectionStatus state);
@@ -161,24 +156,25 @@ private:
     static constexpr int kMaxReconnectMs = 30000;
     static constexpr int kMaxReconnectAttempts = 100;
 
-    void _scheduleReconnect();
+    void _scheduleReconnect(std::chrono::milliseconds retryAfter = {});
 
     void _cancelReconnect() { _reconnectTimer.stop(); }
 
     void _resetReconnectAttempts() { _reconnectAttempts = 0; }
 
-    int _reconnectBackoffMs() const;
+    int _reconnectBackoffMs(std::chrono::milliseconds retryAfter = {}) const;
 
     bool _reconnectExhausted() const { return _reconnectAttempts >= kMaxReconnectAttempts; }
 
     /// Reconfigure the manager-owned NTRIP sink without restarting transport.
-    void _applyUdpForwarderConfig(const NTRIPTransportConfig& config);
+    void _applyUdpForwarderConfig(const NTRIPUdpForwardConfig& config);
 
-    void _onTransportError(NTRIPError code, const QString& detail);
+    void _onTransportError(const NTRIPFailure& failure);
     void _onPlaintextCredentialsWarning();
     void _setSecurityWarning(const QString& warning);
-    void _rtcmDataReceived(const RTCMFrameDecoder::Result& frame);
+    void _rtcmDataReceived(const RTCMDecodedFrame& frame);
     void _onSettingChanged();
+    NTRIPConfiguration _configFromSettings() const;
     bool _isEnabled() const;
 
     NTRIPGgaProvider _ggaProvider{this};
@@ -195,7 +191,7 @@ private:
     QPointer<GPSCorrectionManager> _correctionManager;
     GPSCorrectionSourceRegistration _correctionRegistration;
 
-    NTRIPTransportConfig _runningConfig;
+    NTRIPConfiguration _runningConfig;
     NTRIPSettings* _settings = nullptr;
 
     NTRIPSourceTableController _sourceTableController{this};
@@ -205,4 +201,5 @@ private:
     QChronoTimer _reconnectTimer{this};
     int _reconnectAttempts = 0;
     bool _initialized = false;
+    quint64 _stateRevision = 0;
 };

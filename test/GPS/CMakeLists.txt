@@ -10,11 +10,12 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_
 add_subdirectory(NMEA)
 
 add_subdirectory(NTRIP)
-add_subdirectory(PositionManager)
+add_subdirectory(Positioning)
 add_subdirectory(RTCM)
 add_subdirectory(Corrections)
+add_subdirectory(Driver)
+add_subdirectory(Receiver)
 add_subdirectory(RTK)
 add_subdirectory(Transport)
 
 add_subdirectory(Core)
-add_subdirectory(Standalone)
