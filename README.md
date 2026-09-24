@@ -27,6 +27,7 @@ TagTracker provides the following operations via the fly-view actions toolstrip:
 | **Save Logs (SD Card)** | Save companion computer logs to the vehicle SD card. |
 | **Clear Logs** | Clear companion computer logs. |
 | **Download Logs (WiFi)** | Copy companion computer logs over WiFi to the QGC log save path. macOS only; requires one-time SSH key setup (see [Downloading Companion Logs](#downloading-companion-logs-macos)). |
+| **Pair Telemetry Logs** | Copy each flight's telemetry log into its log folder where that has not happened yet (see [CSV Logging](#csv-logging)). |
 | **Clear Map** | Remove all pulse map items and reset the SNR range. |
 | **Capture Screen** | Screenshot the GCS display. |
 
@@ -92,14 +93,18 @@ Tags can be added, edited, and deleted through the GCS UI. At least one tag must
 
 ## CSV Logging
 
-Two types of log files are recorded:
+Logs are grouped by vehicle connection. The first pulse or rotation log after a vehicle connects creates a folder in the QGC log save path named for that log's timestamp (`Logs/{timestamp}/`, local time), and every log from that connection goes into it until the vehicle disconnects.
 
-- **Full pulse log** (`Pulse-{timestamp}.csv`): Every confirmed pulse for the entire session, including rotation start/stop markers with GPS coordinates.
-- **Rotation pulse log** (`Rotation-{N}.csv`): Per-rotation log files for bearing calculation input.
+- **Full pulse log** (`Pulse-{timestamp}.csv`): Every confirmed pulse from one Start Detection to the matching Stop Detection, including rotation start/stop markers with GPS coordinates.
+- **Pulse log sidecar** (`Pulse-{timestamp}.json`): Written beside each full pulse log. Holds `start_utc` and `stop_utc` for the detection run, `vehicle_id` (MAVLink system ID), `app_version`, and `telemetry_file`, which stays null until the connection's telemetry log has been copied into the folder.
+- **Rotation pulse log** (`Rotation-{N}.csv`): Per-rotation log files for bearing calculation input. Numbering starts at 1 in each folder.
+- **Telemetry log** (`{date} {time}.tlog`): When the vehicle disconnects, or TagTracker is quit while it is still connected, the telemetry log QGC saved for that connection is copied into the folder and named in each sidecar. The copy is chosen by the timestamps recorded inside the file, not by its name, which is the time the recording stopped. The original stays in the telemetry save path. QGC saves a telemetry log only if the vehicle armed during the connection (unless "Save logs even if vehicle was not armed" is set), so a bench test leaves the folder without one.
+
+The same pairing runs at every startup, and on demand from **Pair Telemetry Logs**, so a folder left without its telemetry log (for example after a crash, when QGC recovers the recording at the next start) is completed later. Folders that do not hold pulse log sidecars, such as downloaded companion logs, are left alone.
 
 ## Downloading Companion Logs (macOS)
 
-The **Download Logs (WiFi)** action copies the companion computer's log folders (`~/Logs/Logs-<Type>-<timestamp>/`) over WiFi into the QGC log save path (Application Settings → Save Path). It runs `scp` under the hood and is available on macOS only.
+The **Download Logs (WiFi)** action copies the companion computer's log folders (`~/Logs/Logs-<Type>-<timestamp>/`) over WiFi into the QGC log save path (Application Settings → Save Path). It runs `scp` under the hood and is available on macOS only. The downloaded folders sit beside TagTracker's own per-connection log folders; the companion computer names them in UTC, while TagTracker's folders use local time.
 
 Requirements:
 
