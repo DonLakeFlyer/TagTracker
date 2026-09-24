@@ -1,13 +1,14 @@
+#include <span>
+
 #include <QtCore/QByteArray>
 #include <QtCore/QEvent>
 #include <QtCore/QList>
 #include <QtTest/QTest>
 
-#include "RTCMFrame.h"
+#include "RTCMDecodedFrame.h"
 #include "RTCMFrameDecoder.h"
 #include "RTCMFramer.h"
-#include "RTCMMavlinkPacket.h"
-#include "RTCMParser.h"
+#include "UnitTest.h"
 
 namespace {
 // Fixed CRCs keep expectations independent of the framing implementation.
@@ -26,7 +27,7 @@ QByteArray maximumFrame()
 }
 }  // namespace
 
-class RTCMConformanceTest : public QObject
+class RTCMConformanceTest : public UnitTest
 {
     Q_OBJECT
 
@@ -40,11 +41,9 @@ private slots:
     void _fragmentReceiptAndFiltering();
     void _repeatedMalformedPreambles();
     void _queuedResultDelivery();
-    void _packetization_data();
-    void _packetization();
 
 signals:
-    void decoded(RTCMFrameDecoder::Result result);
+    void decoded(RTCMDecodedFrame result);
 };
 
 void RTCMConformanceTest::_crc24q_data()
@@ -189,23 +188,18 @@ void RTCMConformanceTest::_sharedCorpus()
 
     RTCMFrameDecoder decoder;
     RTCMFramer framer;
-    RTCMParser legacy;
     QList<QByteArray> decodedFrames;
     QList<QByteArray> framedFrames;
-    QList<QByteArray> legacyFrames;
     QList<int> decodedIds;
     QList<int> framedIds;
-    QList<int> legacyIds;
     QList<QByteArray> decodedRejected;
     QList<QByteArray> framedRejected;
-    QList<QByteArray> legacyRejected;
     QList<qint64> receiptTimes;
     QList<qint64> rejectionTimes;
     for (qsizetype chunkIndex = 0; chunkIndex < chunks.size(); ++chunkIndex) {
         if (resetBeforeChunk.contains(static_cast<int>(chunkIndex))) {
             decoder.reset();
             framer.reset();
-            legacy.reset();
         }
         for (const char rawByte : chunks[chunkIndex]) {
             const auto byte = static_cast<uint8_t>(rawByte);
@@ -235,25 +229,13 @@ void RTCMConformanceTest::_sharedCorpus()
                 }
             }
             QVERIFY(framer.bufferedSize() <= RTCMFramer::MAX_FRAME_SIZE);
-            for (bool complete = legacy.addByte(byte); complete; complete = legacy.nextFrame()) {
-                const auto candidate = legacy.currentFrame();
-                if (legacy.validateCrc()) {
-                    legacyFrames.append(candidate);
-                    legacyIds.append(legacy.messageId());
-                } else {
-                    legacyRejected.append(candidate);
-                }
-            }
         }
     }
     QCOMPARE(decodedFrames, expectedFrames);
     QCOMPARE(framedFrames, expectedFrames);
-    QCOMPARE(legacyFrames, expectedFrames);
     QCOMPARE(decodedIds, framedIds);
-    QCOMPARE(decodedIds, legacyIds);
     QCOMPARE(decodedRejected, expectedRejected);
     QCOMPARE(framedRejected, expectedRejected);
-    QCOMPARE(legacyRejected, expectedRejected);
     QCOMPARE(receiptTimes, expectedReceiptTimes);
     QCOMPARE(rejectionTimes, expectedRejectionTimes);
 }
@@ -274,13 +256,15 @@ void RTCMConformanceTest::_strictValidation()
     candidate.append(static_cast<char>(crc >> 16));
     candidate.append(static_cast<char>(crc >> 8));
     candidate.append(static_cast<char>(crc));
-    QVERIFY(!RTCM::isValidFrame(candidate));
+    QVERIFY(!RTCMFramer::isValidFrame(candidate));
+    QVERIFY(!RTCMFramer::isValidFrame(std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(candidate.constData()),
+                                                               static_cast<size_t>(candidate.size()))));
 }
 
 void RTCMConformanceTest::_fragmentReceiptAndFiltering()
 {
     RTCMFrameDecoder decoder;
-    decoder.setWhitelist({1077});
+    decoder.setWhitelist({1077, 1077});
     QVERIFY(!decoder.addByte(RTCMFramer::PREAMBLE, 500));
     const auto rejected = decoder.addByte(0x04, 500);
     QVERIFY(rejected && !rejected->valid && !rejected->filtered);
@@ -288,7 +272,7 @@ void RTCMConformanceTest::_fragmentReceiptAndFiltering()
     for (const char byte : SHORT_FRAME.first(4)) {
         QVERIFY(!decoder.addByte(static_cast<uint8_t>(byte), 1000));
     }
-    std::optional<RTCMFrameDecoder::Result> decoded;
+    std::optional<RTCMDecodedFrame> decoded;
     for (const char byte : SHORT_FRAME.sliced(4)) {
         decoded = decoder.addByte(static_cast<uint8_t>(byte), 8000);
     }
@@ -332,7 +316,7 @@ void RTCMConformanceTest::_repeatedMalformedPreambles()
         QVERIFY(!decoder.nextFrame());
     }
     decoder.reset();
-    std::optional<RTCMFrameDecoder::Result> result;
+    std::optional<RTCMDecodedFrame> result;
     for (const char byte : SHORT_FRAME) {
         result = decoder.addByte(static_cast<uint8_t>(byte), 9000);
     }
@@ -343,10 +327,10 @@ void RTCMConformanceTest::_repeatedMalformedPreambles()
 void RTCMConformanceTest::_queuedResultDelivery()
 {
     QObject receiver;
-    std::optional<RTCMFrameDecoder::Result> received;
+    std::optional<RTCMDecodedFrame> received;
     connect(
         this, &RTCMConformanceTest::decoded, &receiver,
-        [&received](const RTCMFrameDecoder::Result& result) { received = result; }, Qt::QueuedConnection);
+        [&received](const RTCMDecodedFrame& result) { received = result; }, Qt::QueuedConnection);
     emit decoded({SHORT_FRAME, 1005, 1234, true, true});
     QVERIFY(!received);
     QCoreApplication::sendPostedEvents(&receiver, QEvent::MetaCall);
@@ -358,55 +342,6 @@ void RTCMConformanceTest::_queuedResultDelivery()
     QVERIFY(received->filtered);
 }
 
-void RTCMConformanceTest::_packetization_data()
-{
-    QTest::addColumn<int>("size");
-    QTest::addColumn<int>("sequence");
-    QTest::addColumn<int>("packetCount");
-    QTest::addColumn<bool>("fragmented");
-    QTest::addColumn<int>("nextSequence");
-
-    QTest::newRow("empty") << 0 << 31 << 0 << false << 31;
-    QTest::newRow("single-byte") << 1 << 31 << 1 << false << 32;
-    QTest::newRow("exact-single-fragment") << 180 << 31 << 1 << false << 32;
-    QTest::newRow("split-tail") << 181 << 31 << 2 << true << 32;
-    QTest::newRow("two-full-and-terminator") << 360 << 31 << 3 << true << 32;
-    QTest::newRow("three-full-and-terminator") << 540 << 31 << 4 << true << 32;
-    QTest::newRow("four-with-tail") << 719 << 31 << 4 << true << 32;
-    QTest::newRow("four-full-no-terminator") << 720 << 31 << 4 << true << 32;
-    QTest::newRow("oversized-unfragmented-stream") << 721 << 31 << 5 << false << 36;
-    QTest::newRow("maximum-rtcm-frame") << 1029 << 31 << 6 << false << 37;
-    QTest::newRow("sequence-counter-wrap") << 181 << 255 << 2 << true << 0;
-    QTest::newRow("oversized-counter-wrap") << 721 << 255 << 5 << false << 4;
-}
-
-void RTCMConformanceTest::_packetization()
-{
-    QFETCH(int, size);
-    QFETCH(int, sequence);
-    QFETCH(int, packetCount);
-    QFETCH(bool, fragmented);
-    QFETCH(int, nextSequence);
-    QByteArray bytes(size, Qt::Uninitialized);
-    for (int index = 0; index < size; ++index) {
-        bytes[index] = static_cast<char>(index & 0xff);
-    }
-    const auto packed = RTCMMavlinkPacket::pack(bytes, static_cast<uint8_t>(sequence));
-    QCOMPARE(packed.packets.size(), packetCount);
-    QCOMPARE(packed.nextSequenceId, nextSequence);
-    QByteArray assembled;
-    for (qsizetype index = 0; index < packed.packets.size(); ++index) {
-        const auto& packet = packed.packets[index];
-        QCOMPARE(bool(packet.flags & 1), fragmented);
-        QCOMPARE((packet.flags >> 1) & 3, fragmented ? index : 0);
-        QCOMPARE(packet.flags >> 3, (sequence + (fragmented ? 0 : index)) & 31);
-        QVERIFY(packet.data.size() <= RTCMMavlinkPacket::kFragmentLen);
-        QCOMPARE(packet.data.size(), qMin(qsizetype(size) - assembled.size(), RTCMMavlinkPacket::kFragmentLen));
-        assembled.append(packet.data);
-    }
-    QCOMPARE(assembled, bytes);
-}
-
-QTEST_GUILESS_MAIN(RTCMConformanceTest)
+UT_REGISTER_TEST(RTCMConformanceTest, TestLabel::Unit)
 
 #include "RTCMConformanceTest.moc"

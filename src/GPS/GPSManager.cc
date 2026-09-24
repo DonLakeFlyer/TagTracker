@@ -1,15 +1,23 @@
 #include "GPSManager.h"
 
 #include "AppMessages.h"
+#include "Fact.h"
+#include "FactGroup.h"
 #include "GPSCorrectionManager.h"
 #include "GPSMavlinkOutput.h"
+#include "GPSObservation.h"
+#include "GPSRTKFactGroup.h"
 #include "GPSRtk.h"
 #include "LinkManager.h"
+#include "MultiVehicleManager.h"
 #include "NMEASourceManager.h"
+#include "NTRIPGgaProvider.h"
 #include "NTRIPManager.h"
 #include "PositionManager.h"
 #include "QGCLoggingCategory.h"
 #include "SettingsManager.h"
+#include "Vehicle.h"
+#include "VehicleLinkManager.h"
 #ifndef QGC_NO_SERIAL_LINK
 #include "RTKAutoConnect.h"
 #include "SerialPortManager.h"
@@ -20,6 +28,38 @@
 QGC_LOGGING_CATEGORY(GPSManagerLog, "GPS.GPSManager")
 
 Q_APPLICATION_STATIC(GPSManager, _gpsManager);
+
+namespace {
+
+Vehicle* activeVehicleForGga()
+{
+    auto* manager = MultiVehicleManager::instance();
+    Vehicle* vehicle = manager ? manager->activeVehicle() : nullptr;
+    if (!vehicle || vehicle->isOfflineEditingVehicle() || !vehicle->vehicleLinkManager() ||
+        vehicle->vehicleLinkManager()->communicationLost()) {
+        return nullptr;
+    }
+    return vehicle;
+}
+
+PositionResult ggaPosition(const QGeoCoordinate& coordinate, const QString& label, GPSAltitudeDatum datum)
+{
+    if (!coordinate.isValid() || !qIsFinite(coordinate.altitude()) ||
+        (coordinate.latitude() == 0 && coordinate.longitude() == 0)) {
+        return {};
+    }
+    return {coordinate, label, datum};
+}
+
+PositionResult ggaPosition(const std::optional<GPSObservation>& observation, const QString& label)
+{
+    if (!observation || observation->altitudeDatum != GPSAltitudeDatum::MeanSeaLevel) {
+        return {};
+    }
+    return ggaPosition(observation->position.coordinate(), label, observation->altitudeDatum);
+}
+
+}  // namespace
 
 GPSManager::GPSManager(QObject* parent)
     : QObject(parent)
@@ -45,11 +85,57 @@ GPSManager* GPSManager::instance()
     return _gpsManager();
 }
 
+void GPSManager::_configureGgaProviders()
+{
+    using Source = NTRIPGgaProvider::PositionSource;
+    _ntripManager->setGgaPositionProvider(Source::VehicleGPS, []() -> PositionResult {
+        Vehicle* vehicle = activeVehicleForGga();
+        if (!vehicle) {
+            return {};
+        }
+        FactGroup* facts = vehicle->gpsFactGroup();
+        Fact* latitude = facts ? facts->getFact(QStringLiteral("lat")) : nullptr;
+        Fact* longitude = facts ? facts->getFact(QStringLiteral("lon")) : nullptr;
+        if (!latitude || !longitude) {
+            return {};
+        }
+        return ggaPosition(QGeoCoordinate(latitude->rawValue().toDouble(), longitude->rawValue().toDouble(),
+                                          vehicle->coordinate().altitude()),
+                           QStringLiteral("Vehicle GPS"), GPSAltitudeDatum::MeanSeaLevel);
+    });
+    _ntripManager->setGgaPositionProvider(Source::VehicleEKF, []() -> PositionResult {
+        Vehicle* vehicle = activeVehicleForGga();
+        return vehicle
+                   ? ggaPosition(vehicle->coordinate(), QStringLiteral("Vehicle EKF"), GPSAltitudeDatum::MeanSeaLevel)
+                   : PositionResult{};
+    });
+    _ntripManager->setGgaPositionProvider(Source::RTKBase, [rtk = QPointer<GPSRtk>(_gpsRtk)]() -> PositionResult {
+        FactGroup* facts = rtk ? rtk->gpsRtkFactGroup() : nullptr;
+        Fact* valid = facts ? facts->getFact(QStringLiteral("valid")) : nullptr;
+        Fact* latitude = facts ? facts->getFact(QStringLiteral("currentLatitude")) : nullptr;
+        Fact* longitude = facts ? facts->getFact(QStringLiteral("currentLongitude")) : nullptr;
+        Fact* altitude = facts ? facts->getFact(QStringLiteral("currentAltitude")) : nullptr;
+        if (!valid || !valid->rawValue().toBool() || !latitude || !longitude || !altitude) {
+            return {};
+        }
+        return ggaPosition(QGeoCoordinate(latitude->rawValue().toDouble(), longitude->rawValue().toDouble(),
+                                          altitude->rawValue().toDouble()),
+                           QStringLiteral("RTK Base"), GPSAltitudeDatum::Ellipsoid);
+    });
+    _ntripManager->setGgaPositionProvider(Source::GCSPosition, []() -> PositionResult {
+        auto* manager = QGCPositionManager::instance();
+        return manager ? ggaPosition(manager->acceptedObservation(GPSObservation::PositionUse::Gga),
+                                     QStringLiteral("GCS Position"))
+                       : PositionResult{};
+    });
+}
+
 void GPSManager::init()
 {
     if (_connectionTimer || _shutdown) {
         return;
     }
+    _configureGgaProviders();
     _corrections->init(SettingsManager::instance()->gpsCorrectionSettings());
     auto* settings = SettingsManager::instance()->autoConnectSettings();
     _nmeaSources = new NMEASourceManager(settings, QGCPositionManager::instance(), this);
@@ -69,12 +155,18 @@ void GPSManager::init()
 
 void GPSManager::_updateConnections()
 {
-    if (LinkManager::instance()->connectionsSuspended()) {
+    if (_shutdown || !_nmeaSources || LinkManager::instance()->connectionsSuspended()) {
         return;
     }
+    const QPointer<GPSManager> guard(this);
     _nmeaSources->update();
+    if (!guard || _shutdown) {
+        return;
+    }
 #ifndef QGC_NO_SERIAL_LINK
-    _rtkAutoConnect->update();
+    if (_rtkAutoConnect) {
+        _rtkAutoConnect->update();
+    }
 #endif
 }
 
@@ -84,6 +176,7 @@ void GPSManager::shutdown()
         return;
     }
     _shutdown = true;
+    qCDebug(GPSManagerLog) << "Shutting down GPS sources and correction outputs";
     if (_connectionTimer) {
         _connectionTimer->stop();
     }
