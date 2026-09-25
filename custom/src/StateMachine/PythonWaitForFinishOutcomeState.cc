@@ -1,30 +1,22 @@
 #include "PythonWaitForFinishOutcomeState.h"
 #include "CustomPlugin.h"
 #include "CustomLoggingCategory.h"
+#include "OperationProgress.h"
 #include "TunnelProtocol.h"
 
 using namespace TunnelProtocol;
 
 PythonWaitForFinishOutcomeState::PythonWaitForFinishOutcomeState(
-    QState* parentState, uint32_t collectionId, bool allowRevisit, int timeoutMsecs)
+    QState* parentState, uint32_t collectionId, bool allowRevisit, int graceMsecs)
     : CustomState   ("PythonWaitForFinishOutcomeState", parentState)
     , _customPlugin (qobject_cast<CustomPlugin*>(CustomPlugin::instance()))
     , _collectionId (collectionId)
     , _allowRevisit (allowRevisit)
 {
-    _timeoutTimer.setSingleShot(true);
-    _timeoutTimer.setInterval(timeoutMsecs);
-    connect(&_timeoutTimer, &QTimer::timeout, this, [this] () {
-        _disconnectAll();
-        if (_retryCount < kMaxRetries) {
-            ++_retryCount;
-            qCWarning(CustomStateMachineLog) << "Python: no finish outcome for collection" << _collectionId
-                                             << "- re-sending FINISH_COLLECTION, retry" << _retryCount;
-            emit outcomeTimedOut();
-            return;
-        }
-        setError(QStringLiteral("No bearing result or revisit request from controller for collection %1 after %2 retries")
-                     .arg(_collectionId).arg(_retryCount));
+    _graceTimer.setSingleShot(true);
+    _graceTimer.setInterval(graceMsecs);
+    connect(&_graceTimer, &QTimer::timeout, this, [this] () {
+        _outcomeMissing(QStringLiteral("rotation no longer running"));
     });
 
     // Leaf state: the parent branches on revisitRequested/bearingReceived. No
@@ -36,22 +28,74 @@ PythonWaitForFinishOutcomeState::PythonWaitForFinishOutcomeState(
 
 void PythonWaitForFinishOutcomeState::_startListening()
 {
-    qCDebug(CustomStateMachineLog) << "Python: waiting for finish outcome of collection" << _collectionId;
+    qCDebug(CustomPluginLog) << "Waiting for finish outcome collection_id:" << _collectionId;
     connect(_customPlugin, &CustomPlugin::collectionStatusReceived,
             this, &PythonWaitForFinishOutcomeState::_collectionStatusReceived);
     connect(_customPlugin, &CustomPlugin::bearingResultReceived,
             this, &PythonWaitForFinishOutcomeState::_bearingResultReceived);
+    OperationProgress* progress = _customPlugin->operationProgress();
+    connect(progress, &OperationProgress::finished, this, &PythonWaitForFinishOutcomeState::_progressFinished);
+    connect(progress, &OperationProgress::stalled,  this, &PythonWaitForFinishOutcomeState::_progressStalled);
     _listening = true;
-    _timeoutTimer.start();
 
     // Both normally precede the FINISH_COLLECTION ack: replay what already arrived.
     const CollectionStatus_t& last = _customPlugin->lastCollectionStatus();
     _collectionStatusReceived(last.collection_id, last.slice_id, last.status, last.error_code);
     _bearingResultReceived(_customPlugin->lastBearingCollectionId());
-    if (_listening) {
-        qCDebug(CustomStateMachineLog) << "Python: no stored outcome for collection" << _collectionId
-                                       << "- waiting up to" << _timeoutTimer.interval() << "ms";
+    if (!_listening) {
+        return;
     }
+    // A FAILED frame that landed during the FINISH ack wait fired finished() before we connected
+    if (progress->failed() && progress->command() == COMMAND_ID_START_COLLECTION) {
+        _progressFinished(COMMAND_ID_START_COLLECTION, false, progress->message());
+        return;
+    }
+    // Once the rotation operation has ended or its frames were lost, nothing else
+    // will fire; the grace timer then re-sends FINISH so the controller replays the outcome.
+    if (progress->running() && progress->command() == COMMAND_ID_START_COLLECTION) {
+        progress->restartStallWatch();
+    } else {
+        _graceTimer.start();
+    }
+    qCDebug(CustomPluginLog) << "No stored finish outcome collection_id:" << _collectionId;
+}
+
+void PythonWaitForFinishOutcomeState::_progressFinished(uint32_t command, bool success, const QString& message)
+{
+    if (!_listening || command != COMMAND_ID_START_COLLECTION) {
+        return;
+    }
+    if (!success) {
+        _disconnectAll();
+        setError(QStringLiteral("Rotation failed on the controller for collection %1: %2").arg(_collectionId).arg(message));
+        return;
+    }
+    _graceTimer.start();
+}
+
+void PythonWaitForFinishOutcomeState::_progressStalled(uint32_t command, const QString& lastMessage)
+{
+    if (!_listening || command != COMMAND_ID_START_COLLECTION) {
+        return;
+    }
+    _outcomeMissing(QStringLiteral("rotation progress stalled at: %1").arg(lastMessage));
+}
+
+void PythonWaitForFinishOutcomeState::_outcomeMissing(const QString& reason)
+{
+    if (!_listening) {
+        return;
+    }
+    _disconnectAll();
+    if (_retryCount < kMaxRetries) {
+        ++_retryCount;
+        qCWarning(CustomPluginLog) << "No finish outcome (" << reason << "), re-sending FINISH_COLLECTION collection_id:" << _collectionId
+                                   << "retry:" << _retryCount;
+        emit outcomeTimedOut();
+        return;
+    }
+    setError(QStringLiteral("No bearing result or revisit request from controller for collection %1 after %2 retries (%3)")
+                 .arg(_collectionId).arg(_retryCount).arg(reason));
 }
 
 void PythonWaitForFinishOutcomeState::_collectionStatusReceived(
@@ -69,7 +113,8 @@ void PythonWaitForFinishOutcomeState::_collectionStatusReceived(
                      .arg(_collectionId));
         return;
     }
-    qCDebug(CustomStateMachineLog) << "Python: controller requested a confirmation revisit at" << headingDeg << "deg";
+    qCDebug(CustomPluginLog) << "Controller requested confirmation revisit collection_id:" << _collectionId
+                             << "revisit_heading_deg:" << headingDeg;
     emit revisitRequested(headingDeg);
 }
 
@@ -78,7 +123,7 @@ void PythonWaitForFinishOutcomeState::_bearingResultReceived(uint32_t collection
     if (!_listening || collectionId != _collectionId) {
         return;
     }
-    qCDebug(CustomStateMachineLog) << "Python: bearing result received for collection" << _collectionId;
+    qCDebug(CustomPluginLog) << "Finish outcome BEARING_RESULT collection_id:" << _collectionId;
     _disconnectAll();
     emit bearingReceived();
 }
@@ -86,9 +131,12 @@ void PythonWaitForFinishOutcomeState::_bearingResultReceived(uint32_t collection
 void PythonWaitForFinishOutcomeState::_disconnectAll()
 {
     _listening = false;
-    _timeoutTimer.stop();
+    _graceTimer.stop();
     disconnect(_customPlugin, &CustomPlugin::collectionStatusReceived,
                this, &PythonWaitForFinishOutcomeState::_collectionStatusReceived);
     disconnect(_customPlugin, &CustomPlugin::bearingResultReceived,
                this, &PythonWaitForFinishOutcomeState::_bearingResultReceived);
+    OperationProgress* progress = _customPlugin->operationProgress();
+    disconnect(progress, &OperationProgress::finished, this, &PythonWaitForFinishOutcomeState::_progressFinished);
+    disconnect(progress, &OperationProgress::stalled,  this, &PythonWaitForFinishOutcomeState::_progressStalled);
 }

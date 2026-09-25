@@ -64,7 +64,6 @@ public:
     bool                isPythonMode    () { return _customSettings->isPythonMode(); }
     DetectorList *      detectorList() { return DetectorList::instance(); }
     QString             holdFlightMode();
-    int                 maxWaitMSecsForKGroup();
     uint32_t            controllerProtocolVersion() const { return _controllerProtocolVersion; }
     bool                protocolCompatible() const;
     bool                hasPriorBearing() const { return std::isfinite(_priorBearingDeg); }
@@ -132,6 +131,7 @@ private slots:
 private:
     void    _handleUavrtPulse           (Vehicle* vehicle, const mavlink_tunnel_t& tunnel);
     void    _handlePythonPulse          (const mavlink_tunnel_t& tunnel);
+    void    _handleDetectorHeartbeat    (const mavlink_tunnel_t& tunnel);
     void    _handleTunnelHeartbeat      (const mavlink_tunnel_t& tunnel);
     void    _handleBearingResult        (const mavlink_tunnel_t& tunnel);
     void    _handleCollectionStatus     (const mavlink_tunnel_t& tunnel);
@@ -145,6 +145,9 @@ private:
     void    _setRotationInProgress      (bool inProgress);
     void    _sendStopDetectionDirect    (void);
     void    _sendCollectionCancel       (void);
+    void    _sendLogLevel               (void);
+    /// Fire-and-forget tunnel frame outside a state machine; false if no compatible link.
+    bool    _sendTunnelFrame            (const void* payload, size_t size);
 
     bool                    _activeRotation     = false;
     bool                    _rotationInProgress = false;

@@ -1,11 +1,9 @@
 #include "CompanionLogDownloader.h"
 
 #include "AppSettings.h"
+#include "CustomLoggingCategory.h"
 #include "QGCApplication.h"
-#include "QGCLoggingCategory.h"
 #include "SettingsManager.h"
-
-QGC_LOGGING_CATEGORY(CompanionLogDownloaderLog, "Custom.CompanionLogDownloader")
 
 CompanionLogDownloader::CompanionLogDownloader(QObject* parent) : QObject(parent) {}
 
@@ -13,13 +11,13 @@ void CompanionLogDownloader::download()
 {
 #if defined(Q_OS_MACOS)
     if (_process) {
-        qCWarning(CompanionLogDownloaderLog) << "Download already in progress";
+        qCWarning(CustomPluginLog) << "Download already in progress";
         return;
     }
 
     const QString destDir = SettingsManager::instance()->appSettings()->logSavePath();
     if (destDir.isEmpty()) {
-        qCWarning(CompanionLogDownloaderLog) << "Log save path is empty";
+        qCWarning(CustomPluginLog) << "Log save path is empty";
         qgcApp()->showAppMessage(tr("Log save path is not available. Check Application Settings > Save Path."));
         return;
     }
@@ -37,8 +35,8 @@ void CompanionLogDownloader::download()
         destDir + QLatin1Char('/'),
     };
 
-    qCDebug(CompanionLogDownloaderLog) << "Starting scp"
-                                       << "source:" << _remoteSource << "destDir:" << destDir;
+    qCDebug(CustomPluginLog) << "Starting scp source:" << _remoteSource
+                             << "destDir:" << destDir;
 
     auto* process = new QProcess(this);
     _process = process;
@@ -50,7 +48,7 @@ void CompanionLogDownloader::download()
         if (error != QProcess::FailedToStart) {
             return;
         }
-        qCWarning(CompanionLogDownloaderLog) << "scp failed to start:" << process->errorString();
+        qCWarning(CustomPluginLog) << "scp failed to start:" << process->errorString();
         qgcApp()->showAppMessage(tr("Unable to start scp: %1").arg(process->errorString()));
         _releaseProcess(process);
     });
@@ -67,8 +65,9 @@ void CompanionLogDownloader::_onFinished(QProcess* process, const QString& destD
 {
     const QString stdErr = QString::fromLocal8Bit(process->readAllStandardError()).trimmed();
 
-    qCDebug(CompanionLogDownloaderLog) << "scp finished"
-                                       << "exitCode:" << exitCode << "exitStatus:" << exitStatus << "stderr:" << stdErr;
+    qCDebug(CustomPluginLog) << "scp finished exitCode:" << exitCode
+                             << "exitStatus:" << exitStatus
+                             << "stderr:" << stdErr;
 
     if (exitStatus == QProcess::NormalExit && exitCode == 0) {
         qgcApp()->showAppMessage(tr("Companion logs downloaded to %1").arg(destDir));

@@ -12,4 +12,4 @@
 #include "QGCLoggingCategory.h"
 
 Q_DECLARE_LOGGING_CATEGORY(CustomPluginLog)
-Q_DECLARE_LOGGING_CATEGORY(CustomStateMachineLog)
+Q_DECLARE_LOGGING_CATEGORY(CustomPluginVerboseLog)

@@ -24,19 +24,12 @@ RotationInfo::RotationInfo(int cSlices, QObject* parent)
 
 void RotationInfo::pulseReceived(const PythonPulseInfo_t& pulseInfo)
 {
-    if (pulseInfo.frequency_hz == 0) {
-        return;
-    }
-
-    qCDebug(CustomPluginLog) << "Pulse received - tag_id:snr:heading:cSlices" << pulseInfo.tag_id << pulseInfo.snr
-                             << pulseInfo.yaw_deg << _cSlices;
-
     const double normalizedHeading = CustomPlugin::normalizeHeading(pulseInfo.yaw_deg);
     const int sliceIndex = _sliceIndexForHeading(normalizedHeading);
 
     if (sliceIndex < 0) {
-        qCWarning(CustomPluginLog) << "No heading slice found for pulse tag_id" << pulseInfo.tag_id << "heading"
-                                   << normalizedHeading;
+        qCWarning(CustomPluginLog) << "No heading slice found for pulse tag_id:" << pulseInfo.tag_id
+                                   << "heading:" << normalizedHeading;
         return;
     }
 
@@ -85,7 +78,7 @@ void RotationInfo::_applyPulseToSlice(const PythonPulseInfo_t& pulseInfo, int sl
 
     SliceInfo* slice = _slices.value<SliceInfo*>(sliceIndex);
     if (!slice) {
-        qCWarning(CustomPluginLog) << "Missing slice object for index" << sliceIndex;
+        qCWarning(CustomPluginLog) << "Missing slice object sliceIndex:" << sliceIndex;
         return;
     }
 
@@ -123,7 +116,7 @@ void RotationInfo::_updateMaxSNR()
 
     const bool changed = qIsNaN(newMax) != qIsNaN(_maxSNR) || (!qIsNaN(newMax) && newMax != _maxSNR);
     if (changed) {
-        qCDebug(CustomPluginLog) << "Updating RotationInfo max SNR to" << newMax;
+        qCDebug(CustomPluginLog) << "Updating RotationInfo maxSNR:" << newMax;
         _maxSNR = newMax;
         emit maxSNRChanged(_maxSNR);
     }
@@ -143,15 +136,19 @@ void RotationInfo::setBearingResult(float bearingDeg, float rSquared, uint32_t n
     _bearingHeard = nValidSlices > 0 || _bearingValid;
     _bearingConfirmed = _bearingValid && confirmed;
     if (_bearingValid && nValidSlices == 0) {
-        qCWarning(CustomPluginLog) << "BEARING_RESULT has a finite bearing but n_valid_slices == 0; showing bearing"
+        qCWarning(CustomPluginLog) << "BEARING_RESULT has a finite bearing but n_valid_slices == 0; showing bearing_deg:"
                                    << _bearingDeg;
     }
 
-    qCDebug(CustomPluginLog) << "BearingResult applied: bearing" << _bearingDeg << "R²" << _bearingRSquared
-                             << "nValidSlices" << nValidSlices << "bestSNR" << bestSNR << "valid" << _bearingValid
-                             << "heard" << _bearingHeard
-                             << "confirmed" << _bearingConfirmed << "state" << bearingStateText()
-                             << "sector" << bearingSector();
+    qCDebug(CustomPluginLog) << "BEARING_RESULT applied bearing_deg:" << _bearingDeg
+                             << "r_squared:" << _bearingRSquared
+                             << "n_valid_slices:" << nValidSlices
+                             << "best_snr:" << bestSNR
+                             << "valid:" << _bearingValid
+                             << "heard:" << _bearingHeard
+                             << "confirmed:" << _bearingConfirmed
+                             << "state:" << bearingStateText()
+                             << "sector:" << bearingSector();
 
     emit bearingChanged();
 }

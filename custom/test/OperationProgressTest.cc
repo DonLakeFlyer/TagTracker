@@ -4,6 +4,7 @@
 
 #include <QtCore/QRegularExpression>
 #include <QtTest/QSignalSpy>
+#include <QtTest/QTest>
 
 #include "CustomLoggingCategory.h"
 #include "OperationProgress.h"
@@ -14,6 +15,7 @@ using namespace TunnelProtocol;
 namespace {
 
 const QRegularExpression kStaleWarning(QStringLiteral("^OperationProgress stale"));
+const QRegularExpression kStalledWarning(QStringLiteral("^OperationProgress stalled"));
 
 OperationProgress_t makeFrame(uint32_t command, uint32_t requestId, uint32_t state, uint32_t step, uint32_t stepCount,
                               const char* message)
@@ -195,6 +197,136 @@ void OperationProgressTest::_completeLingersThenHides()
     QVERIFY(progress.active());
 
     QTRY_VERIFY_WITH_TIMEOUT(!progress.active(), 2000);
+}
+
+void OperationProgressTest::_rotationTitle()
+{
+    OperationProgress progress;
+    progress.handleFrame(makeFrame(COMMAND_ID_START_COLLECTION, 3, OPERATION_STATE_RUNNING, 0, 40, "Rotation"));
+    QCOMPARE(progress.title(), QStringLiteral("Rotation"));
+    QCOMPARE(progress.command(), static_cast<uint32_t>(COMMAND_ID_START_COLLECTION));
+}
+
+void OperationProgressTest::_stalledWhenStepFrozen()
+{
+    OperationProgress progress;
+    progress.setTimeoutsForTest(5000, 5000, 500);
+    QSignalSpy stalled(&progress, &OperationProgress::stalled);
+
+    progress.handleFrame(makeFrame(COMMAND_ID_START_COLLECTION, 3, OPERATION_STATE_RUNNING, 5, 40, "collecting 1/10 s"));
+    // Same step re-sent at 1 Hz keeps the card alive but does not reset the stall clock
+    QVERIFY(!stalled.wait(50));
+    progress.handleFrame(makeFrame(COMMAND_ID_START_COLLECTION, 3, OPERATION_STATE_RUNNING, 5, 40, "collecting 1/10 s"));
+    expectLogMessage(CustomPluginLog().categoryName(), QtWarningMsg, kStalledWarning);
+    QTRY_COMPARE_WITH_TIMEOUT(stalled.count(), 1, 2000);
+    verifyExpectedLogMessage();
+    QCOMPARE(stalled.first().at(0).toUInt(), static_cast<uint32_t>(COMMAND_ID_START_COLLECTION));
+    QCOMPARE(stalled.first().at(1).toString(), QStringLiteral("collecting 1/10 s"));
+    QVERIFY(progress.active());   // stall is advisory; the card stays until stale/hidden
+
+    // An advancing step never stalls
+    OperationProgress moving;
+    moving.setTimeoutsForTest(5000, 5000, 500);
+    QSignalSpy movingStalled(&moving, &OperationProgress::stalled);
+    for (uint32_t step = 0; step < 5; ++step) {
+        moving.handleFrame(makeFrame(COMMAND_ID_START_COLLECTION, 3, OPERATION_STATE_RUNNING, step, 40, "x"));
+        QVERIFY(!movingStalled.wait(50));
+    }
+    QCOMPARE(movingStalled.count(), 0);
+}
+
+void OperationProgressTest::_stallOnlyForRotation()
+{
+    OperationProgress progress;
+    progress.setTimeoutsForTest(5000, 5000, 200);
+    QSignalSpy stalled(&progress, &OperationProgress::stalled);
+
+    // A frozen capture step is normal and must not stall
+    progress.handleFrame(makeFrame(COMMAND_ID_RAW_CAPTURE, 4, OPERATION_STATE_RUNNING, 1, 3, "Capturing"));
+    QVERIFY(!stalled.wait(400));
+    progress.restartStallWatch();
+    QVERIFY(!stalled.wait(400));
+    QCOMPARE(stalled.count(), 0);
+
+    // A rotation's armed stall clock is dropped when another operation takes over
+    progress.handleFrame(makeFrame(COMMAND_ID_START_COLLECTION, 5, OPERATION_STATE_RUNNING, 0, 40, "Rotation"));
+    progress.handleFrame(makeFrame(COMMAND_ID_SAVE_LOGS, 6, OPERATION_STATE_RUNNING, 0, 1, "Saving"));
+    QVERIFY(!stalled.wait(400));
+    QCOMPARE(stalled.count(), 0);
+
+    // A non-rotation whose frames stop is hidden as stale but is not a stall
+    OperationProgress silent;
+    silent.setTimeoutsForTest(50, 300, 5000);
+    QSignalSpy silentStalled(&silent, &OperationProgress::stalled);
+    silent.handleFrame(makeFrame(COMMAND_ID_RAW_CAPTURE, 7, OPERATION_STATE_RUNNING, 1, 3, "Capturing"));
+    expectLogMessage(CustomPluginLog().categoryName(), QtWarningMsg, kStaleWarning);
+    QTRY_VERIFY_WITH_TIMEOUT(!silent.active(), 2000);
+    verifyExpectedLogMessage();
+    QCOMPARE(silentStalled.count(), 0);
+}
+
+void OperationProgressTest::_stepCountGrowthIsNotProgress()
+{
+    OperationProgress progress;
+    progress.setTimeoutsForTest(5000, 5000, 500);
+    QSignalSpy stalled(&progress, &OperationProgress::stalled);
+
+    progress.handleFrame(makeFrame(COMMAND_ID_START_COLLECTION, 3, OPERATION_STATE_RUNNING, 20, 40, "Slice 8/8 complete"));
+    QVERIFY(!stalled.wait(50));
+    // Revisit: step_count grows, step parked
+    progress.handleFrame(makeFrame(COMMAND_ID_START_COLLECTION, 3, OPERATION_STATE_RUNNING, 20, 52, "Revisit requested"));
+    expectLogMessage(CustomPluginLog().categoryName(), QtWarningMsg, kStalledWarning);
+    QTRY_COMPARE_WITH_TIMEOUT(stalled.count(), 1, 2000);
+    verifyExpectedLogMessage();
+}
+
+void OperationProgressTest::_restartStallWatchDefersStall()
+{
+    OperationProgress progress;
+    progress.setTimeoutsForTest(5000, 5000, 500);
+    QSignalSpy stalled(&progress, &OperationProgress::stalled);
+
+    progress.handleFrame(makeFrame(COMMAND_ID_START_COLLECTION, 3, OPERATION_STATE_RUNNING, 20, 40, "Slice 3/8 complete"));
+    QVERIFY(!stalled.wait(300));
+    progress.restartStallWatch();   // GCS finished yawing, now waiting on the controller again
+    // Past the original 500 ms deadline, short of the restarted one
+    QVERIFY(!stalled.wait(300));
+    expectLogMessage(CustomPluginLog().categoryName(), QtWarningMsg, kStalledWarning);
+    QTRY_COMPARE_WITH_TIMEOUT(stalled.count(), 1, 2000);
+    verifyExpectedLogMessage();
+
+    // Not running: no effect
+    progress.handleFrame(makeFrame(COMMAND_ID_START_COLLECTION, 3, OPERATION_STATE_COMPLETE, 40, 40, "done"));
+    progress.restartStallWatch();
+    QVERIFY(!QSignalSpy(&progress, &OperationProgress::stalled).wait(200));
+}
+
+void OperationProgressTest::_finishedSignalAndStaleStalls()
+{
+    OperationProgress progress;
+    progress.setTimeoutsForTest(50, 300, 5000);
+    QSignalSpy finished(&progress, &OperationProgress::finished);
+    QSignalSpy stalled(&progress, &OperationProgress::stalled);
+
+    progress.handleFrame(makeFrame(COMMAND_ID_START_COLLECTION, 3, OPERATION_STATE_RUNNING, 0, 40, "Rotation"));
+    progress.handleFrame(makeFrame(COMMAND_ID_START_COLLECTION, 3, OPERATION_STATE_FAILED, 7, 40, "Detector 2 exited"));
+    QCOMPARE(finished.count(), 1);
+    QCOMPARE(finished.first().at(1).toBool(), false);
+    QCOMPARE(finished.first().at(2).toString(), QStringLiteral("Detector 2 exited"));
+    // Terminal re-send does not re-emit
+    progress.handleFrame(makeFrame(COMMAND_ID_START_COLLECTION, 3, OPERATION_STATE_FAILED, 7, 40, "Detector 2 exited"));
+    QCOMPARE(finished.count(), 1);
+    QCOMPARE(stalled.count(), 0);
+
+    // Frames stopping altogether while RUNNING counts as a stall
+    OperationProgress silent;
+    silent.setTimeoutsForTest(50, 300, 5000);
+    QSignalSpy silentStalled(&silent, &OperationProgress::stalled);
+    silent.handleFrame(makeFrame(COMMAND_ID_START_COLLECTION, 3, OPERATION_STATE_RUNNING, 4, 40, "armed"));
+    expectLogMessage(CustomPluginLog().categoryName(), QtWarningMsg, kStaleWarning);
+    QTRY_COMPARE_WITH_TIMEOUT(silentStalled.count(), 1, 2000);
+    verifyExpectedLogMessage();
+    QVERIFY(!silent.active());
 }
 
 UT_REGISTER_TEST(OperationProgressTest, TestLabel::Unit)

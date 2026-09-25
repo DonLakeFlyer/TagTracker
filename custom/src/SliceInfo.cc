@@ -36,8 +36,10 @@ bool SliceInfo::lowConfidenceOnly(void) const
 
 void SliceInfo::updateMaxSNR(uint32_t tagId, double snr, bool confirmedPulse, const QString& sourceRateLabel)
 {
-    qCDebug(CustomPluginLog) << "SliceInfo updateMaxSNR called - index:tag:snr:confirmed"
-                             << _sliceIndex << tagId << snr << confirmedPulse << " _ " << Q_FUNC_INFO;
+    qCDebug(CustomPluginLog) << "sliceIndex:" << _sliceIndex
+                             << "tag_id:" << tagId
+                             << "snr:" << snr
+                             << "confirmed:" << confirmedPulse;
 
     const double oldDisplaySNR = displaySNR();
     const QString oldDisplaySource = displaySource();
@@ -51,8 +53,11 @@ void SliceInfo::updateMaxSNR(uint32_t tagId, double snr, bool confirmedPulse, co
             return;
         }
 
-        qCDebug(CustomPluginLog) << "Updating SliceInfo CONFIRMED SNR - index:centerHeading:sliceDegrees:tag:snr"
-                                 << _sliceIndex << _centerHeading << _sliceDegrees << tagId << snr << " _ " << Q_FUNC_INFO;
+        qCDebug(CustomPluginLog) << "Updating confirmed SNR sliceIndex:" << _sliceIndex
+                                 << "centerHeading:" << _centerHeading
+                                 << "sliceDegrees:" << _sliceDegrees
+                                 << "tag_id:" << tagId
+                                 << "snr:" << snr;
         _confirmedByTag.insert(tagId, {snr, sourceRateLabel});
         _recomputeConfirmedMax();
     } else {
@@ -60,8 +65,10 @@ void SliceInfo::updateMaxSNR(uint32_t tagId, double snr, bool confirmedPulse, co
             return;
         }
 
-        qCDebug(CustomPluginLog) << "Updating SliceInfo LOW-CONFIDENCE max SNR - index:centerHeading:sliceDegrees:maxSnr"
-                                 << _sliceIndex << _centerHeading << _sliceDegrees << snr << " _ " << Q_FUNC_INFO;
+        qCDebug(CustomPluginLog) << "Updating low-confidence max SNR sliceIndex:" << _sliceIndex
+                                 << "centerHeading:" << _centerHeading
+                                 << "sliceDegrees:" << _sliceDegrees
+                                 << "snr:" << snr;
         _maxLowConfidenceSNR = snr;
         _maxLowConfidenceSourceRateLabel = sourceRateLabel;
     }

@@ -51,10 +51,10 @@ void TakeoffState::_disconnectAll()
 void TakeoffState::_flightModeChanged(const QString& flightMode)
 {
     if (flightMode == _takeoffFlightMode) {
-        qCDebug(CustomStateMachineLog) << "Takeoff flight mode detected" << " - " << Q_FUNC_INFO;
+        qCDebug(CustomPluginLog) << "Takeoff flight mode detected";
         _takeoffDetected = true;
     } else if (_takeoffDetected && flightMode == _guidedFlightMode) {
-        qCDebug(CustomStateMachineLog) << "Guided flight mode detected. Waiting for altitude to settle." << " - " << Q_FUNC_INFO;
+        qCDebug(CustomPluginLog) << "Guided flight mode detected. Waiting for altitude to settle.";
         _timeoutTimer.stop();
         _settleTimer.start();
     }
@@ -70,9 +70,10 @@ void TakeoffState::_takeoffTimeout()
 void TakeoffState::_settleTimeout()
 {
     _disconnectAll();
-    qCDebug(CustomStateMachineLog) << _vehicle->altitudeRelative()->rawValue().toDouble() << _takeoffAltRel;
+    qCDebug(CustomPluginLog) << "altitudeRelative:" << _vehicle->altitudeRelative()->rawValue().toDouble()
+                             << "takeoffAltRel:" << _takeoffAltRel;
     if (qAbs(_vehicle->altitudeRelative()->rawValue().toDouble() - _takeoffAltRel) <= 1.0) {
-        qCDebug(CustomStateMachineLog) << "Takeoff completed" << " - " << Q_FUNC_INFO;
+        qCDebug(CustomPluginLog) << "Takeoff completed";
         emit takeoffComplete();
     } else {
         setError("Vehicle failed to reach takeoff altitude");

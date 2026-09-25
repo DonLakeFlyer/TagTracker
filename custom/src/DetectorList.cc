@@ -4,6 +4,7 @@
 #include <algorithm>
 
 #include "CustomPlugin.h"
+#include "CustomLoggingCategory.h"
 #include "CustomSettings.h"
 #include "DetectorInfo.h"
 #include "PythonDetectorInfo.h"
@@ -44,8 +45,8 @@ void DetectorList::setupFromSelectedTags()
         TagManufacturer* tagManufacturer = tagDB->findTagManufacturer(tagInfo->manufacturerId()->rawValue().toUInt());
         const uint32_t tagId = tagInfo->id()->rawValue().toUInt();
         if (!tagManufacturer) {
-            qCWarning(DetectorInfoLog) << "Skipping tag with unknown manufacturer id" << tagId
-                                       << tagInfo->manufacturerId()->rawValue().toUInt();
+            qCWarning(CustomPluginLog) << "Skipping tag with unknown manufacturer tag_id:" << tagId
+                                       << "manufacturerId:" << tagInfo->manufacturerId()->rawValue().toUInt();
             continue;
         }
 
@@ -67,6 +68,34 @@ void DetectorList::setupFromSelectedTags()
     if (!isPythonMode) {
         startHeartbeatWatchdogs();
     }
+
+    for (int i = 0; i < count(); i++) {
+        if (auto* detectorInfo = qobject_cast<DetectorInfo*>(get(i))) {
+            connect(detectorInfo, &DetectorInfo::heartbeatLostChanged, this, &DetectorList::_updateAnyHeartbeatLost);
+        }
+    }
+    _updateAnyHeartbeatLost();
+}
+
+void DetectorList::clearDetectors()
+{
+    clearAndDeleteContents();
+    _updateAnyHeartbeatLost();
+}
+
+void DetectorList::_updateAnyHeartbeatLost()
+{
+    bool anyLost = false;
+    for (int i = 0; i < count(); i++) {
+        if (auto* detectorInfo = qobject_cast<DetectorInfo*>(get(i)); detectorInfo && detectorInfo->heartbeatLost()) {
+            anyLost = true;
+            break;
+        }
+    }
+    if (anyLost != _anyHeartbeatLost) {
+        _anyHeartbeatLost = anyLost;
+        emit anyHeartbeatLostChanged();
+    }
 }
 
 void DetectorList::startHeartbeatWatchdogs()
@@ -74,6 +103,15 @@ void DetectorList::startHeartbeatWatchdogs()
     for (int i = 0; i < count(); i++) {
         if (auto* detectorInfo = qobject_cast<DetectorInfo*>(get(i))) {
             detectorInfo->startHeartbeatWatchdog();
+        }
+    }
+}
+
+void DetectorList::stopHeartbeatWatchdogs()
+{
+    for (int i = 0; i < count(); i++) {
+        if (auto* detectorInfo = qobject_cast<DetectorInfo*>(get(i))) {
+            detectorInfo->stopHeartbeatWatchdog();
         }
     }
 }
@@ -92,6 +130,26 @@ void DetectorList::handlePythonPulse(const TunnelProtocol::PythonPulseInfo_t& pu
     for (int i = 0; i < count(); i++) {
         if (auto* detectorInfo = qobject_cast<PythonDetectorInfo*>(get(i))) {
             detectorInfo->handlePulse(pulseInfo);
+        }
+    }
+}
+
+void DetectorList::handleDetectorHeartbeat(const TunnelProtocol::DetectorHeartbeat_t& heartbeat)
+{
+    if (heartbeat.detection_mode != DETECTION_MODE_UAVRT && heartbeat.detection_mode != DETECTION_MODE_PYTHON) {
+        qCWarning(CustomPluginLog) << "Ignoring DETECTOR_HEARTBEAT unknown detection_mode:" << heartbeat.detection_mode
+                                   << "tag_id:" << heartbeat.tag_id;
+        return;
+    }
+    // A detector left running from the other mode can share a tag_id with the current list
+    const bool isPython = heartbeat.detection_mode == DETECTION_MODE_PYTHON;
+    for (int i = 0; i < count(); i++) {
+        auto* detectorInfo = qobject_cast<DetectorInfo*>(get(i));
+        if (!detectorInfo || detectorInfo->tagId() != heartbeat.tag_id) {
+            continue;
+        }
+        if (isPython == (qobject_cast<PythonDetectorInfo*>(detectorInfo) != nullptr)) {
+            detectorInfo->heartbeatReceived();
         }
     }
 }

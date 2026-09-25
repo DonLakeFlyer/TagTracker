@@ -15,16 +15,10 @@ void PythonDetectorInfo::handlePulse(const PythonPulseInfo_t& pulseInfo)
         return;
     }
 
-    if (pulseInfo.frequency_hz == 0) {
-        _heartbeatReceived();
-    } else if (pulseInfo.detection_status == kNoPulseDetectionStatus) {
+    if (pulseInfo.detection_status == kNoPulseDetectionStatus) {
         _noPulseReceived();
     } else {
         const bool lowConfidence = !pulseInfo.confirmed_status;
-        qCDebug(DetectorInfoLog) << (lowConfidence ? "LOW_CONFIDENCE" : "CONFIRMED")
-                                 << "tag_id:frequency_hz:cycle:snr:score_ratio:noise_psd:rate_state" << pulseInfo.tag_id
-                                 << pulseInfo.frequency_hz << pulseInfo.cycle_counter << pulseInfo.snr
-                                 << pulseInfo.score_ratio << pulseInfo.noise_psd << pulseInfo.rate_state;
 
         // Python reports one value per cycle, so every report is its own group
         _pulseReceived(pulseInfo.snr, lowConfidence, true /* newGroup */);

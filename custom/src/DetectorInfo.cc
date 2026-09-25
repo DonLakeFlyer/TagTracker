@@ -1,8 +1,7 @@
 #include "DetectorInfo.h"
+#include "CustomLoggingCategory.h"
 
 #include <algorithm>
-
-QGC_LOGGING_CATEGORY(DetectorInfoLog, "DetectorInfoLog")
 
 DetectorInfo::DetectorInfo(uint32_t tagId, const QString& tagLabel, uint32_t intraPulseMsecs, uint32_t k,
                            QObject* parent)
@@ -10,8 +9,11 @@ DetectorInfo::DetectorInfo(uint32_t tagId, const QString& tagLabel, uint32_t int
 {
     _heartbeatTimerInterval = ((k + 1) * intraPulseMsecs) + 1000;
 
-    qCDebug(DetectorInfoLog) << "tagId:tagLabel:intraPulseMsecs:k:heartbeatInterval" << _tagId << _tagLabel
-                             << intraPulseMsecs << k << _heartbeatTimerInterval;
+    qCDebug(CustomPluginLog) << "tag_id:" << _tagId
+                             << "tagLabel:" << _tagLabel
+                             << "intraPulseMsecs:" << intraPulseMsecs
+                             << "k:" << k
+                             << "heartbeatIntervalMsecs:" << _heartbeatTimerInterval;
 
     _heartbeatTimeoutTimer.setSingleShot(true);
     _heartbeatTimeoutTimer.setInterval(_heartbeatTimerInterval);
@@ -30,9 +32,18 @@ void DetectorInfo::startHeartbeatWatchdog()
     _heartbeatTimeoutTimer.start(static_cast<int>(std::max(_heartbeatTimerInterval, kStartupGraceMsecs)));
 }
 
-void DetectorInfo::_heartbeatReceived()
+void DetectorInfo::stopHeartbeatWatchdog()
 {
-    qCDebug(DetectorInfoLog) << "HEARTBEAT from Detector id" << _tagId;
+    _watchdogArmed = false;
+    _heartbeatTimeoutTimer.stop();
+    if (_heartbeatLost) {
+        _heartbeatLost = false;
+        emit heartbeatLostChanged();
+    }
+}
+
+void DetectorInfo::heartbeatReceived()
+{
     // Stale heartbeats from a prior collection's detector must not arm the watchdog early
     if (!_watchdogArmed) {
         return;
@@ -71,7 +82,6 @@ void DetectorInfo::_pulseReceived(double snr, bool lowConfidence, bool newGroup)
 
 void DetectorInfo::_noPulseReceived()
 {
-    qCDebug(DetectorInfoLog) << "NO_PULSE from Detector id" << _tagId;
     if (!_lastPulseNoPulse) {
         _lastPulseNoPulse = true;
         emit lastPulseNoPulseChanged();

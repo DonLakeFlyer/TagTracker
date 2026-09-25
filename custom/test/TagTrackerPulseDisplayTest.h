@@ -18,6 +18,8 @@ private slots:
     void _confirmedMeasurementsAggregateAcrossTags();
     void _startupWaitIsNotHeartbeatFailure();
     void _heartbeatWatchdogArmsOnlyWhenStarted();
+    void _stopHeartbeatWatchdogsClearsLoss();
+    void _detectorHeartbeatMatchesTagAndMode();
     void _flightModeChangeTimeoutToleratesSlowLink();
     void _sliceVisitOrder_data();
     void _sliceVisitOrder();

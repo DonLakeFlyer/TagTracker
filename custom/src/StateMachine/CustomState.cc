@@ -11,7 +11,8 @@ void CustomState::setError(const QString& errorString)
 {
     CustomStateMachine* const stateMachine = customMachine();
     if (!stateMachine) {
-        qCWarning(CustomStateMachineLog) << "setError with no CustomStateMachine" << objectName() << errorString;
+        qCWarning(CustomPluginLog) << "setError with no CustomStateMachine state:" << objectName()
+                                   << "error:" << errorString;
         return;
     }
 
