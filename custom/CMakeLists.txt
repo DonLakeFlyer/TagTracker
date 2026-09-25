@@ -157,6 +157,8 @@ set(CUSTOM_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/SliceInfo.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/TagDatabase.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/TagDatabase.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/TunnelProtocolText.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/TunnelProtocolText.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/UavrtDetectorInfo.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/UavrtDetectorInfo.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/CustomState.cc
@@ -196,11 +198,14 @@ if(QGC_BUILD_TESTING)
         ${CMAKE_CURRENT_SOURCE_DIR}/test/OperationProgressTest.h
         ${CMAKE_CURRENT_SOURCE_DIR}/test/TagTrackerPulseDisplayTest.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/test/TagTrackerPulseDisplayTest.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/TunnelProtocolTextTest.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/TunnelProtocolTextTest.h
     )
 
     include(QGCTest)
     add_qgc_test(OperationProgressTest LABELS Unit)
     add_qgc_test(TagTrackerPulseDisplayTest LABELS Unit)
+    add_qgc_test(TunnelProtocolTextTest LABELS Unit)
 endif()
 
 set(CUSTOM_SOURCES ${CUSTOM_SOURCES} PARENT_SCOPE)
@@ -213,7 +218,7 @@ set(CUSTOM_SOURCES ${CUSTOM_SOURCES} PARENT_SCOPE)
 CPMAddPackage(
     NAME              TunnelProtocol
     GITHUB_REPOSITORY DonLakeFlyer/TagTrackerTunnelProtocol
-    GIT_TAG           81ed30ac81aa898aab1b6ea56bd6fb25463e3c86
+    GIT_TAG           8f39f958284ad8c77f2e54c1c2b167c63ee739a5
     DOWNLOAD_ONLY     TRUE
 )
 

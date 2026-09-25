@@ -1,18 +1,16 @@
 #include "TagDatabase.h"
+#include "CustomLoggingCategory.h"
 #include "TunnelProtocol.h"
 #include "FactMetaData.h"
 #include "Fact.h"
 #include "QmlObjectListModel.h"
 #include "QGCApplication.h"
-#include "QGCLoggingCategory.h"
 #include "AppSettings.h"
 #include "SettingsManager.h"
 
 #include <QFile>
 
 //#define DEBUG_TUNER
-
-QGC_LOGGING_CATEGORY(TagDatabaseLog, "Custom.TagDatabase")
 
 Q_APPLICATION_STATIC(TagDatabase, _tagDatabaseInstance);
 
@@ -25,7 +23,7 @@ TagInfo::TagInfo(TagDatabase* parent)
         TagManufacturer* tagManufacturer = _parent->_tagManufacturerListModel->value<TagManufacturer*>(0);
         manufacturerId = tagManufacturer->_idFact->rawValue().toUInt();
     } else {
-        qWarning() << "TagInfo::TagInfo(default) - Internal error: no TagManufacturer objects found.";
+        qCWarning(CustomPluginLog) << "Internal error: no TagManufacturer objects found.";
     }
     _init(
         false,                      // selected
@@ -656,7 +654,7 @@ void TagDatabase::_load()
     }
 
     if (_tagManufacturerListModel->count() == 0) {
-        qCDebug(TagDatabaseLog) << "No manufacturers found, seeding default";
+        qCDebug(CustomPluginLog) << "No manufacturers found, seeding default";
         // Measured on a PDC Lotek collar (Sep 2026): 19 ms pulses, 1.5 s moving / 2.0 s resting
         TagManufacturer* lotek = new TagManufacturer(this);
         lotek->_nameFact->setRawValue(QStringLiteral("PDC Lotek"));
@@ -680,7 +678,7 @@ void TagDatabase::_setupTunerVars()
     _halfChannelBwHz    = _channelBwHz / 2;
 
 #ifdef DEBUG_TUNER
-    qDebug() <<
+    qCDebug(CustomPluginLog) <<
         "_sampleRateHz:" << _sampleRateHz <<
         "_fullBwHz:" << _fullBwHz <<
         "_halfBwHz:" << _halfBwHz <<
@@ -700,7 +698,7 @@ void TagDatabase::_setupTunerVars()
 uint32_t TagDatabase::channelizerTuner()
 {
     if (_tagInfoListModel->count() == 0) {
-        qCritical() << "No tags in database for channelizerTuner";
+        qCWarning(CustomPluginLog) << "No tags in database for channelizerTuner";
         return 0;
     }
 
@@ -717,7 +715,7 @@ uint32_t TagDatabase::channelizerTuner()
     }
 
     if (freqListHz.count() == 0) {
-        qCritical() << "No tags selected for channelizerTuner";
+        qCWarning(CustomPluginLog) << "No tags selected for channelizerTuner";
         return 0;
     }
 
@@ -726,7 +724,7 @@ uint32_t TagDatabase::channelizerTuner()
 
     // First make sure all the requested frequencies can fit within the available bandwidth
     if (freqMaxHz - freqMinHz > _sampleRateHz) {
-        qCritical() << "Requested frequencies are too far apart to fit within the available bandwidth";
+        qCWarning(CustomPluginLog) << "Requested frequencies are too far apart to fit within the available bandwidth";
         return 0;
     }
 
@@ -744,7 +742,7 @@ uint32_t TagDatabase::channelizerTuner()
         }
     }
 #ifdef DEBUG_TUNER
-    qDebug() << "testCentersHz-raw:" << testCentersHz;
+    qCDebug(CustomPluginLog) << "testCentersHz-raw:" << testCentersHz;
 #endif
 
     // Remove any test centers for which a requested frequency would fall outside the full bandwidth
@@ -756,7 +754,7 @@ uint32_t TagDatabase::channelizerTuner()
         }
     }
 #ifdef DEBUG_TUNER
-    qDebug() << "testCentersHz-filtered:" << testCentersHz;
+    qCDebug(CustomPluginLog) << "testCentersHz-filtered:" << testCentersHz;
 #endif
 
     QVector <uint>          channelBucketUsageCountsForTestCenter (_nChannels);
@@ -785,7 +783,7 @@ uint32_t TagDatabase::channelizerTuner()
             });
 
 #ifdef DEBUG_TUNER
-        qDebug() << "freqListHz:" << freqListHz << "wrappedRequestedFreqsHz:" << wrappedRequestedFreqsHz;
+        qCDebug(CustomPluginLog) << "freqListHz:" << freqListHz << "wrappedRequestedFreqsHz:" << wrappedRequestedFreqsHz;
 #endif
 
         for (auto wrappedFreqHz : wrappedRequestedFreqsHz) {
@@ -799,8 +797,8 @@ uint32_t TagDatabase::channelizerTuner()
             bool    inShoulder      = distanceFromChannelCenter > _halfChannelBwHz * shoulderPercent;
 
 #ifdef DEBUG_TUNER
-            qDebug() << "---- single freq build begin ---";
-            qDebug() <<
+            qCDebug(CustomPluginLog) << "---- single freq build begin ---";
+            qCDebug(CustomPluginLog) <<
                 "testCenterHz:" << testCenterHz <<
                 "wrappedFreqHz:" << wrappedFreqHz <<
                 "tagFreqZeroBasedBandwidthHz:" << tagFreqZeroBasedBandwidthHz <<
@@ -810,7 +808,7 @@ uint32_t TagDatabase::channelizerTuner()
                 "distanceFromChannelCenter:" << distanceFromChannelCenter <<
                 "inShoulder:" << inShoulder;
             //_printChannelMap(testCenterHz, QVector<uint32_t>({wrappedFreqHz}));
-            qDebug() << "---- single freq build end ---";
+            qCDebug(CustomPluginLog) << "---- single freq build end ---";
 #endif
 
             distanceFromCenters.push_back(distanceFromChannelCenter);
@@ -829,11 +827,11 @@ uint32_t TagDatabase::channelizerTuner()
         distanceFromCenterAverages.push_back(averageDistanceFromCenter);
 
 #ifdef DEBUG_TUNER
-        qDebug() << "---- test center build begin ---";
-        qDebug() << "testCenterHz" << testCenterHz;
+        qCDebug(CustomPluginLog) << "---- test center build begin ---";
+        qCDebug(CustomPluginLog) << "testCenterHz" << testCenterHz;
         //_printChannelMap(testCenterHz, wrappedRequestedFreqsHz);
-        qDebug() << "averageDistanceFromCenter:" << averageDistanceFromCenter;
-        qDebug() << "---- test center build end ---";
+        qCDebug(CustomPluginLog) << "averageDistanceFromCenter:" << averageDistanceFromCenter;
+        qCDebug(CustomPluginLog) << "---- test center build end ---";
 #endif
     }
 
@@ -864,9 +862,9 @@ uint32_t TagDatabase::channelizerTuner()
         }
     }
 
-    qDebug() << "bestTestCenterHz:" << bestTestCenterHz
-             << "smallestDistanceFromCenterAverage" << smallestDistanceFromCenterAverage
-             << "oneBasedChannelBuckets:" << oneBasedChannelBuckets;
+    qCDebug(CustomPluginLog) << "bestTestCenterHz:" << bestTestCenterHz
+                             << "smallestDistanceFromCenterAverage:" << smallestDistanceFromCenterAverage
+                             << "oneBasedChannelBuckets:" << oneBasedChannelBuckets;
     if (bestTestCenterHz != 0) {
         //_printChannelMap(bestTestCenterHz, freqListHz);
 
@@ -883,7 +881,7 @@ uint32_t TagDatabase::channelizerTuner()
             }
             nextCenterHz += _channelBwHz;
         }
-        qDebug() << "channelCentersHz" << channelCentersHz;
+        qCDebug(CustomPluginLog) << "channelCentersHz:" << channelCentersHz;
 
         // Add the channel bucket numbers to the tagInfo
         int j = 0;
@@ -893,9 +891,11 @@ uint32_t TagDatabase::channelizerTuner()
             if (tagInfo->selected()->rawValue().toUInt()) {
                 tagInfo->channelizer_channel_number               = oneBasedChannelBuckets[j];
                 tagInfo->channelizer_channel_center_frequency_hz  = channelCentersHz[oneBasedChannelBuckets[j] - 1];
-                qDebug() << i << j
-                        << tagInfo->channelizer_channel_number
-                        << tagInfo->channelizer_channel_center_frequency_hz;
+                qCDebug(CustomPluginLog) << "tagIndex:" << i
+                                         << "selectedIndex:" << j
+                                         << "channelizer_channel_number:" << tagInfo->channelizer_channel_number
+                                         << "channelizer_channel_center_frequency_hz:"
+                                         << tagInfo->channelizer_channel_center_frequency_hz;
                 j++;
             }
         }
@@ -909,7 +909,7 @@ uint32_t TagDatabase::channelizerTuner()
 
 void TagDatabase::_printChannelMap(const uint32_t centerFreqHz, const QVector<uint32_t>& wrappedRequestedFreqsHz)
 {
-        qDebug() << "Target frequencies:" << wrappedRequestedFreqsHz;
+        qCDebug(CustomPluginLog) << "Target frequencies:" << wrappedRequestedFreqsHz;
 
         QString channelHeader("------    :    ------");
         uint32_t firstChannelFreqHz = centerFreqHz - _halfChannelBwHz;
@@ -945,10 +945,10 @@ void TagDatabase::_printChannelMap(const uint32_t centerFreqHz, const QVector<ui
             freqPositionStr[freqPositinInChannelDisplay] = 'v';
         }
 
-        qDebug() << zeroBasedChannelBucketsHeaderStr;
-        qDebug() << zeroBasedChannelBucketsValuesStr;
-        qDebug() << freqPositionStr;
-        qDebug() << QString(zeroBasedChannelBucketsHeaderStr.length(), '-');
+        qCDebug(CustomPluginLog) << zeroBasedChannelBucketsHeaderStr;
+        qCDebug(CustomPluginLog) << zeroBasedChannelBucketsValuesStr;
+        qCDebug(CustomPluginLog) << freqPositionStr;
+        qCDebug(CustomPluginLog) << QString(zeroBasedChannelBucketsHeaderStr.length(), '-');
 }
 
 int TagDatabase::_firstChannelFreqHz(const int centerFreqHz)

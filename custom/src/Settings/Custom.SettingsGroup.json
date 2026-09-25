@@ -144,6 +144,13 @@
     "default":          false
 },
 {
+    "name":             "controllerVerboseLogging",
+    "shortDesc":        "Controller verbose logging",
+    "label":            "Controller verbose logging",
+    "type":             "bool",
+    "default":          false
+},
+{
     "name":         "pythonK",
     "shortDesc":    "K (pulses per heading)",
     "longDesc":     "Pulses folded at every heading. Each heading dwells K x pulse interval; larger K reaches further.",

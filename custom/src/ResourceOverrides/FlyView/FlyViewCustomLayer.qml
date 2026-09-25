@@ -33,6 +33,7 @@ Item {
     property var _customPlugin:     QGroundControl.corePlugin
     property var _customSettings:   QGroundControl.settingsManager.customSettings
     property var _guidedController: globals.guidedControllerFlyView
+    property bool _surveyDetection: _customSettings.detectionFlightMode.rawValue === CustomSettings.SurveyDetection
 
     QGCPalette { id: qgcPal; colorGroupEnabled: true }
 
@@ -195,7 +196,9 @@ Item {
             Layout.preferredHeight: pulseOverlay.height + ScreenTools.defaultFontPixelWidth * 2
             color:                  Qt.rgba(qgcPal.window.r, qgcPal.window.g, qgcPal.window.b, 0.75)
             radius:                 ScreenTools.defaultFontPixelWidth / 2
-            visible:                _customPlugin.detectorList.count > 0 && !_customPlugin.controllerLostHeartbeat
+            // Rotation shows only detectors whose heartbeat was lost
+            visible:                _customPlugin.detectorList.count > 0 && !_customPlugin.controllerLostHeartbeat &&
+                                    (_surveyDetection || _customPlugin.detectorList.anyHeartbeatLost)
 
             ColumnLayout {
                 id:                 pulseOverlay
@@ -206,6 +209,8 @@ Item {
                     model: _customPlugin.detectorList
 
                     RowLayout {
+                        visible:                    _surveyDetection || object.heartbeatLost
+
                         property real maxStrength:  _customSettings.maxPulseStrength.rawValue
 
                         Rectangle {

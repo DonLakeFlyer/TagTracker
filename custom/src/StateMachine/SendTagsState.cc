@@ -26,11 +26,12 @@ SendTagsState::SendTagsState(QState* parent)
         }
     }
     if (_tagCount == 0) {
-        qCWarning(CustomStateMachineLog) << Q_FUNC_INFO << "No tags are available/selected to send.";
+        qCWarning(CustomPluginLog) << "No tags are available/selected to send.";
         return;
     }
     _uploadId = SendTunnelCommandState::nextRequestId();
 
+    auto sendLogLevel       = _sendLogLevelState(this);
     auto sendStartTags      = _sendStartTagsState(this);
     auto sendEndTags        = _sendEndTagsState(this);
     auto setupDetectorList  = new FunctionState("SetupDetectorList", this, std::bind(&SendTagsState::_setupDetectorList, this));
@@ -64,6 +65,9 @@ SendTagsState::SendTagsState(QState* parent)
         }
     }
 
+    // Log level -> Send tags start
+    sendLogLevel->addTransition(sendLogLevel, &SendTunnelCommandState::commandSucceeded, sendStartTags);
+
     // Send tags start -> first Send Tag
     sendStartTags->addTransition(sendStartTags, &SendTunnelCommandState::commandSucceeded, firstSendTagState);
 
@@ -73,7 +77,20 @@ SendTagsState::SendTagsState(QState* parent)
     // Setup detector list -> Final State
     setupDetectorList->addTransition(setupDetectorList, &QState::entered, finalState);
 
-    this->setInitialState(sendStartTags);
+    this->setInitialState(sendLogLevel);
+}
+
+// A controller restart while idle is invisible to the heartbeat watchdog, so the
+// level is re-asserted at the start of every session in case it fell back to default.
+SendTunnelCommandState* SendTagsState::_sendLogLevelState(QState* parent)
+{
+    auto customSettings = qobject_cast<CustomPlugin*>(CustomPlugin::instance())->customSettings();
+
+    SetLogLevel_t setLogLevel {};
+    setLogLevel.header.command  = COMMAND_ID_SET_LOG_LEVEL;
+    setLogLevel.level           = customSettings->controllerVerboseLogging()->rawValue().toBool() ? LOG_LEVEL_VERBOSE : LOG_LEVEL_DEBUG;
+
+    return new SendTunnelCommandState("SetLogLevelCommand", parent, (uint8_t*)&setLogLevel, sizeof(setLogLevel));
 }
 
 SendTunnelCommandState* SendTagsState::_sendStartTagsState(QState* parent)

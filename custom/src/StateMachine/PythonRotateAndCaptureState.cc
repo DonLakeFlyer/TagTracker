@@ -180,14 +180,14 @@ void PythonRotateAndCaptureState::_buildRevisitSlice(float headingDeg)
         PythonCaptureAtSliceState::ExplicitYaw {});
     revisitSlice->addTransition(revisitSlice, &QState::finished, _revisitDone);
     _revisitState->setInitialState(revisitSlice);
-    qCDebug(CustomStateMachineLog) << "Python: revisit slice built for heading" << headingDeg;
+    qCDebug(CustomPluginLog) << "Revisit slice built heading_deg:" << headingDeg;
 }
 
 void PythonRotateAndCaptureState::_rotationBegin()
 {
     _customPlugin->rotationIsStarting(_collectionId);
     DetectorList::instance()->startHeartbeatWatchdogs();
-    qCDebug(CustomStateMachineLog) << "Python rotation begin" << " - " << Q_FUNC_INFO;
+    qCDebug(CustomPluginLog) << "Rotation begin collection_id:" << _collectionId;
 }
 
 void PythonRotateAndCaptureState::_rotationEnd()

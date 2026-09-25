@@ -19,10 +19,10 @@ SetFlightModeState::SetFlightModeState(QState* parentState, const QString& fligh
 void SetFlightModeState::_setFlightMode()
 {
     if (_vehicle->flightMode() == _flightMode) {
-        qCDebug(CustomStateMachineLog) << "Flight mode already set to" << _flightMode << " - " << Q_FUNC_INFO;
+        qCDebug(CustomPluginLog) << "Flight mode already set flightMode:" << _flightMode;
         emit flightModeChanged();
     } else {
-        qCDebug(CustomStateMachineLog) << "Setting flight mode to" << _flightMode << " - " << Q_FUNC_INFO;
+        qCDebug(CustomPluginLog) << "Setting flightMode:" << _flightMode;
         connect(_vehicle, &Vehicle::flightModeChanged, this, &SetFlightModeState::_validateFlightModeChange);
         connect(&_timeoutTimer, &QTimer::timeout, this, &SetFlightModeState::_timeout);
         _timeoutTimer.start();
@@ -32,7 +32,7 @@ void SetFlightModeState::_setFlightMode()
 
 void SetFlightModeState::_timeout()
 {
-    qCWarning(CustomStateMachineLog) << "Timeout waiting for flight mode change to" << _flightMode << " - " << Q_FUNC_INFO;
+    qCWarning(CustomPluginLog) << "Timeout waiting for flight mode change flightMode:" << _flightMode;
     _disconnectAll();
     setError("Timeout waiting for flight mode change to " + _flightMode);
 }
@@ -47,7 +47,7 @@ void SetFlightModeState::_disconnectAll()
 void SetFlightModeState::_validateFlightModeChange(const QString& flightMode)
 {
     if (flightMode == _flightMode) {
-        qCDebug(CustomStateMachineLog) << "Flight mode successfully changed to" << flightMode << " - " << Q_FUNC_INFO;
+        qCDebug(CustomPluginLog) << "Flight mode changed flightMode:" << flightMode;
         _disconnectAll();
         emit flightModeChanged();
     }

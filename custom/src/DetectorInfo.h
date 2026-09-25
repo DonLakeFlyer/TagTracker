@@ -3,10 +3,6 @@
 #include <QObject>
 #include <QTimer>
 
-#include "QGCLoggingCategory.h"
-
-Q_DECLARE_LOGGING_CATEGORY(DetectorInfoLog)
-
 /// Per-detector state shown in the fly view (strength bar, heartbeat, rate label).
 /// Subclasses decode the detector-specific tunnel pulse message.
 class DetectorInfo : public QObject
@@ -25,9 +21,13 @@ public:
     Q_PROPERTY(bool waitingForFirstPulse MEMBER _waitingForFirstPulse NOTIFY waitingForFirstPulseChanged)
 
     uint32_t tagId() const { return _tagId; }
+    bool heartbeatLost() const { return _heartbeatLost; }
 
     /// Arms the first-heartbeat watchdog. Called when the detector is expected to start reporting.
     void startHeartbeatWatchdog();
+    /// Disarms the watchdog and clears any loss; the detector has been shut down on purpose.
+    void stopHeartbeatWatchdog();
+    void heartbeatReceived();
     bool heartbeatWatchdogActive() const { return _heartbeatTimeoutTimer.isActive(); }
     int  heartbeatWatchdogRemainingMsecs() const { return _heartbeatTimeoutTimer.remainingTime(); }
 
@@ -44,7 +44,6 @@ protected:
     /// k: pulses per detector cycle; the heartbeat timeout is (k + 1) intra-pulse periods.
     DetectorInfo(uint32_t tagId, const QString& tagLabel, uint32_t intraPulseMsecs, uint32_t k, QObject* parent);
 
-    void _heartbeatReceived();
     /// newGroup: first pulse of a new K group resets the running max; otherwise the group max is kept.
     void _pulseReceived(double snr, bool lowConfidence, bool newGroup);
     void _noPulseReceived();

@@ -1,11 +1,8 @@
 #pragma once
 
-#include <QtCore/QLoggingCategory>
 #include <QtCore/QObject>
 #include <QtCore/QProcess>
 #include <QtCore/QString>
-
-Q_DECLARE_LOGGING_CATEGORY(CompanionLogDownloaderLog)
 
 /// Copies the companion computer's Logs-* directories to the QGC log save path over WiFi using scp.
 /// macOS only. Requires key-based ssh access to the companion (see README "Downloading Companion Logs").

@@ -12,6 +12,7 @@ public:
     SendTagsState(QState* parent);
 
 private:
+    SendTunnelCommandState* _sendLogLevelState(QState* parent);
     SendTunnelCommandState* _sendStartTagsState(QState* parent);
     SendTunnelCommandState* _sendEndTagsState(QState* parent);
     SendTunnelCommandState* _sendTagState(int tagIndex, uint32_t uploadIndex, QState* parent);

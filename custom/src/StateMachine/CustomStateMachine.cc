@@ -26,7 +26,7 @@ void CustomStateMachine::setError(const QString& errorString)
 {
     const bool rtlOnError = _eventMode & RTLOnError;
 
-    qCWarning(CustomStateMachineLog) << "errorString" << errorString << " - " << Q_FUNC_INFO;
+    qCWarning(CustomPluginLog) << "machine:" << objectName() << "error:" << errorString;
     _errorString = errorString;
     if (!_vehicleLost && vehicle()->flying()) {
         AudioOutput::instance()->say(QStringLiteral("%1 failed. %2").arg(objectName()).arg(rtlOnError ? "Returning" : "User is in control of vehicle"));
@@ -43,7 +43,7 @@ void CustomStateMachine::setError(const QString& errorString)
 
 void CustomStateMachine::displayError()
 {
-    qCWarning(CustomStateMachineLog) << _errorString << " - " << Q_FUNC_INFO;
+    qCWarning(CustomPluginLog) << "error:" << _errorString;
     qgcApp()->showAppMessage(_errorString);
     _errorString.clear();
 }
@@ -71,7 +71,7 @@ void CustomStateMachine::_vehicleRemoved(Vehicle* vehicle)
     if (!isRunning()) {
         return;
     }
-    qCWarning(CustomStateMachineLog) << "Vehicle removed while running, cancelling" << objectName() << " - " << Q_FUNC_INFO;
+    qCWarning(CustomPluginLog) << "Vehicle removed while running, cancelling machine:" << objectName();
     AudioOutput::instance()->say(QStringLiteral("%1 cancelled. Vehicle disconnected.").arg(objectName()));
     _runStopHandler();
     stopMachine();
@@ -80,13 +80,13 @@ void CustomStateMachine::_vehicleRemoved(Vehicle* vehicle)
 void CustomStateMachine::setEventMode(uint eventMode)
 {
     if (eventMode == 0) {
-        qCDebug(CustomStateMachineLog) << "Clearing all event modes"<< " - " << Q_FUNC_INFO;
+        qCDebug(CustomPluginLog) << "Clearing all event modes";
     } else {
         if (eventMode & CancelOnFlightModeChange) {
-            qCDebug(CustomStateMachineLog) << "Setting event mode: CancelOnFlightModeChange" << " - " << Q_FUNC_INFO;
+            qCDebug(CustomPluginLog) << "Setting event mode: CancelOnFlightModeChange";
         }
         if (eventMode & RTLOnError) {
-            qCDebug(CustomStateMachineLog) << "Setting event mode: RTLOnError" << " - " << Q_FUNC_INFO;
+            qCDebug(CustomPluginLog) << "Setting event mode: RTLOnError";
         }
     }
     _eventMode = eventMode;

@@ -2,6 +2,7 @@
 #include "CustomPlugin.h"
 #include "CustomLoggingCategory.h"
 #include "TunnelProtocol.h"
+#include "TunnelProtocolText.h"
 #include "DetectorList.h"
 
 #include "MultiVehicleManager.h"
@@ -94,6 +95,8 @@ QString SendTunnelCommandState::commandIdToText(uint32_t vhfCommandId)
         return QStringLiteral("Bearing Result");
     case COMMAND_ID_COLLECTION_STATUS:
         return QStringLiteral("Collection Status");
+    case COMMAND_ID_SET_LOG_LEVEL:
+        return QStringLiteral("Set Log Level");
     default:
         return QStringLiteral("Unknown command: %1").arg(vhfCommandId);
     }
@@ -101,6 +104,13 @@ QString SendTunnelCommandState::commandIdToText(uint32_t vhfCommandId)
 
 void SendTunnelCommandState::_startCommand()
 {
+    if (_payloadSize < sizeof(HeaderInfo_t) || _payloadSize > sizeof(mavlink_tunnel_t::payload)) {
+        qCCritical(CustomPluginLog) << "Invalid tunnel payload size:" << _payloadSize
+                                    << "max:" << sizeof(mavlink_tunnel_t::payload);
+        setError(QStringLiteral("Internal error: invalid tunnel command size %1").arg(_payloadSize));
+        return;
+    }
+
     // Each entry is a new command; retries from the ACK timer keep this id.
     _retryCount = 0;
     _requestId  = nextRequestId();
@@ -132,7 +142,7 @@ void SendTunnelCommandState::_sendTunnelCommand()
         } else {
             message = QStringLiteral("Cannot send %1: controller heartbeat lost.").arg(commandText);
         }
-        qCWarning(CustomStateMachineLog) << message;
+        qCWarning(CustomPluginLog) << message;
         setError(message);
         return;
     }
@@ -166,8 +176,9 @@ void SendTunnelCommandState::_sendTunnelCommand()
                     &msg,
                     &tunnel);
 
-        qCDebug(CustomStateMachineLog) << "SendTunnelCommandState::_sendTunnelCommand: Sending tunnel command - " << commandIdToText(_sentTunnelCommand)
-                                       << "request_id" << _requestId << "attempt" << (_retryCount + 1);
+        qCDebug(CustomPluginLog).noquote()
+            << TunnelProtocolText::formatMessage(TunnelProtocolText::Direction::Sent, _payload, _payloadSize)
+            << "attempt:" << (_retryCount + 1);
 
         _vehicle->sendMessageOnLinkThreadSafe(sharedLink.get(), msg);
     }
@@ -184,7 +195,6 @@ void SendTunnelCommandState::_handleTunnelCommandAck(const mavlink_tunnel_t& tun
 
         _disconnectAll();
 
-        qCDebug(CustomStateMachineLog) << "Tunnel command ack received - command:request_id:result" << commandIdToText(ack.command) << ack.request_id << ack.result;
         if (ack.result == COMMAND_RESULT_SUCCESS) {
             emit commandSucceeded();
         } else {
@@ -206,24 +216,29 @@ void SendTunnelCommandState::_handleTunnelCommandAck(const mavlink_tunnel_t& tun
     } else {
         // A late ACK for an earlier attempt or command; the controller will
         // answer the current request_id separately.
-        qCWarning(CustomStateMachineLog) << "SendTunnelCommandState::_handleTunnelCommandAck: Ignoring stale ack expected:actual" <<
-                      commandIdToText(_sentTunnelCommand) << _requestId <<
-                      commandIdToText(ack.command) << ack.request_id;
+        qCWarning(CustomPluginLog).noquote() << "Ignoring stale ACK expected command:"
+                                             << TunnelProtocolText::commandName(_sentTunnelCommand)
+                                             << "request_id:" << _requestId
+                                             << "received command:" << TunnelProtocolText::commandName(ack.command)
+                                             << "request_id:" << ack.request_id;
     }
 }
 
 void SendTunnelCommandState::_ackResponseTimedOut(void)
 {
     QString message = QStringLiteral("%1 failed. No response from vehicle after %2 retries.").arg(commandIdToText(_sentTunnelCommand)).arg(_retryCount);
+    const QString commandName = TunnelProtocolText::commandName(_sentTunnelCommand);
 
     _disconnectAll();
 
     if (_retryCount < _maxRetries) {
-        qCDebug(CustomStateMachineLog) << message << "Retrying...";
+        qCDebug(CustomPluginLog).noquote() << "No ACK for" << commandName << "request_id:" << _requestId
+                                           << "retry:" << (_retryCount + 1);
         _retryCount++;
         _sendTunnelCommand();
     } else {
-        qCWarning(CustomStateMachineLog) << message;
+        qCWarning(CustomPluginLog).noquote() << "No ACK for" << commandName << "request_id:" << _requestId
+                                             << "retries:" << _retryCount;
         setError(message);
     }
 }

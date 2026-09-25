@@ -9,5 +9,5 @@
 
 #include "CustomLoggingCategory.h"
 
-QGC_LOGGING_CATEGORY(CustomPluginLog,            "CustomPluginLog")
-QGC_LOGGING_CATEGORY(CustomStateMachineLog,       "CustomStateMachineLog")
+QGC_LOGGING_CATEGORY(CustomPluginLog, "CustomPluginLog")
+QGC_LOGGING_CATEGORY(CustomPluginVerboseLog, "CustomPluginLog:verbose")

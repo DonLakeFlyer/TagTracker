@@ -13,13 +13,7 @@ void UavrtDetectorInfo::handlePulse(const PulseInfo_t& pulseInfo)
         return;
     }
 
-    if (pulseInfo.frequency_hz == 0) {
-        _heartbeatReceived();
-    } else if (pulseInfo.confirmed_status) {
-        qCDebug(DetectorInfoLog) << "CONFIRMED tag_id:frequency_hz:seq_ctr:snr:stft_score:noise_psd" << pulseInfo.tag_id
-                                 << pulseInfo.frequency_hz << pulseInfo.group_seq_counter << pulseInfo.snr
-                                 << pulseInfo.stft_score << pulseInfo.noise_psd;
-
+    if (pulseInfo.confirmed_status) {
         // The strength bar shows the max pulse within each K group
         const bool newGroup = _lastPulseGroupSeqCtr != pulseInfo.group_seq_counter;
         _lastPulseGroupSeqCtr = pulseInfo.group_seq_counter;

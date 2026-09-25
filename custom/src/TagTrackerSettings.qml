@@ -174,6 +174,12 @@ SettingsPage {
             visible:            _isPythonMode
         }
 
+        FactCheckBoxSlider {
+            Layout.fillWidth:   true
+            text:               fact.shortDescription
+            fact:               _customSettings.controllerVerboseLogging
+        }
+
         LabelledFactTextField {
             Layout.fillWidth:   true
             label:              fact.shortDescription

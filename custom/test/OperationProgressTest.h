@@ -18,4 +18,10 @@ private slots:
     void _resetHidesOnce();
     void _staleRunningHides();
     void _completeLingersThenHides();
+    void _rotationTitle();
+    void _stalledWhenStepFrozen();
+    void _stallOnlyForRotation();
+    void _stepCountGrowthIsNotProgress();
+    void _restartStallWatchDefersStall();
+    void _finishedSignalAndStaleStalls();
 };

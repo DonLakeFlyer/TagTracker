@@ -1,5 +1,6 @@
 #include "TagTrackerPulseDisplayTest.h"
 
+#include "DetectorList.h"
 #include "PythonDetectorInfo.h"
 #include "PythonRotateAndCaptureState.h"
 #include "RotationInfo.h"
@@ -7,6 +8,7 @@
 #include "SliceInfo.h"
 #include "TagDatabase.h"
 #include "TunnelProtocol.h"
+#include "UavrtDetectorInfo.h"
 
 #include <QtTest/QSignalSpy>
 
@@ -120,10 +122,7 @@ void TagTrackerPulseDisplayTest::_heartbeatWatchdogArmsOnlyWhenStarted()
     QVERIFY(!detectorInfo.heartbeatWatchdogActive());
 
     // A stale heartbeat before arming must not start the timer
-    TunnelProtocol::PythonPulseInfo_t heartbeat {};
-    heartbeat.tag_id = 2;
-    heartbeat.frequency_hz = 0;
-    detectorInfo.handlePulse(heartbeat);
+    detectorInfo.heartbeatReceived();
     QVERIFY(!detectorInfo.heartbeatWatchdogActive());
 
     detectorInfo.startHeartbeatWatchdog();
@@ -132,10 +131,72 @@ void TagTrackerPulseDisplayTest::_heartbeatWatchdogArmsOnlyWhenStarted()
     QVERIFY(detectorInfo.heartbeatWatchdogRemainingMsecs() <= withSlack(startupGraceMsecs));
 
     // First heartbeat drops the watchdog to the tag cadence
-    detectorInfo.handlePulse(heartbeat);
+    detectorInfo.heartbeatReceived();
     QVERIFY(detectorInfo.heartbeatWatchdogActive());
     QVERIFY(detectorInfo.heartbeatWatchdogRemainingMsecs() <= withSlack(cadenceTimeoutMsecs));
     QVERIFY(!detectorInfo.property("heartbeatLost").toBool());
+}
+
+void TagTrackerPulseDisplayTest::_stopHeartbeatWatchdogsClearsLoss()
+{
+    // Shortest cadence the formula allows so the loss fires quickly
+    DetectorList detectorList;
+    auto* python = new PythonDetectorInfo(2, QStringLiteral("Python"), 1, 0, &detectorList);
+    detectorList.append(python);
+    detectorList.startHeartbeatWatchdogs();
+    python->heartbeatReceived();
+
+    QTRY_VERIFY_WITH_TIMEOUT(python->heartbeatLost(), 5000);
+
+    // Rotation ended: the detectors were shut down, so their silence is not a failure
+    detectorList.stopHeartbeatWatchdogs();
+    QVERIFY(!python->heartbeatWatchdogActive());
+    QVERIFY(!python->heartbeatLost());
+
+    // A straggling heartbeat from the torn-down detector must not re-arm it
+    python->heartbeatReceived();
+    QVERIFY(!python->heartbeatWatchdogActive());
+}
+
+void TagTrackerPulseDisplayTest::_detectorHeartbeatMatchesTagAndMode()
+{
+    constexpr uint32_t intraPulseMsecs = 1333;
+    constexpr uint32_t k = 3;
+    constexpr int cadenceTimeoutMsecs = (k + 1) * intraPulseMsecs + 1000;
+    constexpr auto withSlack = [](int msecs) { return msecs + msecs / 20; };
+
+    DetectorList detectorList;
+    auto* python = new PythonDetectorInfo(2, QStringLiteral("Python"), intraPulseMsecs, k, &detectorList);
+    auto* uavrt  = new UavrtDetectorInfo(2, QStringLiteral("Uavrt"), intraPulseMsecs, k, &detectorList);
+    auto* other  = new PythonDetectorInfo(4, QStringLiteral("Other"), intraPulseMsecs, k, &detectorList);
+    detectorList.append(python);
+    detectorList.append(uavrt);
+    detectorList.append(other);
+    detectorList.startHeartbeatWatchdogs();
+
+    TunnelProtocol::DetectorHeartbeat_t heartbeat {};
+    heartbeat.header.command = COMMAND_ID_DETECTOR_HEARTBEAT;
+    heartbeat.tag_id = 2;
+    heartbeat.detection_mode = DETECTION_MODE_PYTHON;
+    detectorList.handleDetectorHeartbeat(heartbeat);
+
+    // Only the heartbeat's detector drops from the startup grace to the tag cadence
+    QVERIFY(python->heartbeatWatchdogRemainingMsecs() <= withSlack(cadenceTimeoutMsecs));
+    QVERIFY(uavrt->heartbeatWatchdogRemainingMsecs() > withSlack(cadenceTimeoutMsecs));
+    QVERIFY(other->heartbeatWatchdogRemainingMsecs() > withSlack(cadenceTimeoutMsecs));
+
+    heartbeat.detection_mode = DETECTION_MODE_UAVRT;
+    detectorList.handleDetectorHeartbeat(heartbeat);
+    QVERIFY(uavrt->heartbeatWatchdogRemainingMsecs() <= withSlack(cadenceTimeoutMsecs));
+    QVERIFY(other->heartbeatWatchdogRemainingMsecs() > withSlack(cadenceTimeoutMsecs));
+
+    // An unknown mode must not be treated as UAVRT
+    expectLogMessage("CustomPluginLog", QtWarningMsg, QRegularExpression(QStringLiteral("unknown detection_mode")));
+    heartbeat.tag_id = 4;
+    heartbeat.detection_mode = 2;
+    detectorList.handleDetectorHeartbeat(heartbeat);
+    verifyExpectedLogMessage();
+    QVERIFY(other->heartbeatWatchdogRemainingMsecs() > withSlack(cadenceTimeoutMsecs));
 }
 
 void TagTrackerPulseDisplayTest::_flightModeChangeTimeoutToleratesSlowLink()

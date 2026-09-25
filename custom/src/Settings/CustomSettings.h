@@ -41,6 +41,7 @@ public:
     DEFINE_SETTINGFACT(detectionMargin)
     DEFINE_SETTINGFACT(confidenceRatio)
     DEFINE_SETTINGFACT(debugDetector)
+    DEFINE_SETTINGFACT(controllerVerboseLogging)
     DEFINE_SETTINGFACT(pythonK)
     DEFINE_SETTINGFACT(pythonFalseAlarmMode)
     DEFINE_SETTINGFACT(pythonFalseAlarmProbability)

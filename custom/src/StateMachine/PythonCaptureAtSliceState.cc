@@ -16,10 +16,6 @@
 #include <QFinalState>
 #include <QtMath>
 
-namespace {
-static constexpr double kPythonResultTimeoutFudgeFactor = 0.5;
-}
-
 using namespace TunnelProtocol;
 
 PythonCaptureAtSliceState::PythonCaptureAtSliceState(
@@ -67,7 +63,7 @@ PythonCaptureAtSliceState::PythonCaptureAtSliceState(
 void PythonCaptureAtSliceState::_buildStates(uint32_t collectionId, uint32_t sliceId)
 {
     connect(this, &QState::entered, this, [this] () {
-        qCDebug(CustomStateMachineLog) << QStringLiteral("Python: rotating to heading %1").arg(_sliceHeadingDegrees) << " - " << Q_FUNC_INFO;
+        qCDebug(CustomPluginLog) << "Rotating to heading_deg:" << _sliceHeadingDegrees;
     });
 
     StartCollectionSlice_t startSlice {};
@@ -81,10 +77,7 @@ void PythonCaptureAtSliceState::_buildStates(uint32_t collectionId, uint32_t sli
     auto rotateCommandState         = _rotateMavlinkCommandState(this);
     auto waitForHeadingState        = new FactWaitForValueTarget(this, _vehicle->heading(), _sliceHeadingDegrees, 1.0, 20 * 1000);
     auto startSliceState            = new SendTunnelCommandState("Python StartCollectionSlice", this, reinterpret_cast<uint8_t*>(&startSlice), sizeof(startSlice));
-    const int maxWaitMsecs = _customPlugin->maxWaitMSecsForKGroup();
-    const int waitForDetectionTimeoutMsecs = maxWaitMsecs + static_cast<int>(maxWaitMsecs * kPythonResultTimeoutFudgeFactor);
-    auto waitForDetectionResultState= new PythonWaitForDetectionResultState(
-        this, collectionId, startSlice.slice_id, waitForDetectionTimeoutMsecs);
+    auto waitForDetectionResultState= new PythonWaitForDetectionResultState(this, collectionId, startSlice.slice_id);
     auto finalState                 = new QFinalState(this);
 
     // Transitions
