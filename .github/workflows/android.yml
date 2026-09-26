@@ -59,6 +59,22 @@ jobs:
       - name: Install host build dependencies
         uses: ./.github/actions/install-dependencies
 
+      # Dependabot and fork PRs get no repo secrets, leaving apksigner prompting on closed stdin.
+      - name: Create Debug Keystore
+        if: ${{ env.QT_ANDROID_KEYSTORE_STORE_PASS == '' }}
+        run: |
+          keytool -genkey -v \
+            -keystore "${RUNNER_TEMP}/debug.keystore" \
+            -storepass android -alias androiddebugkey -keypass android \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+          {
+            echo "QT_ANDROID_KEYSTORE_PATH=${RUNNER_TEMP}/debug.keystore"
+            echo "QT_ANDROID_KEYSTORE_ALIAS=androiddebugkey"
+            echo "QT_ANDROID_KEYSTORE_STORE_PASS=android"
+            echo "QT_ANDROID_KEYSTORE_KEY_PASS=android"
+          } >> "$GITHUB_ENV"
+
       - name: CMake configure
         uses: ./.github/actions/cmake-configure
         with:
