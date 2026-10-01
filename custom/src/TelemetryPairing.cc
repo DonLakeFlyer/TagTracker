@@ -21,8 +21,6 @@ namespace {
 
 // Pulse log times and telemetry timestamps come from the same clock; this only absorbs rounding
 constexpr quint64 ToleranceUsecs = 1'000'000;
-// When resynchronising after an unparseable record, reject timestamps this far past the start
-constexpr quint64 MaxRecordingUsecs = 7ull * 24 * 3600 * 1'000'000;
 constexpr qint64 MaxUnmappedReadBytes = 512ll * 1024 * 1024;
 constexpr int TimestampBytes = 8;
 
@@ -157,6 +155,23 @@ bool copyInto(const Candidate& candidate, const QString& folderPath)
     return true;
 }
 
+bool sameContents(const QString& pathA, const QString& pathB)
+{
+    QFile fileA(pathA);
+    QFile fileB(pathB);
+    if (!fileA.open(QIODevice::ReadOnly) || !fileB.open(QIODevice::ReadOnly) || fileA.size() != fileB.size()) {
+        return false;
+    }
+    constexpr qint64 ChunkBytes = 1024 * 1024;
+    while (!fileA.atEnd()) {
+        const QByteArray chunkA = fileA.read(ChunkBytes);
+        if (chunkA.isEmpty() || chunkA != fileB.read(ChunkBytes)) {
+            return false;
+        }
+    }
+    return fileB.atEnd();
+}
+
 Result pairFolderWith(const QString& folderPath, QList<Candidate>& telemetryFiles)
 {
     FolderRuns runs;
@@ -179,12 +194,15 @@ Result pairFolderWith(const QString& folderPath, QList<Candidate>& telemetryFile
         return Result::NoTelemetry;
     }
 
-    // Recordings never overlap, so several matches are copies of one file unless proven otherwise.
-    // If they differ, naming either could be wrong, so name neither.
+    // Recordings never overlap, so several matches are normally copies of one file. Only identical
+    // bytes prove that. If they differ, naming either could be wrong, so name neither.
     const Candidate* first = matches.first();
     for (const Candidate* match : matches) {
+        if (match == first) {
+            continue;
+        }
         if (match->size != first->size || match->span->startUsecs != first->span->startUsecs ||
-            match->span->endUsecs != first->span->endUsecs) {
+            match->span->endUsecs != first->span->endUsecs || !sameContents(match->path, first->path)) {
             QStringList names;
             for (const Candidate* each : matches) {
                 names.append(each->name);
@@ -235,38 +253,69 @@ Span readSpan(const QString& telemetryPath)
 
     QByteArray unmapped;
     const uchar* data = file.map(0, size);
-    if (!data) {
+    const bool mapped = data != nullptr;
+    if (!mapped) {
         if (size > MaxUnmappedReadBytes) {
             qCWarning(CustomPluginLog) << "Unable to map telemetry file" << telemetryPath << file.errorString();
             return Span();
         }
         unmapped = file.readAll();
+        // A short read, from an I/O error or a removed drive, would leave the walk below past the buffer
+        if (unmapped.size() != size) {
+            qCWarning(CustomPluginLog) << "Short read of telemetry file" << telemetryPath << unmapped.size() << "of"
+                                       << size << "bytes";
+            return Span();
+        }
         data = reinterpret_cast<const uchar*>(unmapped.constData());
     }
 
     Span span;
     span.startUsecs = parseTimestamp(data);
     span.endUsecs = span.startUsecs;
+    const quint64 nowUsecs = usecsFromDateTime(QDateTime::currentDateTimeUtc());
+
+    // Length of a complete record at offset whose timestamp lies between the start and now, or -1
+    const auto recordLength = [&](qint64 offset) -> qint64 {
+        if (offset + TimestampBytes >= size) {
+            return -1;
+        }
+        const quint64 timestamp = parseTimestamp(data + offset);
+        if (timestamp < span.startUsecs || timestamp > nowUsecs) {
+            return -1;
+        }
+        const qint64 length = frameLength(data + offset + TimestampBytes, size - offset - TimestampBytes);
+        if (length <= 0 || offset + TimestampBytes + length > size) {
+            return -1;
+        }
+        return TimestampBytes + length;
+    };
 
     // Each record is a timestamp followed by one MAVLink frame. A record that does not parse is
-    // skipped a byte at a time until a plausible timestamp and frame start line up again.
+    // skipped a byte at a time. Bytes can line up as a record by chance, so after a skip a record
+    // only counts if the next one lines up too, or it ends the file.
     qint64 pos = 0;
+    qint64 records = 0;
+    bool resyncing = false;
     while (pos + TimestampBytes < size) {
-        const quint64 timestamp = parseTimestamp(data + pos);
-        const qint64 length = frameLength(data + pos + TimestampBytes, size - pos - TimestampBytes);
-        if (length > 0 && pos + TimestampBytes + length <= size && timestamp >= span.startUsecs &&
-            timestamp - span.startUsecs <= MaxRecordingUsecs) {
-            span.endUsecs = std::max(span.endUsecs, timestamp);
-            pos += TimestampBytes + length;
+        const qint64 length = recordLength(pos);
+        const bool confirmed =
+            length > 0 && (!resyncing || pos + length == size || recordLength(pos + length) > 0);
+        if (confirmed) {
+            span.endUsecs = std::max(span.endUsecs, parseTimestamp(data + pos));
+            records++;
+            pos += length;
+            resyncing = false;
         } else {
             pos++;
+            resyncing = true;
         }
     }
 
-    if (unmapped.isEmpty()) {
+    if (mapped) {
         file.unmap(const_cast<uchar*>(data));
     }
-    return span;
+    // The first eight bytes alone are not a recording
+    return records > 0 ? span : Span();
 }
 
 Result pairFolder(const QString& folderPath, const QString& telemetryDir)
