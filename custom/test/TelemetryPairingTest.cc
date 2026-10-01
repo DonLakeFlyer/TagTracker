@@ -309,6 +309,31 @@ void TelemetryPairingTest::_sameSpanDifferentBytesIsAmbiguous()
     QVERIFY(tlogsIn(folder).isEmpty());
 }
 
+void TelemetryPairingTest::_replacesWrongCopyInFolder()
+{
+    QTemporaryDir telemetryDir;
+    QTemporaryDir logDir;
+    QVERIFY(telemetryDir.isValid() && logDir.isValid());
+    const quint64 t = baseUsecs();
+
+    const QByteArray bytes = recording(t, t + 60 * UsecsPerMinute);
+    QVERIFY(writeFile(telemetryDir.filePath(QStringLiteral("flight.tlog")), bytes));
+    const QString folder = makeFolder(logDir.path(), QStringLiteral("stale"), {t + 10 * UsecsPerMinute});
+
+    // A same-sized but different file already sits in the folder under the telemetry file's name
+    QByteArray stale = bytes;
+    stale[20] = 'c';
+    QVERIFY(writeFile(QDir(folder).filePath(QStringLiteral("flight.tlog")), stale));
+
+    QCOMPARE(TelemetryPairing::pairFolder(folder, telemetryDir.path()), TelemetryPairing::Result::Paired);
+    QFile copy(QDir(folder).filePath(QStringLiteral("flight.tlog")));
+    QVERIFY(copy.open(QIODevice::ReadOnly));
+    QCOMPARE(copy.readAll(), bytes);
+    // Pulse log, sidecar and the copy, with no staging file left behind
+    QCOMPARE(QDir(folder).entryList(QDir::Files).count(), 3);
+    QCOMPARE(telemetryNames(folder), QStringList({QStringLiteral("flight.tlog")}));
+}
+
 void TelemetryPairingTest::_pairAllSkipsOpenFolderAndRepeatsSafely()
 {
     QTemporaryDir telemetryDir;
