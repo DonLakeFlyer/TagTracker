@@ -18,7 +18,7 @@ namespace {
 void waitForNextMillisecond()
 {
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
-    QTRY_VERIFY_WITH_TIMEOUT(QDateTime::currentMSecsSinceEpoch() > now, 1000);
+    QTRY_VERIFY_WITH_TIMEOUT(QDateTime::currentMSecsSinceEpoch() > now, TestTimeout::shortMs());
 }
 
 QStringList entries(const QString& folder, const QString& filter)
@@ -127,7 +127,7 @@ void PulseLogFolderTest::_disconnectStartsNewFolder()
     const QString firstFolder = manager.connectionFolder();
 
     _disconnectMockLink();
-    QTRY_COMPARE_WITH_TIMEOUT(closedSpy.count(), 1, 5000);
+    QTRY_COMPARE_WITH_TIMEOUT(closedSpy.count(), 1, TestTimeout::mediumMs());
     QCOMPARE(closedSpy[0][0].toString(), firstFolder);
     QVERIFY(manager.connectionFolder().isEmpty());
 

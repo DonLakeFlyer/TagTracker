@@ -151,6 +151,44 @@ void TelemetryPairingTest::_readSpanIgnoresTruncatedTail()
     QVERIFY(!TelemetryPairing::readSpan(empty).isValid());
 }
 
+void TelemetryPairingTest::_readSpanAcceptsLongRecordings()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    // Eight days of recording, ending a day ago
+    const quint64 t = baseUsecs() - 8 * 24 * 60 * UsecsPerMinute;
+    const quint64 end = baseUsecs();
+
+    QByteArray bytes = recording(t, t + 2 * UsecsPerMinute);
+    bytes.append(QByteArray(37, 'z'));
+    bytes.append(recording(end - UsecsPerMinute, end));
+
+    const QString path = dir.filePath(QStringLiteral("long.tlog"));
+    QVERIFY(writeFile(path, bytes));
+
+    const TelemetryPairing::Span span = TelemetryPairing::readSpan(path);
+    QCOMPARE(span.startUsecs, t);
+    QCOMPARE(span.endUsecs, end);
+}
+
+void TelemetryPairingTest::_readSpanNeedsOneCompleteRecord()
+{
+    QTemporaryDir telemetryDir;
+    QTemporaryDir logDir;
+    QVERIFY(telemetryDir.isValid() && logDir.isValid());
+    const quint64 t = baseUsecs();
+
+    // Cut off inside its first record, so only the start timestamp is readable
+    const QString path = telemetryDir.filePath(QStringLiteral("cut.tlog"));
+    QVERIFY(writeFile(path, record(t, Frame::V2).left(14)));
+    QCOMPARE(TelemetryPairing::readStartUsecs(path), t);
+    QVERIFY(!TelemetryPairing::readSpan(path).isValid());
+
+    const QString folder = makeFolder(logDir.path(), QStringLiteral("cut"), {t});
+    QCOMPARE(TelemetryPairing::pairFolder(folder, telemetryDir.path()), TelemetryPairing::Result::NoTelemetry);
+    QVERIFY(tlogsIn(folder).isEmpty());
+}
+
 void TelemetryPairingTest::_pairsByContentNotName()
 {
     QTemporaryDir telemetryDir;
@@ -247,6 +285,28 @@ void TelemetryPairingTest::_differentMatchesAreAmbiguous()
     verifyExpectedLogMessage();
     QVERIFY(tlogsIn(folder).isEmpty());
     QCOMPARE(telemetryNames(folder), QStringList({QString()}));
+}
+
+void TelemetryPairingTest::_sameSpanDifferentBytesIsAmbiguous()
+{
+    QTemporaryDir telemetryDir;
+    QTemporaryDir logDir;
+    QVERIFY(telemetryDir.isValid() && logDir.isValid());
+    const quint64 t = baseUsecs();
+
+    // Same size, start and end, but one payload byte differs
+    const QByteArray bytes = recording(t, t + 60 * UsecsPerMinute);
+    QByteArray altered = bytes;
+    altered[20] = 'c';
+    QVERIFY(writeFile(telemetryDir.filePath(QStringLiteral("one.tlog")), bytes));
+    QVERIFY(writeFile(telemetryDir.filePath(QStringLiteral("two.tlog")), altered));
+    const QString folder = makeFolder(logDir.path(), QStringLiteral("lookalike"), {t + 10 * UsecsPerMinute});
+
+    expectLogMessage("CustomPluginLog", QtWarningMsg,
+                     QRegularExpression(QStringLiteral("Several different telemetry files")));
+    QCOMPARE(TelemetryPairing::pairFolder(folder, telemetryDir.path()), TelemetryPairing::Result::Ambiguous);
+    verifyExpectedLogMessage();
+    QVERIFY(tlogsIn(folder).isEmpty());
 }
 
 void TelemetryPairingTest::_pairAllSkipsOpenFolderAndRepeatsSafely()
