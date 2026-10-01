@@ -17,6 +17,7 @@ private slots:
     void _duplicateCopiesPairWithFirstName();
     void _differentMatchesAreAmbiguous();
     void _sameSpanDifferentBytesIsAmbiguous();
+    void _replacesWrongCopyInFolder();
     void _pairAllSkipsOpenFolderAndRepeatsSafely();
     void _pairAllIgnoresCompanionLogFolders();
 };

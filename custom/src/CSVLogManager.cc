@@ -52,7 +52,12 @@ void CSVLogManager::connectionEnded()
         return;
     }
     const QString folder = _connectionFolder;
+    // Cleared first, because closing the pulse log below can call back into here
     _connectionFolder.clear();
+    // Detection can still be running when the vehicle goes. Its logs belong to this folder and
+    // must be closed, with their stop times recorded, before the folder is paired.
+    csvStopFullPulseLog();
+    csvStopRotationPulseLog();
     qCDebug(CustomPluginLog) << "Log folder closed:" << folder;
     emit connectionFolderClosed(folder);
 }

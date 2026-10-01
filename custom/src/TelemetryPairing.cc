@@ -9,6 +9,7 @@
 #include <QtCore/QFileInfo>
 #include <QtCore/QJsonObject>
 #include <QtCore/QList>
+#include <QtCore/QSaveFile>
 #include <QtCore/QtEndian>
 
 #include "AppSettings.h"
@@ -139,22 +140,6 @@ bool covers(Candidate& candidate, const FolderRuns& runs)
     return candidate.span->isValid() && candidate.span->endUsecs + ToleranceUsecs >= runs.latestStartUsecs;
 }
 
-bool copyInto(const Candidate& candidate, const QString& folderPath)
-{
-    const QString destination = QDir(folderPath).filePath(candidate.name);
-    if (QFileInfo::exists(destination)) {
-        if (QFileInfo(destination).size() == candidate.size) {
-            return true;
-        }
-        QFile::remove(destination);
-    }
-    if (!QFile::copy(candidate.path, destination)) {
-        qCWarning(CustomPluginLog) << "Unable to copy telemetry file" << candidate.path << "to" << destination;
-        return false;
-    }
-    return true;
-}
-
 bool sameContents(const QString& pathA, const QString& pathB)
 {
     QFile fileA(pathA);
@@ -170,6 +155,38 @@ bool sameContents(const QString& pathA, const QString& pathB)
         }
     }
     return fileB.atEnd();
+}
+
+bool copyInto(const Candidate& candidate, const QString& folderPath)
+{
+    const QString destination = QDir(folderPath).filePath(candidate.name);
+    if (QFileInfo::exists(destination) && sameContents(candidate.path, destination)) {
+        return true;
+    }
+
+    // QSaveFile writes beside the destination and swaps it in only once complete, so a failed copy
+    // leaves any existing file as it was
+    QFile source(candidate.path);
+    QSaveFile target(destination);
+    if (!source.open(QIODevice::ReadOnly) || !target.open(QIODevice::WriteOnly)) {
+        qCWarning(CustomPluginLog) << "Unable to copy telemetry file" << candidate.path << "to" << destination;
+        return false;
+    }
+    constexpr qint64 ChunkBytes = 1024 * 1024;
+    while (!source.atEnd()) {
+        const QByteArray chunk = source.read(ChunkBytes);
+        if (chunk.isEmpty() || target.write(chunk) != chunk.size()) {
+            target.cancelWriting();
+            qCWarning(CustomPluginLog) << "Unable to copy telemetry file" << candidate.path << "to" << destination;
+            return false;
+        }
+    }
+    if (!target.commit()) {
+        qCWarning(CustomPluginLog) << "Unable to copy telemetry file" << candidate.path << "to" << destination
+                                   << target.errorString();
+        return false;
+    }
+    return true;
 }
 
 Result pairFolderWith(const QString& folderPath, QList<Candidate>& telemetryFiles)

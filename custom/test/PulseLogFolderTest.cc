@@ -140,6 +140,42 @@ void PulseLogFolderTest::_disconnectStartsNewFolder()
     QCOMPARE(QDir(logDir.path()).entryList(QDir::Dirs | QDir::NoDotAndDotDot).count(), 2);
 }
 
+void PulseLogFolderTest::_disconnectClosesOpenLogs()
+{
+    _connectMockLink();
+
+    QTemporaryDir logDir;
+    QVERIFY(logDir.isValid());
+    CSVLogManager manager;
+    manager.setLogSavePathOverride(logDir.path());
+    manager.init();
+    QSignalSpy closedSpy(&manager, &CSVLogManager::connectionFolderClosed);
+
+    // Detection still running when the vehicle goes
+    manager.csvStartFullPulseLog();
+    manager.csvStartRotationPulseLog();
+    const QString firstFolder = manager.connectionFolder();
+
+    _disconnectMockLink();
+    QTRY_COMPARE_WITH_TIMEOUT(closedSpy.count(), 1, TestTimeout::mediumMs());
+    const QStringList sidecars = entries(firstFolder, QStringLiteral("Pulse-*.json"));
+    QCOMPARE(sidecars.count(), 1);
+    QVERIFY(!readSidecar(QDir(firstFolder).filePath(sidecars[0]))[PulseLogSidecar::keyStopUtc].isNull());
+
+    // The next connection's logs open in a new folder rather than finding the old ones still open
+    _connectMockLink();
+    waitForNextMillisecond();
+    manager.csvStartFullPulseLog();
+    manager.csvStartRotationPulseLog();
+    const QString secondFolder = manager.connectionFolder();
+    QVERIFY(!secondFolder.isEmpty());
+    QVERIFY(secondFolder != firstFolder);
+    QCOMPARE(entries(secondFolder, QStringLiteral("Pulse-*.csv")).count(), 1);
+    QCOMPARE(entries(secondFolder, QStringLiteral("Rotation-*.csv")).count(), 1);
+    manager.csvStopRotationPulseLog();
+    manager.csvStopFullPulseLog();
+}
+
 void PulseLogFolderTest::_rotationLogsNumberedPerFolder()
 {
     _connectMockLink();
