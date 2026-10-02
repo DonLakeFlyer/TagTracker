@@ -15,9 +15,8 @@ PythonWaitForDetectionResultState::PythonWaitForDetectionResultState(
     , _sliceId      (sliceId)
 {
     // An inner FunctionState is used as the initial state so that _startListening()
-    // is called the moment this composite state is entered.  Once all expected
-    // detectors have reported (or if the list is empty), resultsReceived is emitted
-    // which drives the transition to finalState.
+    // is called the moment this composite state is entered.  SLICE_COMPLETE for this
+    // slice emits resultsReceived, which drives the transition to finalState.
     auto listenState = new FunctionState("StartListening", this, [this] () { _startListening(); });
     auto finalState  = new QFinalState(this);
 
