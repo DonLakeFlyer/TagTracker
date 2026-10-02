@@ -13,6 +13,7 @@
 #include "FunctionState.h"
 #include "SayState.h"
 #include "RotationInfo.h"
+#include "TelemetryPairing.h"
 
 #include "Vehicle.h"
 #include "VehicleLinkManager.h"
@@ -104,7 +105,57 @@ void CustomPlugin::init()
     // TagTracker logging is on by default; QGC only enables categories the user opted into.
     QGCLoggingCategoryManager::instance()->setCategoryEnabled(QString::fromLatin1(CustomPluginLog().categoryName()), true);
 
-    _csvLogManager.csvClearPrevRotationLogs();
+    _csvLogManager.init();
+    connect(&_csvLogManager, &CSVLogManager::connectionFolderClosed, this, &CustomPlugin::_pairTelemetryForFolder);
+
+    // Deferred to the event loop so QGroundControl has first recovered any telemetry file a crash left behind
+    if (!qgcApp()->runningUnitTests() &&
+        !SettingsManager::instance()->appSettings()->disableAllPersistence()->rawValue().toBool()) {
+        QTimer::singleShot(0, this, [this]() {
+            const TelemetryPairing::Summary summary = TelemetryPairing::pairAll(
+                _csvLogManager.logSavePath(), SettingsManager::instance()->appSettings()->telemetrySavePath(),
+                _csvLogManager.connectionFolder());
+            qCDebug(CustomPluginLog) << "Startup telemetry pairing: paired" << summary.paired << "unpaired"
+                                     << summary.noTelemetry << "ambiguous" << summary.ambiguous << "errors"
+                                     << summary.errors;
+        });
+    }
+}
+
+void CustomPlugin::_pairTelemetryForFolder(const QString& folderPath)
+{
+    const TelemetryPairing::Result result =
+        TelemetryPairing::pairFolder(folderPath, SettingsManager::instance()->appSettings()->telemetrySavePath());
+    if (result == TelemetryPairing::Result::Ambiguous) {
+        qgcApp()->showAppMessage(
+            tr("Several telemetry files match log folder %1, so none was copied into it.").arg(folderPath));
+    } else if (result == TelemetryPairing::Result::Error) {
+        qgcApp()->showAppMessage(tr("Unable to copy the telemetry file into log folder %1.").arg(folderPath));
+    }
+}
+
+void CustomPlugin::pairTelemetryLogs()
+{
+    const TelemetryPairing::Summary summary = TelemetryPairing::pairAll(
+        _csvLogManager.logSavePath(), SettingsManager::instance()->appSettings()->telemetrySavePath(),
+        _csvLogManager.connectionFolder());
+
+    QString message = tr("Telemetry copied into %n log folder(s).", nullptr, summary.paired);
+    if (summary.noTelemetry > 0) {
+        message += QStringLiteral(" ") + tr("%n folder(s) have no telemetry file; the vehicle may not have armed.",
+                                            nullptr, summary.noTelemetry);
+    }
+    if (summary.ambiguous > 0) {
+        message += QStringLiteral(" ") +
+                   tr("%n folder(s) match several telemetry files and were left alone.", nullptr, summary.ambiguous);
+    }
+    if (summary.errors > 0) {
+        message += QStringLiteral(" ") + tr("%n folder(s) could not be updated.", nullptr, summary.errors);
+    }
+    if (!_csvLogManager.connectionFolder().isEmpty()) {
+        message += QStringLiteral(" ") + tr("The current connection's folder is paired when the vehicle disconnects.");
+    }
+    qgcApp()->showAppMessage(message);
 }
 
 void CustomPlugin::linkConfigurationsLoaded(LinkManager* linkManager)

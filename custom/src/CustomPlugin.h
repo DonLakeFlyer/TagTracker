@@ -92,6 +92,7 @@ public:
     Q_INVOKABLE void saveLogs           (void);
     Q_INVOKABLE void cleanLogs          (void);
     Q_INVOKABLE void clearMap           (void);
+    Q_INVOKABLE void pairTelemetryLogs  (void);
 
     // Overrides from QGCCorePlugin
     void                init                    (void) final;
@@ -150,6 +151,7 @@ private:
     void    _sendLogLevel               (void);
     /// Fire-and-forget tunnel frame outside a state machine; false if no compatible link.
     bool    _sendTunnelFrame            (const void* payload, size_t size);
+    void    _pairTelemetryForFolder     (const QString& folderPath);
 
     bool                    _activeRotation     = false;
     bool                    _rotationInProgress = false;

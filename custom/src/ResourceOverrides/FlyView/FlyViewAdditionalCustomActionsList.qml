@@ -101,6 +101,13 @@ Item {
         },
 
         {
+            title:      _customController.pairTelemetryTitle,
+            visible:    true,
+            enabled:    true,
+            action:     _customController.actionPairTelemetry,
+        },
+
+        {
             title:      _customController.clearMapTitle,
             visible:    true,
             enabled:    QGroundControl.corePlugin.customMapItems.count > 0 && !QGroundControl.corePlugin.activeRotation,
