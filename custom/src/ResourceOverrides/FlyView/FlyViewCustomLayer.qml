@@ -26,9 +26,17 @@ import QGroundControl.FlightMap
 Item {
     id: _root
 
-    property var parentToolInsets               // These insets tell you what screen real estate is available for positioning the controls in your overlay
-    property var totalToolInsets: _toolInsets   // These are the insets for your custom overlay additions
+    property var occluders              // FlyViewOccluders: where the upstream widgets are, use these to position your controls
     property var mapControl
+
+    // Rects of the controls in this layer which cover the map, so the map keeps the vehicle out from under them
+    property var customOccluders: [
+        _occluderRect(emergencyStopButton, 0, 0),
+        _occluderRect(controllerOperationCard, rightColumn.x, rightColumn.y),
+        _occluderRect(wifiDownloadCard, rightColumn.x, rightColumn.y),
+        _occluderRect(pulseOverlayBackground, rightColumn.x, rightColumn.y),
+        _occluderRect(snrGradient, rightColumn.x, rightColumn.y)
+    ]
 
     property var _customPlugin:     QGroundControl.corePlugin
     property var _customSettings:   QGroundControl.settingsManager.customSettings
@@ -48,21 +56,8 @@ Item {
     property real   _tickFirstPixelY:       (_maxSNR - _maxTickSNR) * _pixelsPerSNR
     property real   _tickPixelIncrement:    _tickSNRIncrement * _pixelsPerSNR
 
-
-    QGCToolInsets {
-        id:                     _toolInsets
-        leftEdgeTopInset:       parentToolInsets.leftEdgeTopInset
-        leftEdgeCenterInset:    parentToolInsets.leftEdgeCenterInset
-        leftEdgeBottomInset:    emergencyStopButton.visible ? Math.max(parentToolInsets.leftEdgeBottomInset, emergencyStopButton.width + emergencyStopButton.anchors.leftMargin) : parentToolInsets.leftEdgeBottomInset
-        rightEdgeTopInset:      parentToolInsets.rightEdgeTopInset
-        rightEdgeCenterInset:   parentToolInsets.rightEdgeCenterInset
-        rightEdgeBottomInset:   parentToolInsets.rightEdgeBottomInset
-        topEdgeLeftInset:       parentToolInsets.topEdgeLeftInset
-        topEdgeCenterInset:     parentToolInsets.topEdgeCenterInset
-        topEdgeRightInset:      parentToolInsets.topEdgeRightInset
-        bottomEdgeLeftInset:    emergencyStopButton.visible ? emergencyStopButton.anchors.bottomMargin + emergencyStopButton.height + ScreenTools.defaultFontPixelWidth : parentToolInsets.bottomEdgeLeftInset
-        bottomEdgeCenterInset:  parentToolInsets.bottomEdgeCenterInset
-        bottomEdgeRightInset:   parentToolInsets.bottomEdgeRightInset
+    function _occluderRect(item, offsetX, offsetY) {
+        return item.visible ? Qt.rect(offsetX + item.x, offsetY + item.y, item.width, item.height) : Qt.rect(0, 0, 0, 0)
     }
 
     // TagTracker shows emergency stop whenever the vehicle is armed, not just while flying.
@@ -71,7 +66,7 @@ Item {
         anchors.left:           parent.left
         anchors.bottom:         parent.bottom
         anchors.leftMargin:     ScreenTools.defaultFontPixelWidth
-        anchors.bottomMargin:   parentToolInsets.bottomEdgeLeftInset + ScreenTools.defaultFontPixelWidth
+        anchors.bottomMargin:   parent.height - Math.min(occluders.pipView.y, occluders.virtualJoystickLeft.y) + ScreenTools.defaultFontPixelWidth
         text:                   qsTr("EMERGENCY STOP")
         backgroundColor:        "red"
         textColor:              "white"
@@ -82,11 +77,12 @@ Item {
     }
 
     ColumnLayout {
+        id:                     rightColumn
         anchors.top:            parent.top
         anchors.right:          parent.right
         anchors.bottom:         parent.bottom
         anchors.margins:        ScreenTools.defaultFontPixelWidth
-        anchors.bottomMargin:   parentToolInsets.bottomEdgeRightInset + ScreenTools.defaultFontPixelWidth
+        anchors.bottomMargin:   parent.height - Math.min(occluders.bottomRight.y, occluders.virtualJoystickRight.y) + ScreenTools.defaultFontPixelWidth
         spacing:                ScreenTools.defaultFontPixelHeight / 4
 
         // Progress card shared by controller operations and the WiFi log download.
@@ -172,6 +168,8 @@ Item {
 
         // Controller long-running operation (raw capture, log save/delete, detection start/stop)
         OperationCard {
+            id:         controllerOperationCard
+
             property var _operation: _customPlugin.operationProgress
 
             visible:    _operation.active
@@ -184,6 +182,7 @@ Item {
 
         // scp gives no machine-readable progress, so the WiFi download is always indeterminate.
         OperationCard {
+            id:         wifiDownloadCard
             visible:    _customPlugin.companionLogDownloader.downloading
             title:      _guidedController._customController.downloadLogsTitle
             message:    qsTr("Copying companion logs over WiFi...")

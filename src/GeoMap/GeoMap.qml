@@ -53,6 +53,8 @@ Item {
     property alias allowVehicleLocationCenter: _positionTracker.allowVehicleLocationCenter
     property alias keepVehicleCentered: _positionTracker.keepVehicleCentered
     property alias positionTracker: _positionTracker
+    property rect followViewportRect: Qt.rect(0, 0, width, height)   ///< Map area the followed vehicle is kept within
+    property var followOccluders: []                                ///< Rects within the viewport covered by host UI
 
     // Live SurfaceModel stats for debug overlays
     property alias patchCount: patchModel.patchCount
@@ -75,7 +77,7 @@ Item {
     readonly property var _activeVehicle: QGroundControl.multiVehicleManager.activeVehicle
     readonly property var _activeVehicleCoordinate: _activeVehicle ? _activeVehicle.coordinate : QtPositioning.coordinate()
     // Vehicle items render at coordinate.altitude + home terrain bias (see
-    // GeoMapVehicleItem): inset-follow must track that same rendered point or
+    // GeoMapVehicleItem): occluder-follow must track that same rendered point or
     // the recenter target is vertically off by the bias under a tilted camera
     readonly property var _trackedVehicleCoordinate: QtPositioning.coordinate(_activeVehicleCoordinate.latitude,
                                                                               _activeVehicleCoordinate.longitude,
@@ -88,7 +90,7 @@ Item {
 
     function _updateHomeTerrainBias() {
         if (_activeVehicle && _activeVehicle.homePosition.isValid && !isNaN(_activeVehicle.homePosition.altitude)) {
-            _homeTerrainBias = patchModel.terrainHeightAt(_activeVehicle.homePosition) - _activeVehicle.homePosition.altitude
+            _homeTerrainBias = patchModel.terrainDataHeightAt(_activeVehicle.homePosition) - _activeVehicle.homePosition.altitude
         } else {
             _homeTerrainBias = 0
         }
@@ -120,6 +122,12 @@ Item {
         headingAnimation.start()
     }
 
+    // Show the whole QGeoRectangle at the current heading/tilt
+    function fitToRegion(region) {
+        completeCameraAnimations()
+        geoCamera.fitToRegion(region)
+    }
+
     // LOD checker colors for debug mode (imagery off)
     function _lodColor(centerX, centerY, span, zoomLevel) {
         const parity = (Math.round(centerX / span) + Math.round(centerY / span)) & 1
@@ -137,11 +145,12 @@ Item {
         recenterAnimation.stop()
     }
 
-    // Keep the camera's look-at point riding the rendered surface: without
-    // this the orbit center stays at z=0 and a close-zoom 2D->3D switch over
-    // high terrain puts the camera under the mesh (blank view)
+    // Keep the camera's look-at point riding the terrain data, not the drawn
+    // mesh: the pivot feeds LOD selection, so following patch churn would loop.
+    // Without this the orbit center stays at z=0 and a close-zoom 2D->3D switch
+    // over high terrain puts the camera under the mesh (blank view)
     function _updateCenterElevation() {
-        geoCamera.centerElevation = patchModel.terrainHeightAt(geoCamera.center)
+        geoCamera.centerElevation = patchModel.terrainDataHeightAt(geoCamera.center)
                                     * geoScene.verticalScale * geoScene.terrainScale
     }
 
@@ -218,14 +227,12 @@ Item {
             // the elevation the pivot will settle to at the destination
             let target = geoScene.centerForCoordinateAtScreenPoint(root._trackedVehicleCoordinate, screenPoint)
             target = geoScene.centerForCoordinateAtScreenPoint(root._trackedVehicleCoordinate, screenPoint,
-                                                               patchModel.terrainHeightAt(target))
+                                                               patchModel.terrainDataHeightAt(target))
             recenterAnimation.to = target
             recenterAnimation.start()
         }
     }
 
-    // Inset-follow evaluation: no view chrome here yet, so the unobstructed
-    // center rect is the full viewport and there are no corner rects
     Timer {
         interval: 500
         running: root.visible
@@ -234,7 +241,7 @@ Item {
             const screenPos = geoScene.screenPositionFor(root._trackedVehicleCoordinate)
             // Unprojectable (behind camera) counts as off-screen: recenter
             const vehiclePoint = (screenPos === undefined) ? Qt.point(-1, -1) : screenPos
-            _positionTracker.evaluateInsetFollow(vehiclePoint, Qt.rect(0, 0, root.width, root.height), [])
+            _positionTracker.evaluateOccluderFollow(vehiclePoint, root.followViewportRect, root.followOccluders)
         }
     }
 
