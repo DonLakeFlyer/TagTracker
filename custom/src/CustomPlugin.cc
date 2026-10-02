@@ -30,6 +30,9 @@
 #include "PulseRoseMapItem.h"
 #include "QGCLoggingCategoryManager.h"
 
+#include "LinkManager.h"
+#include "UDPLink.h"
+
 #include <QDebug>
 #include <QPointF>
 #include <QLineF>
@@ -102,6 +105,36 @@ void CustomPlugin::init()
     QGCLoggingCategoryManager::instance()->setCategoryEnabled(QString::fromLatin1(CustomPluginLog().categoryName()), true);
 
     _csvLogManager.csvClearPrevRotationLogs();
+}
+
+void CustomPlugin::linkConfigurationsLoaded(LinkManager* linkManager)
+{
+#if defined(Q_OS_ANDROID)
+    _addDefaultUdpLink(linkManager, QStringLiteral("Skydroid"), 14551, QStringLiteral("127.0.0.1"), 14552);
+#elif defined(Q_OS_MACOS)
+    _addDefaultUdpLink(linkManager, QStringLiteral("Controller WiFi"), 14551, QStringLiteral("raspberrypi.local"),
+                       14550);
+#else
+    Q_UNUSED(linkManager);
+#endif
+}
+
+void CustomPlugin::_addDefaultUdpLink(LinkManager* linkManager, const QString& name, quint16 localPort,
+                                      const QString& hostName, quint16 hostPort)
+{
+    if (linkManager->containsConfiguration(name)) {
+        qCDebug(CustomPluginLog) << "Default link already exists:" << name;
+        return;
+    }
+
+    auto* udpConfig = new UDPConfiguration(name);
+    udpConfig->setLocalPort(localPort);
+    udpConfig->addHost(hostName, hostPort);
+    (void) linkManager->addConfiguration(udpConfig);
+    linkManager->saveLinkConfigurationList();
+
+    qCDebug(CustomPluginLog) << "Added default link:" << name << "localPort:" << localPort << "hostName:" << hostName
+                             << "hostPort:" << hostPort;
 }
 
 void CustomPlugin::registerCustomSettings(SettingsManager* settingsManager)

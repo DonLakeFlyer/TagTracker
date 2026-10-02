@@ -95,6 +95,7 @@ public:
 
     // Overrides from QGCCorePlugin
     void                init                    (void) final;
+    void                linkConfigurationsLoaded(LinkManager* linkManager) final;
     void                registerCustomSettings  (SettingsManager* settingsManager) final;
     bool                mavlinkMessage          (Vehicle *vehicle, LinkInterface *link, const mavlink_message_t &message) final;
     QGCOptions*         options                 (void) final { return qobject_cast<QGCOptions*>(_customOptions); }
@@ -129,6 +130,7 @@ private slots:
     bool _validateVehicleAvailable();
 
 private:
+    void    _addDefaultUdpLink          (LinkManager* linkManager, const QString& name, quint16 localPort, const QString& hostName, quint16 hostPort);
     void    _handleUavrtPulse           (Vehicle* vehicle, const mavlink_tunnel_t& tunnel);
     void    _handlePythonPulse          (const mavlink_tunnel_t& tunnel);
     void    _handleDetectorHeartbeat    (const mavlink_tunnel_t& tunnel);
