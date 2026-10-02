@@ -6,10 +6,14 @@ class CustomPlugin;
 
 // Waits for the controller to report COLLECTION_STATUS_SLICE_COMPLETE for one
 // collection slice.  Used by PythonCaptureAtSliceState to know when the Python
-// detectors have finished one scan cycle at a heading. There is no fixed
-// timeout: the controller's rotation OPERATION_PROGRESS step advances every
-// second of the dwell, so a step that stops moving (OperationProgress::stalled)
+// detectors have captured the heading's segment; they analyse it while the next
+// heading is flown, and the controller holds the last slice's SLICE_COMPLETE
+// until every analysis is done. There is no fixed timeout: the controller's
+// rotation OPERATION_PROGRESS step advances every second of the dwell and of
+// the final analysis, so a step that stops moving (OperationProgress::stalled)
 // or the operation ending early (OperationProgress::finished) is the failure signal.
+// Entering with no START_COLLECTION rotation running fails too (nothing could end
+// the wait), unless this slice's SLICE_COMPLETE already arrived.
 class PythonWaitForDetectionResultState : public CustomState
 {
     Q_OBJECT
