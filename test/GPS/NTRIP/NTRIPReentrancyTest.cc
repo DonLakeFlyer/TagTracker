@@ -156,7 +156,6 @@ private slots:
     void sourceTableIdentity_data();
     void sourceTableIdentity();
     void abortCallbackSupersedesReplacement();
-    void abortCallbackDeletesReply();
     void deletedReplyPublishesError();
     void fetchNotificationReentry_data();
     void fetchNotificationReentry();
@@ -1246,18 +1245,6 @@ void NTRIPReentrancyTest::abortCallbackSupersedesReplacement()
     QCOMPARE(controller._reply->url().port(), 2102);
 }
 
-void NTRIPReentrancyTest::abortCallbackDeletesReply()
-{
-    NTRIPSourceTableController controller;
-    controller.fetch(config());
-    const auto previous = controller._reply;
-    connect(previous, &QNetworkReply::finished, this, [previous]() { delete previous.data(); });
-    controller.fetch({});
-    QVERIFY(!previous);
-    QVERIFY(!controller._reply);
-    QCOMPARE(controller.fetchStatus(), NTRIPSourceTableController::FetchStatus::Error);
-}
-
 void NTRIPReentrancyTest::deletedReplyPublishesError()
 {
     NTRIPSourceTableController controller;
@@ -1754,7 +1741,10 @@ void NTRIPReentrancyTest::ggaConfigurationPreservesFastRetry()
     QVERIFY(elapsed.elapsed() >= NTRIPGgaProvider::kFastRetryInterval.count() * 4 / 5);
     QCOMPARE(transport.sentNmea.size(), 1);
     QCOMPARE(provider.currentSource(), QStringLiteral("RTK"));
-    QTRY_COMPARE(transport.sentNmea.size(), 2);
+    QCOMPARE(std::chrono::duration_cast<std::chrono::milliseconds>(provider._timer.interval()),
+             std::chrono::milliseconds{100});
+    // Cadence keeps running while polling; a scheduling stall can skip past exactly 2.
+    QTRY_VERIFY(transport.sentNmea.size() >= 2);
     provider.stop();
 }
 

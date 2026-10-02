@@ -12,12 +12,12 @@ import QtPositioning
 
 import QGroundControl
 import QGroundControl.Controls
+import QGroundControl.FlightMap
 import QGroundControl.GeoMap
 
 /// GeoMap-engine drop-in for FlyViewMap: hosts a FlyViewGeoMap and implements
 /// the mapControl contract the Fly View overlays consume (pipState,
-/// isSatelliteMap, toCoordinate/fromCoordinate, zoomLevel, ...). Interactive
-/// map editing is 2D-only; 3D is view-only (see issue #14901).
+/// isSatelliteMap, toCoordinate/fromCoordinate, zoomLevel, ...).
 Item {
     id: root
 
@@ -27,7 +27,10 @@ Item {
     property var rightPanelWidth
     property var planMasterController
     property bool pipMode: false // true: map is shown in a small pip mode
-    property var toolInsets // Insets for the center viewport area
+    property rect viewportRect: Qt.rect(0, 0, width, height)  // Map area the vehicle is kept within
+    property var occluders: []                               // Rects within the viewport covered by UI
+    property real chromeTopMargin: 0     // Map controls on the right edge start below this
+    property real chromeBottomMargin: 0  // Map overlays on the bottom left stay above this
     property string mapName
 
     // Writable center (contract parity with FlyViewMap): assignments recentre
@@ -45,30 +48,58 @@ Item {
     // Escape hatch for GeoMap-specific chrome/controls
     readonly property var geoMap: geoMapControl
 
-    // Host-provided offset from the map top to where the toolInsets frame
-    // starts (the widget layer sits below the toolbar)
-    property real toolInsetsTopOffset: 0
-
     readonly property string _mapTypeSetting: QGroundControl.settingsManager.flightMapSettings.mapType.rawValue
 
     // PiP analog of FlyViewMap._adjustMapZoomForPipMode: pull the camera back
-    // 3 zoom levels in the small window for situational context, restore the
-    // full-view distance on swap back. PiP is also too small for a useful 3D
-    // view, so force 2D and restore the previous camera mode with it.
-    property real _fullViewDistance: NaN
+    // 3 zoom levels in the small window for situational context; the swap-back
+    // resize re-applies the shared saved zoom. PiP is also too small for a useful
+    // 3D view, so force 2D and restore the previous camera mode with it.
     property int _fullViewCameraMode: GeoMapCamera.Mode2D
 
     onPipModeChanged: {
         const camera = geoMapControl.camera
         if (pipMode) {
-            _fullViewDistance = camera.distance
             _fullViewCameraMode = camera.mode
             camera.mode = GeoMapCamera.Mode2D
             camera.distance = camera.distanceForZoomLevel(camera.zoomLevelForDistance(camera.distance) - 3)
-        } else if (!isNaN(_fullViewDistance)) {
+        } else {
             camera.mode = _fullViewCameraMode
-            camera.distance = _fullViewDistance
-            _fullViewDistance = NaN
+        }
+    }
+
+    // Map view shared with Plan view and persisted across restarts, as
+    // FlyViewMap does via QGroundControl.flightMapPosition/flightMapZoom
+    property bool _applyingSavedZoom: false
+
+    function _restoreSavedMapView() {
+        geoMapControl.camera.center = QGroundControl.flightMapPosition
+        _applySavedZoom()
+    }
+
+    // Zoom level -> distance depends on the viewport size, so this also runs on
+    // every resize: the zoom level is kept, as FlyViewMap does. PiP keeps its own zoom.
+    function _applySavedZoom() {
+        const camera = geoMapControl.camera
+        if (pipMode || camera.viewportSize.width <= 0 || camera.viewportSize.height <= 0) {
+            return
+        }
+        _applyingSavedZoom = true
+        camera.distance = camera.distanceForZoomLevel(QGroundControl.flightMapZoom)
+        _applyingSavedZoom = false
+    }
+
+    // Only the full-view zoom is saved: PiP distance changes are not
+    function _onCameraDistanceChanged() {
+        if (_applyingSavedZoom || !visible || pipMode) {
+            return
+        }
+        const camera = geoMapControl.camera
+        QGroundControl.flightMapZoom = camera.zoomLevelForDistance(camera.distance)
+    }
+
+    onVisibleChanged: {
+        if (visible) {
+            _restoreSavedMapView()
         }
     }
 
@@ -97,9 +128,21 @@ Item {
         return (screenPos === undefined) ? Qt.point(-1, -1) : screenPos
     }
 
+    // MapFitFunctions contract (FlightMap.setVisibleRegion parity)
+    function setVisibleRegion(region) {
+        geoMapControl.fitToRegion(region)
+        // PiP zoom is otherwise never shared: save the fit so the swap back keeps it (FlyViewMap parity)
+        if (pipMode && visible) {
+            const camera = geoMapControl.camera
+            QGroundControl.flightMapZoom = camera.zoomLevelForDistance(camera.distance)
+        }
+    }
+
     FlyViewGeoMap {
         id: geoMapControl
         anchors.fill: parent
+        followViewportRect: root.viewportRect
+        followOccluders: root.occluders
 
         // The PiP window is too small for free camera panning to be useful
         keepVehicleCentered: root.pipMode || QGroundControl.settingsManager.flyViewSettings.keepMapCenteredOnVehicle.rawValue
@@ -145,16 +188,34 @@ Item {
         anchors.fill: parent
         geoMap: geoMapControl
         visible: !root.pipMode
-        // Right edge below the instrument/photo-video panel
-        buttonsTopMargin: root.toolInsetsTopOffset
-                          + (root.toolInsets ? root.toolInsets.topEdgeRightInset : 0)
-        overlayBottomMargin: (root.toolInsets ? root.toolInsets.bottomEdgeLeftInset : 0) + ScreenTools.defaultFontPixelWidth / 2
+        buttonsTopMargin: root.chromeTopMargin
+        overlayBottomMargin: root.chromeBottomMargin
     }
 
     PipState {
         id: _pipState
         pipView: root.pipView
         isDark: _isFullWindowItemDark
+    }
+
+    MapFitFunctions {
+        id: mapFitFunctions
+        map: root
+        usePlannedHomePosition: false
+        planMasterController: root.planMasterController
+    }
+
+    // Zoom to a mission downloaded from the vehicle (FlyViewMap parity)
+    Connections {
+        target: root.planMasterController ? root.planMasterController.missionController : null
+
+        function onNewItemsFromVehicle() {
+            const visualItems = root.planMasterController.missionController.visualItems
+            if (visualItems && visualItems.count !== 1) {
+                mapFitFunctions.fitMapViewportToMissionItems()
+                geoMapControl.positionTracker.firstVehiclePositionReceived = true
+            }
+        }
     }
 
     Connections {
@@ -164,10 +225,23 @@ Item {
             root._echoingCameraCenter = true
             root.center = geoMapControl.camera.center
             root._echoingCameraCenter = false
+            // Hidden: don't overwrite the position another view is sharing
+            if (root.visible) {
+                QGroundControl.flightMapPosition = geoMapControl.camera.center
+            }
+        }
+
+        function onDistanceChanged() {
+            root._onCameraDistanceChanged()
+        }
+
+        function onViewportSizeChanged() {
+            root._applySavedZoom()
         }
     }
 
     Component.onCompleted: {
+        _restoreSavedMapView()
         _echoingCameraCenter = true
         center = geoMapControl.camera.center
         _echoingCameraCenter = false

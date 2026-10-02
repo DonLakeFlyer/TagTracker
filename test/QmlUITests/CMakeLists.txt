@@ -40,6 +40,8 @@ target_sources(${CMAKE_PROJECT_NAME}
         ${CMAKE_CURRENT_SOURCE_DIR}/FlyViewROIUITest.h
         ${CMAKE_CURRENT_SOURCE_DIR}/FlyViewGeoUITest.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/FlyViewGeoUITest.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/FlyViewOccluderUITest.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/FlyViewOccluderUITest.h
         # Manual perf benchmark: standalone-registered, deliberately NOT added
         # via add_qgc_test so no ctest/CI sweep ever runs it
         ${CMAKE_CURRENT_SOURCE_DIR}/GeoMapPerfUITest.cc
@@ -54,6 +56,8 @@ target_sources(${CMAKE_PROJECT_NAME}
         ${CMAKE_CURRENT_SOURCE_DIR}/RemoteIDSettingsUITest.h
         ${CMAKE_CURRENT_SOURCE_DIR}/Viewer3DUITest.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/Viewer3DUITest.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/CriticalVehicleMessageUITest.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/CriticalVehicleMessageUITest.h
 )
 
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
@@ -79,6 +83,7 @@ add_qgc_test(NTRIPSettingsUITest LABELS Integration NoSanitizer TIMEOUT 120)
 add_qgc_test(OnboardLogUITest LABELS Integration NoSanitizer TIMEOUT 180)
 add_qgc_test(ParameterDiffDialogUITest LABELS Integration NoSanitizer TIMEOUT 180)
 add_qgc_test(RemoteIDSettingsUITest LABELS Integration NoSanitizer TIMEOUT 120)
+add_qgc_test(CriticalVehicleMessageUITest LABELS Integration NoSanitizer TIMEOUT 180)
 
 # Qt Quick 3D requires an RHI backend, which the default software Quick backend
 # cannot provide. On Linux the offscreen platform exposes GLX (CI runs ctest
@@ -96,3 +101,5 @@ endif()
 add_qgc_test(Viewer3DUITest LABELS Integration NoSanitizer StockUI TIMEOUT 120 ${_viewer3d_env_mod})
 add_qgc_test(FlyViewGeoUITest LABELS Integration NoSanitizer TIMEOUT 120 ${_viewer3d_env_mod})
 add_qgc_test(FlyViewGeoROIUITest LABELS Integration NoSanitizer TIMEOUT 120 ${_viewer3d_env_mod})
+# Runs one row on the GeoMap engine, so it needs the same RHI environment
+add_qgc_test(FlyViewOccluderUITest LABELS Integration NoSanitizer TIMEOUT 120 ${_viewer3d_env_mod})

@@ -1,9 +1,16 @@
 #include "FlyViewGeoUITest.h"
 
+#include <cmath>
+#include <optional>
+
 #include <QtCore/QList>
+#include <QtCore/QPointer>
+#include <QtCore/QRectF>
 #include <QtCore/QRegularExpression>
 #include <QtCore/QScopeGuard>
+#include <QtCore/QSettings>
 #include <QtCore/QtMath>
+#include <QtCore/QtNumeric>
 #include <QtGui/QGuiApplication>
 #include <QtGui/QMouseEvent>
 #include <QtGui/QPointingDevice>
@@ -12,16 +19,26 @@
 #include <QtPositioning/QGeoCoordinate>
 #include <QtQuick/QQuickItem>
 #include <QtQuick/QQuickWindow>
+#include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
-
-#include <cmath>
-#include <optional>
 
 #include "Fact.h"
 #include "FlyViewSettings.h"
 #include "GeoMapCamera.h"
+#include "MapPositionTracker.h"
+#include "MissionController.h"
+#include "MissionManager.h"
+#include "MockLink.h"
+#include "PlanMasterController.h"
+#include "QGCMapCircle.h"
+#include "QGroundControlQmlGlobal.h"
+#include "QmlObjectListModel.h"
 #include "SettingsManager.h"
 #include "SurfacePatchModel.h"
+#include "TileMath.h"
+#include "Vehicle.h"
+#include "VideoSettings.h"
+#include "VisualMissionItem.h"
 
 UT_REGISTER_TEST(FlyViewGeoUITest, TestLabel::Integration)
 
@@ -29,6 +46,7 @@ namespace {
 // Generous ceilings: first appearance of loader/engine-gated items vs. QTRY settle polling
 constexpr int kItemAppearTimeoutMs = 10000;
 constexpr int kSettleTimeoutMs = 5000;
+const QGeoCoordinate kMapCenter(47.6329078, -122.0876875);
 }  // namespace
 
 void FlyViewGeoUITest::_testEngineEnabledAtStartup()
@@ -43,6 +61,41 @@ void FlyViewGeoUITest::_testEngineEnabledAtStartup()
                      QRegularExpression(QStringLiteral("Restart application for changes to take effect")));
     geoEngineFact->setRawValue(true);
     debugUIFact->setRawValue(false);
+
+    // Seed a non-default saved map view (QGroundControlQmlGlobal settings). The
+    // adapter writes these same values, so expectations are constants, not read-backs.
+    const QGeoCoordinate savedCenter(-33.8568, 151.2153);
+    constexpr double kSavedZoom = 12.0;
+    const QString settingsGroup = QStringLiteral("FlightMapPosition");
+    const QStringList settingsKeys = {QStringLiteral("Latitude"), QStringLiteral("Longitude"),
+                                      QStringLiteral("FlightMapZoom")};
+    QVariantList previousValues;
+    const QGeoCoordinate previousPosition = QGroundControlQmlGlobal::flightMapPosition();
+    const double previousZoom = QGroundControlQmlGlobal::flightMapZoom();
+    {
+        QSettings settings;
+        settings.beginGroup(settingsGroup);
+        for (const QString& key : settingsKeys) {
+            previousValues.append(settings.value(key));
+        }
+        settings.setValue(settingsKeys[0], savedCenter.latitude());
+        settings.setValue(settingsKeys[1], savedCenter.longitude());
+        settings.setValue(settingsKeys[2], kSavedZoom);
+    }
+    // The loaded view is also cached in memory, where later tests would inherit it
+    const auto savedViewGuard =
+        qScopeGuard([&settingsGroup, &settingsKeys, &previousValues, previousPosition, previousZoom] {
+            QGroundControlQmlGlobal::setFlightMapViewForTest(previousPosition, previousZoom);
+            QSettings settings;
+            settings.beginGroup(settingsGroup);
+            for (qsizetype i = 0; i < settingsKeys.size(); i++) {
+                if (previousValues[i].isValid()) {
+                    settings.setValue(settingsKeys[i], previousValues[i]);
+                } else {
+                    settings.remove(settingsKeys[i]);
+                }
+            }
+        });
 
     startUI();
     if (QTest::currentTestFailed())
@@ -93,14 +146,23 @@ void FlyViewGeoUITest::_testEngineEnabledAtStartup()
     };
     QTRY_VERIFY_WITH_TIMEOUT(allPatchesImaged(), kSettleTimeoutMs);
 
-    // Scene camera node tracks the GeoMapCamera debug pose (overhead at 1500m,
-    // identity rotation, origin anchored at the camera center)
+    auto* const cam = viewport->parentItem()->findChild<GeoMapCamera*>(QStringLiteral("geoMapCamera"));
+    QVERIFY2(cam, "GeoMapCamera not found");
+
+    // Startup pose restored from the seeded saved view
+    QCOMPARE_LT(cam->center().distanceTo(savedCenter), 1.0);
+    const qreal savedZoomDistance = cam->distanceForZoomLevel(kSavedZoom);
+    QCOMPARE_LT(qAbs(cam->distance() - savedZoomDistance), savedZoomDistance * 1e-6);
+
+    // Scene camera node tracks the GeoMapCamera startup pose (overhead at the
+    // saved map zoom distance, identity rotation, origin anchored at the camera center)
     QObject* const sceneCamera = viewport->findChild<QObject*>(QStringLiteral("geoMapSceneCamera"));
     QVERIFY2(sceneCamera, "Scene camera node not found");
     const QVector3D camPos = sceneCamera->property("position").value<QVector3D>();
     QCOMPARE_LT(qAbs(camPos.x()), 1.0f);
     QCOMPARE_LT(qAbs(camPos.y()), 1.0f);
-    QCOMPARE_LT(qAbs(camPos.z() - 1500.0f), 1.0f);
+    // Relative slack: float scene coordinates at a whole-earth distance
+    QCOMPARE_LT(qAbs(camPos.z() - cam->distance()), 1.0 + (cam->distance() * 1e-6));
     const QQuaternion camRot = sceneCamera->property("rotation").value<QQuaternion>();
     QVERIFY(qFuzzyCompare(camRot, QQuaternion()));
 
@@ -461,4 +523,492 @@ void FlyViewGeoUITest::_testDebugHillsToggle()
     QVERIFY(!anyNonZeroHeight());
 
     stopUI();
+}
+
+void FlyViewGeoUITest::_testCircleEditHandles_data()
+{
+    QTest::addColumn<bool>("mode3D");
+    QTest::addColumn<qreal>("heading");
+    QTest::addColumn<qreal>("distance");
+    QTest::addColumn<double>("altitude");  // NaN: ground-clamped circle
+
+    QTest::addRow("2D ground-clamped") << false << 0.0 << 300.0 << qQNaN();
+    QTest::addRow("3D ground-clamped") << true << 30.0 << 600.0 << qQNaN();
+    QTest::addRow("3D absolute altitude") << true << 30.0 << 600.0 << 100.0;
+}
+
+// Orbit circle editing: a dragged handle stays under the cursor on the surface
+// the circle is drawn on (terrain, or the horizontal plane at its altitude), at
+// any camera tilt. The rotation arrows flip direction, and none of it pans the
+// map or reaches the map-click popup. Handles hide when not interactive.
+void FlyViewGeoUITest::_testCircleEditHandles()
+{
+    QFETCH(bool, mode3D);
+    QFETCH(qreal, heading);
+    QFETCH(qreal, distance);
+    QFETCH(double, altitude);
+
+    Fact* const geoEngineFact = SettingsManager::instance()->flyViewSettings()->useGeoMapEngine();
+    const QVariant savedEnabled = geoEngineFact->rawValue();
+    const auto guard = qScopeGuard([geoEngineFact, savedEnabled] { geoEngineFact->setRawValue(savedEnabled); });
+    ignoreLogMessage("API.QGCApplication.AppMessage", QtDebugMsg,
+                     QRegularExpression(QStringLiteral("Restart application for changes to take effect")));
+    geoEngineFact->setRawValue(true);
+
+    startUI();
+    if (QTest::currentTestFailed())
+        return;
+
+    const std::optional<bool> rhiBased = expectSoftwareBackendWarnings(/*strict*/ false);
+    QVERIFY2(rhiBased.has_value(), "No renderer interface on the main window");
+
+    QQuickItem* const viewport = findVisibleItem(_rootItem, QStringLiteral("geoMapViewport"), kItemAppearTimeoutMs);
+    QVERIFY2(viewport, "GeoMap 3D viewport not visible");
+    QQuickItem* const geoMap = viewport->parentItem();
+    auto* const cam = geoMap->findChild<GeoMapCamera*>(QStringLiteral("geoMapCamera"));
+    QVERIFY2(cam, "GeoMapCamera not found");
+
+    auto* const orbitVisuals = geoMap->findChild<QQuickItem*>(QStringLiteral("flyViewGeoOrbitCircle"));
+    QVERIFY2(orbitVisuals, "Orbit circle visuals not found");
+    auto* const orbitCircle = qobject_cast<QGCMapCircle*>(orbitVisuals->property("mapCircle").value<QObject*>());
+    QVERIFY2(orbitCircle, "Orbit QGCMapCircle not found");
+
+    // Let the animated 2D->3D transition settle before posing the camera
+    const qreal tilt = mode3D ? GeoMapCamera::kDefault3DTilt : 0.0;
+    if (mode3D) {
+        cam->setMode(GeoMapCamera::Mode::Mode3D);
+        QTRY_COMPARE_WITH_TIMEOUT(cam->tilt(), GeoMapCamera::kDefault3DTilt, kSettleTimeoutMs);
+        QTRY_COMPARE_WITH_TIMEOUT(geoMap->property("terrainScale").toDouble(), 1.0, kSettleTimeoutMs);
+    }
+
+    // Zoomed in so the 30 m default radius separates the center and radius handles
+    cam->lookAt(kMapCenter, heading, tilt, distance);
+    QVERIFY(QMetaObject::invokeMethod(orbitVisuals, "show", Q_ARG(QVariant, QVariant::fromValue(kMapCenter))));
+    if (!std::isnan(altitude)) {
+        orbitCircle->setCenter(QGeoCoordinate(kMapCenter.latitude(), kMapCenter.longitude(), altitude));
+    }
+    QVERIFY(orbitVisuals->isVisible());
+
+    // Center the view on the circle as drawn (a floating circle renders high on
+    // screen) so its handles stay clear of the Fly View toolbar at any window size
+    QQuickItem* const centerHandle = findVisibleItem(_rootItem, QStringLiteral("geoMapCircleCenterHandle"));
+    QVERIFY2(centerHandle, "Center drag handle not visible");
+    const QPointF viewCenter(viewport->width() / 2, viewport->height() / 2);
+    const double circleZ = centerHandle->property("scenePosition").value<QVector3D>().z();
+    const QGeoCoordinate cameraCenter =
+        cam->centerForCoordinateAtScreenPoint(orbitCircle->center(), viewCenter, circleZ);
+    cam->setCenter(cameraCenter);
+
+    QSignalSpy mapClickedSpy(geoMap, SIGNAL(mapClicked(QVariant)));
+    QVERIFY(mapClickedSpy.isValid());
+
+    const auto handleCenter = [viewport](QQuickItem* item) {
+        return viewport->mapFromItem(item, QPointF(item->width() / 2, item->height() / 2));
+    };
+    const auto toWin = [viewport](const QPointF& viewportPos) { return viewport->mapToScene(viewportPos).toPoint(); };
+    const auto mouseDrag = [this, &toWin](const QPointF& from, const QPointF& to) {
+        QTest::mousePress(_window, Qt::LeftButton, Qt::NoModifier, toWin(from));
+        constexpr int steps = 10;
+        for (int i = 1; i <= steps; i++) {
+            QTest::mouseMove(_window, toWin(from + (((to - from) * i) / steps)));
+        }
+        QTest::mouseRelease(_window, Qt::LeftButton, Qt::NoModifier, toWin(to));
+    };
+    // Integer window coordinates round each end of a drag by up to half a pixel
+    constexpr qreal kPixelTolerance = 1.5;
+
+    // Radius handle: drag it to where a 50 m ring's handle would be drawn
+    QQuickItem* const radiusHandle = findVisibleItem(_rootItem, QStringLiteral("geoMapCircleRadiusHandle"));
+    QVERIFY2(radiusHandle, "Radius drag handle not visible");
+    constexpr double kTargetRadius = 50.0;
+    const double handleZ = radiusHandle->property("scenePosition").value<QVector3D>().z();
+    const auto radiusTarget = cam->worldToScreen(
+        TileMath::geoToWorld(orbitCircle->center().atDistanceAndAzimuth(kTargetRadius, 90)), handleZ);
+    QVERIFY(radiusTarget.has_value());
+    mouseDrag(handleCenter(radiusHandle), *radiusTarget);
+    QCOMPARE_LT(qAbs(orbitCircle->radius()->rawValue().toDouble() - kTargetRadius), 1.0);
+    QCOMPARE_LT((handleCenter(radiusHandle) - *radiusTarget).manhattanLength(), kPixelTolerance);
+
+    // Center handle: follows the cursor, keeping the circle's altitude
+    const QPointF centerTarget = handleCenter(centerHandle) + QPointF(-40, 30);
+    mouseDrag(handleCenter(centerHandle), centerTarget);
+    QCOMPARE_LT((handleCenter(centerHandle) - centerTarget).manhattanLength(), kPixelTolerance);
+    if (std::isnan(altitude)) {
+        QVERIFY(std::isnan(orbitCircle->center().altitude()));
+    } else {
+        QCOMPARE(orbitCircle->center().altitude(), altitude);
+    }
+
+    // A floating center is anchored to the terrain by a drop line and ground
+    // shadow, like the non-interactive orbit center marker
+    const bool expectGroundDrop = mode3D && !std::isnan(altitude);
+    auto* const dropShadow = centerHandle->findChild<QQuickItem*>(QStringLiteral("geoMapDragHandleDropShadow"));
+    QVERIFY2(dropShadow, "Center handle drop shadow not found");
+    QCOMPARE(dropShadow->isVisible(), expectGroundDrop);
+    QCOMPARE(dropShadow->property("dropLength").toDouble() > 0.0, expectGroundDrop);
+    QVERIFY2(centerHandle->property("node3D").value<QObject*>(), "Center handle has no drop line node");
+    QVERIFY2(!radiusHandle->property("node3D").value<QObject*>(), "Radius handle has a drop line node");
+
+    // Rotation arrow click flips direction
+    QVERIFY(orbitCircle->clockwiseRotation());
+    QQuickItem* const arrow = findVisibleItem(_rootItem, QStringLiteral("geoMapCircleRotationIndicator"));
+    QVERIFY2(arrow, "Rotation indicator not visible");
+    QTest::mouseClick(_window, Qt::LeftButton, Qt::NoModifier, toWin(handleCenter(arrow)));
+    QTRY_VERIFY_WITH_TIMEOUT(!orbitCircle->clockwiseRotation(), kSettleTimeoutMs);
+
+    QCOMPARE(mapClickedSpy.count(), 0);
+    QCOMPARE_LT(cam->center().distanceTo(cameraCenter), 0.01);
+    QCOMPARE(cam->heading(), heading);
+
+    // Not interactive: no handles, and the arrows no longer flip direction
+    orbitCircle->setInteractive(false);
+    QVERIFY(!findVisibleItem(_rootItem, QStringLiteral("geoMapCircleRadiusHandle"), 0));
+    QVERIFY(!findVisibleItem(_rootItem, QStringLiteral("geoMapCircleCenterHandle"), 0));
+    QTest::mouseClick(_window, Qt::LeftButton, Qt::NoModifier, toWin(handleCenter(arrow)));
+    QVERIFY(!orbitCircle->clockwiseRotation());
+
+    stopUI();
+}
+
+// Change Loiter Radius on a forward-flight (ArduPilot fixed-wing) goto: the
+// loiter circle offers only the radius handle while editing, and the radius the
+// guided action sends follows the drag, reverting on cancel and sticking on confirm.
+void FlyViewGeoUITest::_testLoiterRadiusEdit()
+{
+    if (!apmFirmwareSupported()) {
+        QSKIP("ArduPilot support not registered in this build");
+    }
+
+    Fact* const geoEngineFact = SettingsManager::instance()->flyViewSettings()->useGeoMapEngine();
+    const QVariant savedEnabled = geoEngineFact->rawValue();
+    const auto guard = qScopeGuard([geoEngineFact, savedEnabled] { geoEngineFact->setRawValue(savedEnabled); });
+    ignoreLogMessage("API.QGCApplication.AppMessage", QtDebugMsg,
+                     QRegularExpression(QStringLiteral("Restart application for changes to take effect")));
+    geoEngineFact->setRawValue(true);
+
+    runWithMockLink(
+        [] { return MockLink::startAPMArduPlaneMockLink(); },
+        [this](QPointer<MockLink>, Vehicle* vehicle) {
+            const std::optional<bool> rhiBased = expectSoftwareBackendWarnings(/*strict*/ false);
+            QVERIFY2(rhiBased.has_value(), "No renderer interface on the main window");
+            QVERIFY(vehicle->fixedWing());
+
+            QQuickItem* const viewport =
+                findVisibleItem(_rootItem, QStringLiteral("geoMapViewport"), kItemAppearTimeoutMs);
+            QVERIFY2(viewport, "GeoMap 3D viewport not visible");
+            QQuickItem* const geoMap = viewport->parentItem();
+            auto* const cam = geoMap->findChild<GeoMapCamera*>(QStringLiteral("geoMapCamera"));
+            QVERIFY2(cam, "GeoMapCamera not found");
+            auto* const gotoItem = geoMap->findChild<QQuickItem*>(QStringLiteral("flyViewGeoGotoLocation"));
+            QVERIFY2(gotoItem, "Goto location marker not found");
+            auto* const loiterVisuals = geoMap->findChild<QQuickItem*>(QStringLiteral("flyViewGeoFwdFlightGotoCircle"));
+            QVERIFY2(loiterVisuals, "Loiter circle visuals not found");
+            auto* const loiterRadius = loiterVisuals->property("radius").value<Fact*>();
+            QVERIFY2(loiterRadius, "Loiter radius Fact not found");
+
+            const double defaultRadius = SettingsManager::instance()
+                                             ->flyViewSettings()
+                                             ->forwardFlightGoToLocationLoiterRad()
+                                             ->rawValue()
+                                             .toDouble();
+            // The map one-shot centers on the first vehicle position and follows the vehicle back into view:
+            // wait out the one-shot and edit next to the vehicle so the camera stays put under the drags
+            auto* const positionTracker = geoMap->findChild<MapPositionTracker*>();
+            QVERIFY2(positionTracker, "MapPositionTracker not found");
+            QTRY_VERIFY_WITH_TIMEOUT(positionTracker->firstVehiclePositionReceived(), kItemAppearTimeoutMs);
+            const QGeoCoordinate loiterCenter = vehicle->coordinate().atDistanceAndAzimuth(100, 0);
+            cam->lookAt(loiterCenter, 0, 0, 600);
+            QVERIFY(QMetaObject::invokeMethod(gotoItem, "show", Q_ARG(QVariant, QVariant::fromValue(loiterCenter))));
+            QTRY_VERIFY_WITH_TIMEOUT(loiterVisuals->isVisible(), kSettleTimeoutMs);
+            QCOMPARE(loiterRadius->rawValue().toDouble(), defaultRadius);
+
+            // Not editing yet: the ring shows without handles
+            QVERIFY(!findVisibleItem(_rootItem, QStringLiteral("geoMapCircleRadiusHandle"), 0));
+            QVERIFY(!findVisibleItem(_rootItem, QStringLiteral("geoMapCircleCenterHandle"), 0));
+
+            const auto handleCenter = [viewport](QQuickItem* item) {
+                return viewport->mapFromItem(item, QPointF(item->width() / 2, item->height() / 2));
+            };
+            const auto toWin = [viewport](const QPointF& viewportPos) {
+                return viewport->mapToScene(viewportPos).toPoint();
+            };
+            // Drags the radius handle to where a ring of targetRadius draws its handle
+            const auto dragRadiusTo = [this, cam, &handleCenter, &toWin](
+                                          QQuickItem* handle, const QGeoCoordinate& center, double targetRadius) {
+                const double handleZ = handle->property("scenePosition").value<QVector3D>().z();
+                const auto target =
+                    cam->worldToScreen(TileMath::geoToWorld(center.atDistanceAndAzimuth(targetRadius, 90)), handleZ);
+                QVERIFY(target.has_value());
+                const QPointF from = handleCenter(handle);
+                QTest::mousePress(_window, Qt::LeftButton, Qt::NoModifier, toWin(from));
+                constexpr int steps = 10;
+                for (int i = 1; i <= steps; i++) {
+                    QTest::mouseMove(_window, toWin(from + (((*target - from) * i) / steps)));
+                }
+                QTest::mouseRelease(_window, Qt::LeftButton, Qt::NoModifier, toWin(*target));
+            };
+            const double editedRadius = defaultRadius + 50.0;
+
+            // Cancel: the drag is discarded
+            QVERIFY(QMetaObject::invokeMethod(loiterVisuals, "startLoiterRadiusEdit"));
+            QQuickItem* const radiusHandle = findVisibleItem(_rootItem, QStringLiteral("geoMapCircleRadiusHandle"));
+            QVERIFY2(radiusHandle, "Radius drag handle not visible while editing");
+            QVERIFY(radiusHandle->property("labelVisible").toBool());
+            QVERIFY2(!findVisibleItem(_rootItem, QStringLiteral("geoMapCircleCenterHandle"), 0),
+                     "Loiter center must not be draggable");
+            dragRadiusTo(radiusHandle, gotoItem->property("coordinate").value<QGeoCoordinate>(), editedRadius);
+            QCOMPARE_LT(qAbs(loiterRadius->rawValue().toDouble() - editedRadius), 1.0);
+            QVERIFY(QMetaObject::invokeMethod(loiterVisuals, "actionCancelled"));
+            QCOMPARE(loiterRadius->rawValue().toDouble(), defaultRadius);
+            QVERIFY(!findVisibleItem(_rootItem, QStringLiteral("geoMapCircleRadiusHandle"), 0));
+
+            // Confirm: the dragged radius is kept for the guided command
+            QVERIFY(QMetaObject::invokeMethod(loiterVisuals, "startLoiterRadiusEdit"));
+            QVERIFY(findVisibleItem(_rootItem, QStringLiteral("geoMapCircleRadiusHandle")));
+            dragRadiusTo(radiusHandle, gotoItem->property("coordinate").value<QGeoCoordinate>(), editedRadius);
+            QVERIFY(QMetaObject::invokeMethod(loiterVisuals, "actionConfirmed"));
+            QCOMPARE_LT(qAbs(loiterRadius->rawValue().toDouble() - editedRadius), 1.0);
+            QVERIFY(!findVisibleItem(_rootItem, QStringLiteral("geoMapCircleRadiusHandle"), 0));
+        });
+}
+
+// The Fly View map position and zoom are shared with Plan view in both
+// directions (FlyViewMap parity via QGroundControl.flightMapPosition/Zoom)
+void FlyViewGeoUITest::_testMapViewSharedWithPlanView()
+{
+    Fact* const geoEngineFact = SettingsManager::instance()->flyViewSettings()->useGeoMapEngine();
+    const QVariant savedEnabled = geoEngineFact->rawValue();
+    const auto guard = qScopeGuard([geoEngineFact, savedEnabled] { geoEngineFact->setRawValue(savedEnabled); });
+    ignoreLogMessage("API.QGCApplication.AppMessage", QtDebugMsg,
+                     QRegularExpression(QStringLiteral("Restart application for changes to take effect")));
+    geoEngineFact->setRawValue(true);
+
+    startUI();
+    if (QTest::currentTestFailed())
+        return;
+
+    const std::optional<bool> rhiBased = expectSoftwareBackendWarnings(/*strict*/ false);
+    QVERIFY2(rhiBased.has_value(), "No renderer interface on the main window");
+
+    QQuickItem* const viewport = findVisibleItem(_rootItem, QStringLiteral("geoMapViewport"), kItemAppearTimeoutMs);
+    QVERIFY2(viewport, "GeoMap 3D viewport not visible");
+    auto* const cam = viewport->parentItem()->findChild<GeoMapCamera*>(QStringLiteral("geoMapCamera"));
+    QVERIFY2(cam, "GeoMapCamera not found");
+
+    // Fly -> Plan: the Plan map opens where the Fly map was left. Earlier tests
+    // leave the shared position at kMapCenter, so use a center only this test sets.
+    const QGeoCoordinate flyCenter(35.6812, 139.7671);
+    constexpr double kFlyZoom = 15.0;
+    cam->lookAt(flyCenter, 0, 0, cam->distanceForZoomLevel(kFlyZoom));
+
+    QVERIFY2(clickToolSelectDropdownButton(QStringLiteral("toolbar_viewPlan")), "Failed to navigate to Plan view");
+    QQuickItem* const planMap = findVisibleItem(_rootItem, QStringLiteral("planView_map"), kItemAppearTimeoutMs);
+    QVERIFY2(planMap, "planView_map not visible");
+    QTRY_COMPARE_LT_WITH_TIMEOUT(planMap->property("center").value<QGeoCoordinate>().distanceTo(flyCenter), 1.0,
+                                 kSettleTimeoutMs);
+    QCOMPARE_LT(qAbs(planMap->property("zoomLevel").toDouble() - kFlyZoom), 0.01);
+
+    // Plan -> Fly: the Fly map picks up where the Plan map was left
+    const QGeoCoordinate planCenter(47.397742, 8.545594);
+    constexpr double kPlanZoom = 13.0;
+    planMap->setProperty("center", QVariant::fromValue(planCenter));
+    planMap->setProperty("zoomLevel", kPlanZoom);
+
+    QVERIFY2(clickToolSelectDropdownButton(QStringLiteral("toolbar_viewFly")), "Failed to navigate to Fly view");
+    QVERIFY2(findVisibleItem(_rootItem, QStringLiteral("geoMapViewport"), kItemAppearTimeoutMs),
+             "GeoMap 3D viewport not visible after returning to Fly view");
+    QTRY_COMPARE_LT_WITH_TIMEOUT(cam->center().distanceTo(planCenter), 1.0, kSettleTimeoutMs);
+    QCOMPARE_LT(qAbs(cam->zoomLevelForDistance(cam->distance()) - kPlanZoom), 0.01);
+
+    stopUI();
+}
+
+// A window resize keeps the displayed zoom level (FlyViewMap parity), so the zoom
+// shared with Plan view still matches what the Fly View shows
+void FlyViewGeoUITest::_testResizeKeepsSharedZoom()
+{
+    Fact* const geoEngineFact = SettingsManager::instance()->flyViewSettings()->useGeoMapEngine();
+    const QVariant savedEnabled = geoEngineFact->rawValue();
+    const auto guard = qScopeGuard([geoEngineFact, savedEnabled] { geoEngineFact->setRawValue(savedEnabled); });
+    ignoreLogMessage("API.QGCApplication.AppMessage", QtDebugMsg,
+                     QRegularExpression(QStringLiteral("Restart application for changes to take effect")));
+    geoEngineFact->setRawValue(true);
+
+    startUI();
+    if (QTest::currentTestFailed())
+        return;
+
+    const std::optional<bool> rhiBased = expectSoftwareBackendWarnings(/*strict*/ false);
+    QVERIFY2(rhiBased.has_value(), "No renderer interface on the main window");
+
+    QQuickItem* const viewport = findVisibleItem(_rootItem, QStringLiteral("geoMapViewport"), kItemAppearTimeoutMs);
+    QVERIFY2(viewport, "GeoMap 3D viewport not visible");
+    auto* const cam = viewport->parentItem()->findChild<GeoMapCamera*>(QStringLiteral("geoMapCamera"));
+    QVERIFY2(cam, "GeoMapCamera not found");
+
+    constexpr double kZoom = 14.0;
+    cam->lookAt(kMapCenter, 0, 0, cam->distanceForZoomLevel(kZoom));
+    QCOMPARE_LT(qAbs(QGroundControlQmlGlobal::flightMapZoom() - kZoom), 0.01);
+
+    // Width, not height: in landscape the rendered scale depends on viewport width only
+    const QSizeF viewportBefore = cam->viewportSize();
+    _window->resize((_window->width() * 2) / 3, _window->height());
+    QTRY_VERIFY_WITH_TIMEOUT(cam->viewportSize().width() < viewportBefore.width(), kSettleTimeoutMs);
+
+    QTRY_COMPARE_LT_WITH_TIMEOUT(qAbs(cam->zoomLevelForDistance(cam->distance()) - kZoom), 0.01, kSettleTimeoutMs);
+    QCOMPARE_LT(qAbs(QGroundControlQmlGlobal::flightMapZoom() - kZoom), 0.01);
+
+    stopUI();
+}
+
+// The Fly map left in PiP picks up the zoom set in Plan view when it is expanded
+// again, and the PiP zoom is never shared
+void FlyViewGeoUITest::_testPipExitAppliesSharedZoom()
+{
+    Fact* const geoEngineFact = SettingsManager::instance()->flyViewSettings()->useGeoMapEngine();
+    const QVariant savedEnabled = geoEngineFact->rawValue();
+    const auto guard = qScopeGuard([geoEngineFact, savedEnabled] { geoEngineFact->setRawValue(savedEnabled); });
+    ignoreLogMessage("API.QGCApplication.AppMessage", QtDebugMsg,
+                     QRegularExpression(QStringLiteral("Restart application for changes to take effect")));
+    geoEngineFact->setRawValue(true);
+    // A configured video stream is what makes the Fly View offer PiP
+    Fact* const videoSource = SettingsManager::instance()->videoSettings()->videoSource();
+    const QVariant savedVideoSource = videoSource->rawValue();
+    const auto videoGuard =
+        qScopeGuard([videoSource, savedVideoSource] { videoSource->setRawValue(savedVideoSource); });
+    videoSource->setRawValue(QString::fromLatin1(VideoSettings::videoSourceUDPH264));
+
+    startUI();
+    if (QTest::currentTestFailed())
+        return;
+
+    const std::optional<bool> rhiBased = expectSoftwareBackendWarnings(/*strict*/ false);
+    QVERIFY2(rhiBased.has_value(), "No renderer interface on the main window");
+
+    QQuickItem* const adapter =
+        findVisibleItem(_rootItem, QStringLiteral("flyViewGeoMapAdapter"), kItemAppearTimeoutMs);
+    QVERIFY2(adapter, "GeoMap adapter not visible");
+    QQuickItem* const viewport = findVisibleItem(_rootItem, QStringLiteral("geoMapViewport"), kItemAppearTimeoutMs);
+    QVERIFY2(viewport, "GeoMap 3D viewport not visible");
+    auto* const cam = viewport->parentItem()->findChild<GeoMapCamera*>(QStringLiteral("geoMapCamera"));
+    QVERIFY2(cam, "GeoMapCamera not found");
+
+    constexpr double kFlyZoom = 15.0;
+    cam->lookAt(kMapCenter, 0, 0, cam->distanceForZoomLevel(kFlyZoom));
+
+    const QString pipName = QStringLiteral("flyViewPipView");
+    QQuickItem* const pipView = findVisibleItem(_rootItem, pipName, kItemAppearTimeoutMs);
+    QVERIFY2(pipView, "PiP view not visible");
+    QVERIFY(_clickItemAt(pipView, 0.5, 0.5, pipName));
+    QTRY_VERIFY_WITH_TIMEOUT(adapter->property("pipMode").toBool(), kSettleTimeoutMs);
+    QCOMPARE_LT(qAbs(QGroundControlQmlGlobal::flightMapZoom() - kFlyZoom), 0.01);
+
+    QVERIFY2(clickToolSelectDropdownButton(QStringLiteral("toolbar_viewPlan")), "Failed to navigate to Plan view");
+    QQuickItem* const planMap = findVisibleItem(_rootItem, QStringLiteral("planView_map"), kItemAppearTimeoutMs);
+    QVERIFY2(planMap, "planView_map not visible");
+    constexpr double kPlanZoom = 13.0;
+    planMap->setProperty("zoomLevel", kPlanZoom);
+
+    QVERIFY2(clickToolSelectDropdownButton(QStringLiteral("toolbar_viewFly")), "Failed to navigate to Fly view");
+    QVERIFY2(findVisibleItem(_rootItem, pipName, kItemAppearTimeoutMs),
+             "PiP view not visible after returning to Fly view");
+    QVERIFY(adapter->property("pipMode").toBool());
+    QVERIFY(_clickItemAt(pipView, 0.5, 0.5, pipName));
+    QTRY_VERIFY_WITH_TIMEOUT(!adapter->property("pipMode").toBool(), kSettleTimeoutMs);
+
+    QTRY_COMPARE_LT_WITH_TIMEOUT(qAbs(cam->zoomLevelForDistance(cam->distance()) - kPlanZoom), 0.01, kSettleTimeoutMs);
+    QCOMPARE_LT(qAbs(QGroundControlQmlGlobal::flightMapZoom() - kPlanZoom), 0.01);
+
+    stopUI();
+}
+
+void FlyViewGeoUITest::_testZoomToMissionFromVehicle_data()
+{
+    QTest::addColumn<bool>("inPip");
+
+    QTest::addRow("full view") << false;
+    // The fit must survive the swap back to the full view
+    QTest::addRow("pip") << true;
+}
+
+// A mission downloaded from the vehicle zooms the map to show it (FlyViewMap parity)
+void FlyViewGeoUITest::_testZoomToMissionFromVehicle()
+{
+    QFETCH(bool, inPip);
+
+    Fact* const geoEngineFact = SettingsManager::instance()->flyViewSettings()->useGeoMapEngine();
+    const QVariant savedEnabled = geoEngineFact->rawValue();
+    const auto guard = qScopeGuard([geoEngineFact, savedEnabled] { geoEngineFact->setRawValue(savedEnabled); });
+    ignoreLogMessage("API.QGCApplication.AppMessage", QtDebugMsg,
+                     QRegularExpression(QStringLiteral("Restart application for changes to take effect")));
+    geoEngineFact->setRawValue(true);
+    // A configured video stream is what makes the Fly View offer PiP
+    Fact* const videoSource = SettingsManager::instance()->videoSettings()->videoSource();
+    const QVariant savedVideoSource = videoSource->rawValue();
+    const auto videoGuard =
+        qScopeGuard([videoSource, savedVideoSource] { videoSource->setRawValue(savedVideoSource); });
+    if (inPip) {
+        videoSource->setRawValue(QString::fromLatin1(VideoSettings::videoSourceUDPH264));
+    }
+
+    runWithMockLink(
+        [] { return MockLink::startPX4MockLinkWithMission(); },
+        [this, inPip](QPointer<MockLink>, Vehicle* vehicle) {
+            const std::optional<bool> rhiBased = expectSoftwareBackendWarnings(/*strict*/ false);
+            QVERIFY2(rhiBased.has_value(), "No renderer interface on the main window");
+
+            QQuickItem* const adapter =
+                findVisibleItem(_rootItem, QStringLiteral("flyViewGeoMapAdapter"), kItemAppearTimeoutMs);
+            QVERIFY2(adapter, "GeoMap adapter not visible");
+            auto* const planController = adapter->property("planMasterController").value<PlanMasterController*>();
+            QVERIFY2(planController, "Fly View PlanMasterController not found");
+            QQuickItem* const viewport =
+                findVisibleItem(_rootItem, QStringLiteral("geoMapViewport"), kItemAppearTimeoutMs);
+            QVERIFY2(viewport, "GeoMap 3D viewport not visible");
+            QQuickItem* const geoMap = viewport->parentItem();
+            auto* const cam = geoMap->findChild<GeoMapCamera*>(QStringLiteral("geoMapCamera"));
+            QVERIFY2(cam, "GeoMapCamera not found");
+            auto* const positionTracker = geoMap->findChild<MapPositionTracker*>();
+            QVERIFY2(positionTracker, "MapPositionTracker not found");
+
+            // Past the one-shot vehicle centering (it would also set a zoom), then zoom far
+            // out: only the mission fit can bring the camera back in
+            QTRY_VERIFY_WITH_TIMEOUT(positionTracker->firstVehiclePositionReceived(), kItemAppearTimeoutMs);
+            constexpr double kFarZoom = 5.0;
+            cam->lookAt(vehicle->coordinate(), 0, 0, cam->distanceForZoomLevel(kFarZoom));
+
+            const QString pipName = QStringLiteral("flyViewPipView");
+            QQuickItem* const pipView = inPip ? findVisibleItem(_rootItem, pipName, kItemAppearTimeoutMs) : nullptr;
+            if (inPip) {
+                QVERIFY2(pipView, "PiP view not visible");
+                QVERIFY(_clickItemAt(pipView, 0.5, 0.5, pipName));
+                QTRY_VERIFY_WITH_TIMEOUT(adapter->property("pipMode").toBool(), kSettleTimeoutMs);
+            }
+
+            QSignalSpy newItemsSpy(planController->missionController(), &MissionController::newItemsFromVehicle);
+            vehicle->missionManager()->loadFromVehicle();
+            QVERIFY(newItemsSpy.wait(kItemAppearTimeoutMs));
+
+            if (inPip) {
+                QVERIFY(_clickItemAt(pipView, 0.5, 0.5, pipName));
+                QTRY_VERIFY_WITH_TIMEOUT(!adapter->property("pipMode").toBool(), kSettleTimeoutMs);
+            }
+
+            // The mission fills the view: fitted well past the far zoom, every item on screen
+            QTRY_COMPARE_GT_WITH_TIMEOUT(cam->zoomLevelForDistance(cam->distance()), kFarZoom + 5.0, kSettleTimeoutMs);
+            const QRectF screen(QPointF(0, 0), cam->viewportSize());
+            QmlObjectListModel* const visualItems = planController->missionController()->visualItems();
+            int coordinateItems = 0;
+            for (int i = 1; i < visualItems->count(); i++) {
+                const auto* const item = visualItems->value<VisualMissionItem*>(i);
+                if (!item->specifiesCoordinate() || item->isStandaloneCoordinate()) {
+                    continue;
+                }
+                coordinateItems++;
+                const auto projected = cam->worldToScreen(TileMath::geoToWorld(item->coordinate()));
+                QVERIFY(projected.has_value());
+                QVERIFY2(screen.contains(*projected), qPrintable(QStringLiteral("Mission item %1 off screen").arg(i)));
+            }
+            QCOMPARE_GT(coordinateItems, 1);
+        });
 }
