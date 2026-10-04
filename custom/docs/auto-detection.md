@@ -39,7 +39,7 @@ To cancel a detection and have the drone return to land. Touch the **Return** bu
 
 ##### Emergency Stop
 
-If at any time you have lost control of the drone and it isn't responding to your commands you can select Emergency Stop. If you confirm the action this will stop the motors on the drone. If it is flying it will crash! This is for emergencies only where there is nothing left to do and safety is a concern.
+If at any time you have lost control of the drone and it isn't responding to your commands you can use **Emergency Stop**. Open the vehicle status indicator at the left of the toolbar, then press and hold the red **Emergency Stop** button to confirm. This will stop the motors on the drone and it will crash! This is for emergencies only where there is nothing left to do and safety is a concern.
 
 ### Reading the Display
 

@@ -31,7 +31,6 @@ Item {
 
     // Rects of the controls in this layer which cover the map, so the map keeps the vehicle out from under them
     property var customOccluders: [
-        _occluderRect(emergencyStopButton, 0, 0),
         _occluderRect(controllerOperationCard, rightColumn.x, rightColumn.y),
         _occluderRect(wifiDownloadCard, rightColumn.x, rightColumn.y),
         _occluderRect(pulseOverlayBackground, rightColumn.x, rightColumn.y),
@@ -58,22 +57,6 @@ Item {
 
     function _occluderRect(item, offsetX, offsetY) {
         return item.visible ? Qt.rect(offsetX + item.x, offsetY + item.y, item.width, item.height) : Qt.rect(0, 0, 0, 0)
-    }
-
-    // TagTracker shows emergency stop whenever the vehicle is armed, not just while flying.
-    QGCButton {
-        id:                     emergencyStopButton
-        anchors.left:           parent.left
-        anchors.bottom:         parent.bottom
-        anchors.leftMargin:     ScreenTools.defaultFontPixelWidth
-        anchors.bottomMargin:   parent.height - Math.min(occluders.pipView.y, occluders.virtualJoystickLeft.y) + ScreenTools.defaultFontPixelWidth
-        text:                   qsTr("EMERGENCY STOP")
-        backgroundColor:        "red"
-        textColor:              "white"
-        fontWeight:             Font.Bold
-        visible:                _guidedController.showEmergenyStop ||
-                                (_guidedController.showDisarm && QGroundControl.corePlugin.options.flyView.guidedBarShowEmergencyStop)
-        onClicked:              _guidedController.confirmAction(_guidedController.actionEmergencyStop)
     }
 
     ColumnLayout {
