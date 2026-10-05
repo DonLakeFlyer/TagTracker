@@ -6,6 +6,7 @@
 #include <QtCore/QFileInfo>
 #include <QtCore/QJsonObject>
 #include <QtCore/QRegularExpression>
+#include <QtCore/QScopeGuard>
 #include <QtCore/QTemporaryDir>
 #include <QtCore/QTimeZone>
 #include <QtCore/QtEndian>
@@ -410,6 +411,32 @@ void TelemetryPairingTest::_pairAllIgnoresCompanionLogFolders()
     QCOMPARE(summary.errors, 0);
     QCOMPARE(tlogsIn(flight), QStringList({QStringLiteral("flight.tlog")}));
     QCOMPARE(snapshot(), before);
+}
+
+void TelemetryPairingTest::_emptyPathsDoNotScanWorkingDirectory()
+{
+    QTemporaryDir workingDir;
+    QTemporaryDir logDir;
+    QVERIFY(workingDir.isValid() && logDir.isValid());
+    const quint64 t = baseUsecs();
+
+    // A telemetry file and a pulse log folder that would pair, both in the working directory
+    QVERIFY(writeFile(QDir(workingDir.path()).filePath(QStringLiteral("stray.tlog")),
+                      recording(t, t + 60 * UsecsPerMinute)));
+    const QString strayFolder = makeFolder(workingDir.path(), QStringLiteral("stray"), {t + 10 * UsecsPerMinute});
+    const QString folder = makeFolder(logDir.path(), QStringLiteral("flight"), {t + 10 * UsecsPerMinute});
+
+    const QString previousDir = QDir::currentPath();
+    QVERIFY(QDir::setCurrent(workingDir.path()));
+    const auto restoreDir = qScopeGuard([&previousDir]() { (void) QDir::setCurrent(previousDir); });
+
+    QCOMPARE(TelemetryPairing::pairFolder(folder, QString()), TelemetryPairing::Result::NoTelemetry);
+    QVERIFY(tlogsIn(folder).isEmpty());
+
+    const TelemetryPairing::Summary summary = TelemetryPairing::pairAll(QString(), workingDir.path());
+    QCOMPARE(summary.paired + summary.noTelemetry + summary.ambiguous + summary.errors, 0);
+    QVERIFY(tlogsIn(strayFolder).isEmpty());
+    QCOMPARE(telemetryNames(strayFolder), QStringList({QString()}));
 }
 
 UT_REGISTER_TEST(TelemetryPairingTest, TestLabel::Unit)

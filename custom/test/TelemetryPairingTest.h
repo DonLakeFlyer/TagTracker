@@ -20,4 +20,5 @@ private slots:
     void _replacesWrongCopyInFolder();
     void _pairAllSkipsOpenFolderAndRepeatsSafely();
     void _pairAllIgnoresCompanionLogFolders();
+    void _emptyPathsDoNotScanWorkingDirectory();
 };

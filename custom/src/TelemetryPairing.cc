@@ -78,6 +78,11 @@ qint64 frameLength(const uchar* bytes, qint64 available)
 QList<Candidate> listTelemetryFiles(const QString& telemetryDir)
 {
     QList<Candidate> candidates;
+    // AppSettings gives an empty path when the save location is unavailable, and QDir("") would
+    // list the working directory instead
+    if (telemetryDir.isEmpty()) {
+        return candidates;
+    }
     const QFileInfoList infos =
         QDir(telemetryDir)
             .entryInfoList({QStringLiteral("*.%1").arg(AppSettings::telemetryFileExtension)}, QDir::Files, QDir::Name);
@@ -352,6 +357,9 @@ Result pairFolder(const QString& folderPath, const QString& telemetryDir)
 Summary pairAll(const QString& logDir, const QString& telemetryDir, const QString& skipFolder)
 {
     Summary summary;
+    if (logDir.isEmpty()) {
+        return summary;
+    }
     QList<Candidate> telemetryFiles = listTelemetryFiles(telemetryDir);
     const QString skip = skipFolder.isEmpty() ? QString() : QDir(skipFolder).absolutePath();
 
