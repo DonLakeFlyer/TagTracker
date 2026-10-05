@@ -14,7 +14,7 @@ private slots:
     void _pairsByContentNotName();
     void _groundTestLeavesTelemetryEmpty();
     void _twoFlightsOnOneRecording();
-    void _duplicateCopiesPairWithFirstName();
+    void _duplicateCopiesPairWithShortestName();
     void _differentMatchesAreAmbiguous();
     void _sameSpanDifferentBytesIsAmbiguous();
     void _replacesWrongCopyInFolder();

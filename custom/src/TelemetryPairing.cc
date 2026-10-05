@@ -213,6 +213,12 @@ Result pairFolderWith(const QString& folderPath, QList<Candidate>& telemetryFile
         return Result::NoTelemetry;
     }
 
+    // QGroundControl names a second save in the same second flight.1.tlog, so the shortest name is
+    // the original. Alphabetical after that keeps the choice repeatable.
+    std::sort(matches.begin(), matches.end(), [](const Candidate* a, const Candidate* b) {
+        return a->name.size() != b->name.size() ? a->name.size() < b->name.size() : a->name < b->name;
+    });
+
     // Recordings never overlap, so several matches are normally copies of one file. Only identical
     // bytes prove that. If they differ, naming either could be wrong, so name neither.
     const Candidate* first = matches.first();

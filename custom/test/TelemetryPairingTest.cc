@@ -251,20 +251,22 @@ void TelemetryPairingTest::_twoFlightsOnOneRecording()
     QCOMPARE(telemetryNames(folder), QStringList(3, QStringLiteral("both.tlog")));
 }
 
-void TelemetryPairingTest::_duplicateCopiesPairWithFirstName()
+void TelemetryPairingTest::_duplicateCopiesPairWithShortestName()
 {
     QTemporaryDir telemetryDir;
     QTemporaryDir logDir;
     QVERIFY(telemetryDir.isValid() && logDir.isValid());
     const quint64 t = baseUsecs();
 
+    // flight.1.tlog sorts first, but is QGroundControl's name for a second save in the same second
     const QByteArray bytes = recording(t, t + 60 * UsecsPerMinute);
     QVERIFY(writeFile(telemetryDir.filePath(QStringLiteral("flight.tlog")), bytes));
     QVERIFY(writeFile(telemetryDir.filePath(QStringLiteral("flight.1.tlog")), bytes));
     const QString folder = makeFolder(logDir.path(), QStringLiteral("dup"), {t + 10 * UsecsPerMinute});
 
     QCOMPARE(TelemetryPairing::pairFolder(folder, telemetryDir.path()), TelemetryPairing::Result::Paired);
-    QCOMPARE(tlogsIn(folder), QStringList({QStringLiteral("flight.1.tlog")}));
+    QCOMPARE(tlogsIn(folder), QStringList({QStringLiteral("flight.tlog")}));
+    QCOMPARE(telemetryNames(folder), QStringList({QStringLiteral("flight.tlog")}));
 }
 
 void TelemetryPairingTest::_differentMatchesAreAmbiguous()
