@@ -92,6 +92,7 @@ public:
     Q_INVOKABLE void saveLogs           (void);
     Q_INVOKABLE void cleanLogs          (void);
     Q_INVOKABLE void clearMap           (void);
+    Q_INVOKABLE void pairTelemetryLogs  (void);
 
     // Overrides from QGCCorePlugin
     void                init                    (void) final;
@@ -150,6 +151,8 @@ private:
     void    _sendLogLevel               (void);
     /// Fire-and-forget tunnel frame outside a state machine; false if no compatible link.
     bool    _sendTunnelFrame            (const void* payload, size_t size);
+    void    _pairTelemetryForFolder     (const QString& folderPath);
+    void    _resumePulseLogIfNeeded     (void);
 
     bool                    _activeRotation     = false;
     bool                    _rotationInProgress = false;
@@ -164,6 +167,9 @@ private:
     bool                    _pythonWrongModeReported = false;
     bool                    _detectionStartRequested = false;   // survey start requested, heartbeat not yet Detecting
     bool                    _stopDetectionPending = false;      // disarmed during that window; stop once controller reports Detecting
+    bool                    _startDetectionRunning = false;     // Start Detection state machine still running
+    bool                    _stopDetectionRequested = false;    // stop sent, heartbeat not yet out of Detecting
+    bool                    _pulseLogResumeFailed = false;      // resume failed; retry on next status change
 
     QmlObjectListModel      _rotationInfoList;
 
