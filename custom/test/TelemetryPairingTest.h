@@ -21,4 +21,5 @@ private slots:
     void _pairAllSkipsOpenFolderAndRepeatsSafely();
     void _pairAllIgnoresCompanionLogFolders();
     void _emptyPathsDoNotScanWorkingDirectory();
+    void _noVehicleRunIsNotPaired();
 };

@@ -41,6 +41,7 @@ struct FolderRuns
     QStringList unpairedSidecarPaths;
     quint64 earliestStartUsecs = 0;
     quint64 latestStartUsecs = 0;
+    bool anyVehicle = false;
 };
 
 quint64 usecsFromDateTime(const QDateTime& dateTime)
@@ -119,6 +120,9 @@ bool readFolderRuns(const QString& folderPath, FolderRuns& runs)
             runs.latestStartUsecs = std::max(runs.latestStartUsecs, startUsecs);
         }
         runs.sidecarPaths.append(path);
+        if (!sidecar[PulseLogSidecar::keyVehicleId].isNull()) {
+            runs.anyVehicle = true;
+        }
         if (sidecar[PulseLogSidecar::keyTelemetryFile].toString().isEmpty()) {
             runs.unpairedSidecarPaths.append(path);
         }
@@ -204,6 +208,11 @@ Result pairFolderWith(const QString& folderPath, QList<Candidate>& telemetryFile
     }
     if (runs.unpairedSidecarPaths.isEmpty()) {
         return Result::AlreadyPaired;
+    }
+    // With no vehicle connected there was no telemetry recording, so any file matching by time is another flight's
+    if (!runs.anyVehicle) {
+        qCDebug(CustomPluginLog) << "No vehicle was connected for" << folderPath;
+        return Result::NoTelemetry;
     }
 
     QList<Candidate*> matches;

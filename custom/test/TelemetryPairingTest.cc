@@ -71,7 +71,8 @@ bool writeFile(const QString& path, const QByteArray& bytes)
 }
 
 // A connection folder as CSVLogManager leaves it, one pulse log and sidecar per run start
-QString makeFolder(const QString& logDir, const QString& name, const QList<quint64>& runStartsUsecs)
+QString makeFolder(const QString& logDir, const QString& name, const QList<quint64>& runStartsUsecs,
+                   int vehicleId = 1)
 {
     const QString folder = QDir(logDir).filePath(name);
     QDir().mkpath(folder);
@@ -80,7 +81,7 @@ QString makeFolder(const QString& logDir, const QString& name, const QList<quint
         const QString pulseLog = QStringLiteral("Pulse-%1.csv").arg(i);
         writeFile(QDir(folder).filePath(pulseLog), QByteArray());
         PulseLogSidecar::write(QDir(folder).filePath(QStringLiteral("Pulse-%1.json").arg(i)),
-                               PulseLogSidecar::create(pulseLog, start, 1, QStringLiteral("test")));
+                               PulseLogSidecar::create(pulseLog, start, vehicleId, QStringLiteral("test")));
     }
     return folder;
 }
@@ -437,6 +438,31 @@ void TelemetryPairingTest::_emptyPathsDoNotScanWorkingDirectory()
     QCOMPARE(summary.paired + summary.noTelemetry + summary.ambiguous + summary.errors, 0);
     QVERIFY(tlogsIn(strayFolder).isEmpty());
     QCOMPARE(telemetryNames(strayFolder), QStringList({QString()}));
+}
+
+void TelemetryPairingTest::_noVehicleRunIsNotPaired()
+{
+    QTemporaryDir telemetryDir;
+    QTemporaryDir logDir;
+    QVERIFY(telemetryDir.isValid() && logDir.isValid());
+    const quint64 t = baseUsecs();
+
+    // A bench run with no vehicle, started while an earlier flight's recording was still ending
+    QVERIFY(writeFile(telemetryDir.filePath(QStringLiteral("flight.tlog")), recording(t, t + 60 * UsecsPerMinute)));
+    const QString bench = makeFolder(logDir.path(), QStringLiteral("bench"), {t + 60 * UsecsPerMinute}, -1);
+
+    QCOMPARE(TelemetryPairing::pairFolder(bench, telemetryDir.path()), TelemetryPairing::Result::NoTelemetry);
+    QVERIFY(tlogsIn(bench).isEmpty());
+    QCOMPARE(telemetryNames(bench), QStringList({QString()}));
+
+    // One run with a vehicle is enough for the folder to have a recording
+    const QString mixed = makeFolder(logDir.path(), QStringLiteral("mixed"), {t + 10 * UsecsPerMinute}, -1);
+    PulseLogSidecar::write(QDir(mixed).filePath(QStringLiteral("Pulse-9.json")),
+                           PulseLogSidecar::create(QStringLiteral("Pulse-9.csv"),
+                                                   QDateTime::fromMSecsSinceEpoch((t + 20 * UsecsPerMinute) / 1000,
+                                                                                  QTimeZone::UTC),
+                                                   1, QStringLiteral("test")));
+    QCOMPARE(TelemetryPairing::pairFolder(mixed, telemetryDir.path()), TelemetryPairing::Result::Paired);
 }
 
 UT_REGISTER_TEST(TelemetryPairingTest, TestLabel::Unit)
