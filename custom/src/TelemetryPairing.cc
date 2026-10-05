@@ -165,9 +165,11 @@ bool copyInto(const Candidate& candidate, const QString& folderPath)
     }
 
     // QSaveFile writes beside the destination and swaps it in only once complete, so a failed copy
-    // leaves any existing file as it was
+    // leaves any existing file as it was. Where rename is impossible it writes in place instead; a
+    // failed copy can then leave a partial file, which the next pairing pass finds different and replaces.
     QFile source(candidate.path);
     QSaveFile target(destination);
+    target.setDirectWriteFallback(true);
     if (!source.open(QIODevice::ReadOnly) || !target.open(QIODevice::WriteOnly)) {
         qCWarning(CustomPluginLog) << "Unable to copy telemetry file" << candidate.path << "to" << destination;
         return false;

@@ -44,8 +44,11 @@ QJsonObject create(const QString& pulseLogFileName, const QDateTime& start, int 
 
 bool write(const QString& sidecarPath, const QJsonObject& sidecar)
 {
-    // QSaveFile so a crash mid-write never leaves a truncated sidecar behind
+    // QSaveFile so a crash mid-write never leaves a truncated sidecar behind. Storage that cannot
+    // rename, possibly Android removable media, gets a direct write instead, as QGroundControl's own
+    // telemetry save does.
     QSaveFile file(sidecarPath);
+    file.setDirectWriteFallback(true);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
         qCWarning(CustomPluginLog) << "Unable to open pulse log sidecar" << sidecarPath << file.errorString();
         return false;
