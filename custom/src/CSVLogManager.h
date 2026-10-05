@@ -22,6 +22,7 @@ public:
     /// The vehicle connection is over: the next log starts a new folder
     void    connectionEnded         ();
     void    csvStartFullPulseLog    ();
+    bool    fullPulseLogOpen        () const { return _csvFullPulseLogFile.isOpen(); }
     void    csvStopFullPulseLog     ();
     void    csvStartRotationPulseLog();
     void    csvStopRotationPulseLog ();

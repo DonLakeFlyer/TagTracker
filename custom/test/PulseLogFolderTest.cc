@@ -1,15 +1,23 @@
 #include "PulseLogFolderTest.h"
 
+#include <cstring>
+
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDateTime>
 #include <QtCore/QDir>
 #include <QtCore/QFileInfo>
 #include <QtCore/QJsonObject>
+#include <QtCore/QRegularExpression>
+#include <QtCore/QScopeGuard>
 #include <QtCore/QTemporaryDir>
 #include <QtTest/QSignalSpy>
 
 #include "CSVLogManager.h"
+#include "CustomPlugin.h"
+#include "CustomSettings.h"
+#include "Fact.h"
 #include "PulseLogSidecar.h"
+#include "TunnelProtocol.h"
 #include "Vehicle.h"
 
 namespace {
@@ -24,6 +32,23 @@ void waitForNextMillisecond()
 QStringList entries(const QString& folder, const QString& filter)
 {
     return QDir(folder).entryList({filter}, QDir::Files, QDir::Name);
+}
+
+// The tunnel heartbeat the controller sends every few seconds
+mavlink_message_t controllerHeartbeat(uint16_t status)
+{
+    TunnelProtocol::Heartbeat_t heartbeat {};
+    heartbeat.header.command = COMMAND_ID_HEARTBEAT;
+    heartbeat.protocol_version = TUNNEL_PROTOCOL_VERSION;
+    heartbeat.system_id = HEARTBEAT_SYSTEM_ID_MAVLINKCONTROLLER;
+    heartbeat.status = status;
+
+    mavlink_tunnel_t tunnel {};
+    tunnel.payload_length = sizeof(heartbeat);
+    memcpy(tunnel.payload, &heartbeat, sizeof(heartbeat));
+    mavlink_message_t message;
+    mavlink_msg_tunnel_encode(1, MAV_COMP_ID_ONBOARD_COMPUTER, &message, &tunnel);
+    return message;
 }
 
 QJsonObject readSidecar(const QString& path)
@@ -231,6 +256,71 @@ void PulseLogFolderTest::_noVehicleRunGetsOwnFolder()
     const QJsonObject sidecar = readSidecar(QDir(folder).filePath(sidecars[0]));
     QVERIFY(sidecar[PulseLogSidecar::keyVehicleId].isNull());
     QVERIFY(sidecar[PulseLogSidecar::keyTelemetryFile].isNull());
+}
+
+void PulseLogFolderTest::_detectingHeartbeatResumesPulseLog()
+{
+    auto* plugin = qobject_cast<CustomPlugin*>(CustomPlugin::instance());
+    QVERIFY(plugin);
+    Fact* flightMode = plugin->customSettings()->detectionFlightMode();
+    const QVariant previousFlightMode = flightMode->rawValue();
+    QTemporaryDir logDir;
+    QVERIFY(logDir.isValid());
+    CSVLogManager& manager = plugin->csvLogManager();
+    manager.setLogSavePathOverride(logDir.path());
+    // Unit tests skip CustomPlugin::init, which is what normally watches for the disconnect
+    manager.init();
+    const auto restore = qScopeGuard([&]() {
+        manager.csvStopFullPulseLog();
+        manager.connectionEnded();
+        manager.setLogSavePathOverride(QString());
+        flightMode->setRawValue(previousFlightMode);
+    });
+
+    _connectMockLink();
+    QVERIFY(_vehicle);
+
+    // Python modes start and stop detection per slice, so a Detecting heartbeat there is not a lost log
+    flightMode->setRawValue(CustomSettings::ManualRotation);
+    plugin->mavlinkMessage(_vehicle, nullptr, controllerHeartbeat(HEARTBEAT_STATUS_DETECTING));
+    QVERIFY(!manager.fullPulseLogOpen());
+
+    // Detection already running with no log, as after a lost Start Detection reply
+    flightMode->setRawValue(CustomSettings::SurveyDetection);
+    expectAppMessage(QRegularExpression(QStringLiteral("pulse logging had stopped")));
+    plugin->mavlinkMessage(_vehicle, nullptr, controllerHeartbeat(HEARTBEAT_STATUS_DETECTING));
+    verifyExpectedLogMessage();
+    QVERIFY(manager.fullPulseLogOpen());
+    const QString firstFolder = manager.connectionFolder();
+    QCOMPARE(entries(firstFolder, QStringLiteral("Pulse-*.csv")).count(), 1);
+
+    // Once open, further heartbeats leave it alone
+    plugin->mavlinkMessage(_vehicle, nullptr, controllerHeartbeat(HEARTBEAT_STATUS_DETECTING));
+    QCOMPARE(manager.connectionFolder(), firstFolder);
+    QCOMPARE(entries(firstFolder, QStringLiteral("Pulse-*.csv")).count(), 1);
+
+    // The disconnect closes the log; the controller keeps detecting through the reconnect
+    _disconnectMockLink();
+    QTRY_VERIFY_WITH_TIMEOUT(manager.connectionFolder().isEmpty(), TestTimeout::mediumMs());
+    QVERIFY(!manager.fullPulseLogOpen());
+    _connectMockLink();
+    QVERIFY(_vehicle);
+    waitForNextMillisecond();
+
+    expectAppMessage(QRegularExpression(QStringLiteral("pulse logging had stopped")));
+    plugin->mavlinkMessage(_vehicle, nullptr, controllerHeartbeat(HEARTBEAT_STATUS_DETECTING));
+    verifyExpectedLogMessage();
+    QVERIFY(manager.fullPulseLogOpen());
+    const QString secondFolder = manager.connectionFolder();
+    QVERIFY(!secondFolder.isEmpty());
+    QVERIFY(secondFolder != firstFolder);
+    QCOMPARE(entries(secondFolder, QStringLiteral("Pulse-*.csv")).count(), 1);
+    const QStringList sidecars = entries(secondFolder, QStringLiteral("Pulse-*.json"));
+    QCOMPARE(sidecars.count(), 1);
+    QCOMPARE(readSidecar(QDir(secondFolder).filePath(sidecars[0]))[PulseLogSidecar::keyVehicleId].toInt(),
+             _vehicle->id());
+
+    plugin->mavlinkMessage(_vehicle, nullptr, controllerHeartbeat(HEARTBEAT_STATUS_IDLE));
 }
 
 UT_REGISTER_TEST(PulseLogFolderTest, TestLabel::Integration, TestLabel::Vehicle)

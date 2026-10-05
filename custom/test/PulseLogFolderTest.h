@@ -13,4 +13,5 @@ private slots:
     void _disconnectClosesOpenLogs();
     void _rotationLogsNumberedPerFolder();
     void _noVehicleRunGetsOwnFolder();
+    void _detectingHeartbeatResumesPulseLog();
 };

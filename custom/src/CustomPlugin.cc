@@ -380,6 +380,10 @@ void CustomPlugin::_handleTunnelHeartbeat(const mavlink_tunnel_t& tunnel)
         // A controller that restarted inside the watchdog window shows up only as a drop back to idle
         const bool restartedToIdle = heartbeat.status == HEARTBEAT_STATUS_IDLE && !heartbeatWasLost;
         _controllerStatus = (ControllerStatus)heartbeat.status;
+        _pulseLogResumeFailed = false;
+        if (_controllerStatus != ControllerStatusDetecting) {
+            _stopDetectionRequested = false;
+        }
         emit controllerStatusChanged();
         if (restartedToIdle) {
             _sendLogLevel();
@@ -397,6 +401,30 @@ void CustomPlugin::_handleTunnelHeartbeat(const mavlink_tunnel_t& tunnel)
         _controllerCPUTemp = heartbeat.cpu_temp_c;
         emit controllerCPUTempChanged();
     }
+    // Every heartbeat, because after a reconnect the status stays Detecting throughout
+    _resumePulseLogIfNeeded();
+}
+
+void CustomPlugin::_resumePulseLogIfNeeded()
+{
+    // A disconnect closes the pulse log, and a lost Start Detection reply never opens one, yet the
+    // controller keeps detecting and every pulse would be dropped. Survey detection only: Python
+    // modes start and stop detection per slice. A start in progress opens its own log, and a
+    // requested stop must not be undone by a heartbeat sent before the controller acted on it.
+    if (isPythonMode() || _controllerStatus != ControllerStatusDetecting || _startDetectionRunning ||
+        _stopDetectionRequested || _pulseLogResumeFailed || _csvLogManager.fullPulseLogOpen() ||
+        !MultiVehicleManager::instance()->activeVehicle()) {
+        return;
+    }
+
+    qCDebug(CustomPluginLog) << "Controller is detecting with no pulse log open, starting one";
+    _csvLogManager.csvStartFullPulseLog();
+    if (!_csvLogManager.fullPulseLogOpen()) {
+        // csvStartFullPulseLog has said why; do not repeat it every heartbeat
+        _pulseLogResumeFailed = true;
+        return;
+    }
+    qgcApp()->showAppMessage(tr("Detection is running but pulse logging had stopped. A new pulse log has started."));
 }
 
 void CustomPlugin::_handleUavrtPulse(Vehicle* vehicle, const mavlink_tunnel_t& tunnel)
@@ -636,13 +664,17 @@ void CustomPlugin::startDetection(void)
     connect(MultiVehicleManager::instance()->activeVehicle(), &Vehicle::armedChanged, this, &CustomPlugin::_stopDetectionOnDisarmed, Qt::UniqueConnection);
     _detectionStartRequested = true;
     _stopDetectionPending = false;
+    _stopDetectionRequested = false;
+    _startDetectionRunning = true;
 
     auto stateMachine = new CustomStateMachine("Start Detection", this);
     // An aborted start never reaches Detecting, so nothing is left to stop
     connect(stateMachine, &QStateMachine::stopped, this, [this]() {
         _detectionStartRequested = false;
         _stopDetectionPending = false;
+        _startDetectionRunning = false;
     });
+    connect(stateMachine, &QStateMachine::finished, this, [this]() { _startDetectionRunning = false; });
 
     auto startDetectionState = new StartDetectionState(stateMachine);
     auto finalState = new QFinalState(stateMachine);
@@ -659,6 +691,7 @@ void CustomPlugin::stopDetection(void)
 {
     _detectionStartRequested = false;
     _stopDetectionPending = false;
+    _stopDetectionRequested = true;
 
     // Ending the session (user or disarm) invalidates the prior; a cancelled or
     // failed rotation does not, so the retry can still start near the last estimate.
