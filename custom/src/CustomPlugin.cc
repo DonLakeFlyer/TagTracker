@@ -107,19 +107,6 @@ void CustomPlugin::init()
 
     _csvLogManager.init();
     connect(&_csvLogManager, &CSVLogManager::connectionFolderClosed, this, &CustomPlugin::_pairTelemetryForFolder);
-
-    // Deferred to the event loop so QGroundControl has first recovered any telemetry file a crash left behind
-    if (!qgcApp()->runningUnitTests() &&
-        !SettingsManager::instance()->appSettings()->disableAllPersistence()->rawValue().toBool()) {
-        QTimer::singleShot(0, this, [this]() {
-            const TelemetryPairing::Summary summary = TelemetryPairing::pairAll(
-                _csvLogManager.logSavePath(), SettingsManager::instance()->appSettings()->telemetrySavePath(),
-                _csvLogManager.connectionFolder());
-            qCDebug(CustomPluginLog) << "Startup telemetry pairing: paired" << summary.paired << "unpaired"
-                                     << summary.noTelemetry << "ambiguous" << summary.ambiguous << "errors"
-                                     << summary.errors;
-        });
-    }
 }
 
 void CustomPlugin::_pairTelemetryForFolder(const QString& folderPath)
@@ -168,6 +155,17 @@ void CustomPlugin::linkConfigurationsLoaded(LinkManager* linkManager)
 #else
     Q_UNUSED(linkManager);
 #endif
+
+    // QGroundControl calls this right after recovering any telemetry file a crash left behind
+    if (!qgcApp()->runningUnitTests() &&
+        !SettingsManager::instance()->appSettings()->disableAllPersistence()->rawValue().toBool()) {
+        const TelemetryPairing::Summary summary = TelemetryPairing::pairAll(
+            _csvLogManager.logSavePath(), SettingsManager::instance()->appSettings()->telemetrySavePath(),
+            _csvLogManager.connectionFolder());
+        qCDebug(CustomPluginLog) << "Startup telemetry pairing: paired" << summary.paired << "unpaired"
+                                 << summary.noTelemetry << "ambiguous" << summary.ambiguous << "errors"
+                                 << summary.errors;
+    }
 }
 
 void CustomPlugin::_addDefaultUdpLink(LinkManager* linkManager, const QString& name, quint16 localPort,
