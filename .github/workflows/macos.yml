@@ -72,7 +72,7 @@ jobs:
           build-type: ${{ env.BUILD_TYPE }}
 
       - name: Upload DMG artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ env.PACKAGE }}.dmg
           path: ${{ runner.temp }}/build/${{ env.PACKAGE }}.dmg
