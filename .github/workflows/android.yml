@@ -93,7 +93,7 @@ jobs:
           cp "${APK_DIR}"/*.apk "${RUNNER_TEMP}/build/${PACKAGE}.apk"
 
       - name: Upload APK artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ env.PACKAGE }}.apk
           path: ${{ runner.temp }}/build/${{ env.PACKAGE }}.apk
