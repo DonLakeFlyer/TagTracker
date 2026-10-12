@@ -92,7 +92,6 @@ public:
     Q_INVOKABLE void saveLogs           (void);
     Q_INVOKABLE void cleanLogs          (void);
     Q_INVOKABLE void clearMap           (void);
-    Q_INVOKABLE void pairTelemetryLogs  (void);
 
     // Overrides from QGCCorePlugin
     void                init                    (void) final;

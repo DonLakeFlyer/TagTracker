@@ -27,7 +27,6 @@ TagTracker provides the following operations via the fly-view actions toolstrip:
 | **Save Logs (SD Card)** | Save companion computer logs to the vehicle SD card. |
 | **Clear Logs** | Clear companion computer logs. |
 | **Download Logs (WiFi)** | Copy companion computer logs over WiFi to the QGC log save path. macOS only; requires one-time SSH key setup (see [Downloading Companion Logs](#downloading-companion-logs-macos)). |
-| **Pair Telemetry Logs** | Copy each flight's telemetry log into its log folder where that has not happened yet (see [CSV Logging](#csv-logging)). |
 | **Clear Map** | Remove all pulse map items and reset the SNR range. |
 | **Capture Screen** | Screenshot the GCS display. |
 
@@ -100,7 +99,7 @@ Logs are grouped by vehicle connection. The first pulse or rotation log after a 
 - **Rotation pulse log** (`Rotation-{N}.csv`): Per-rotation log files for bearing calculation input. Numbering starts at 1 in each folder.
 - **Telemetry log** (`{date} {time}.tlog`): When the vehicle disconnects, or TagTracker is quit while it is still connected, the telemetry log QGC saved for that connection is copied into the folder and named in each sidecar. The copy is chosen by the timestamps recorded inside the file, not by its name, which is the time the recording stopped. The original stays in the telemetry save path. QGC saves a telemetry log only if the vehicle armed during the connection (unless "Save logs even if vehicle was not armed" is set), so a bench test leaves the folder without one.
 
-The same pairing runs at every startup, and on demand from **Pair Telemetry Logs**, so a folder left without its telemetry log (for example after a crash, when QGC recovers the recording at the next start) is completed later. Folders that do not hold pulse log sidecars, such as downloaded companion logs, are left alone.
+The same pairing runs at every startup, so a folder left without its telemetry log (for example after a crash, when QGC recovers the recording at the next start) is completed later. Folders that do not hold pulse log sidecars, such as downloaded companion logs, are left alone.
 
 ## Downloading Companion Logs (macOS)
 
