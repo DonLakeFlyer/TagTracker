@@ -198,7 +198,7 @@ Item {
                         Rectangle {
                             id:                     pulseRect
                             Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 1.5
-                            Layout.preferredWidth:  ScreenTools.defaultFontPixelWidth * 20
+                            Layout.preferredWidth:  ScreenTools.defaultFontPixelWidth * 15
                             color:                  object.heartbeatLost ? "red" : (object.lastPulseNoPulse ? "gray" : "transparent")
 
                             Rectangle {
