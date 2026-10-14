@@ -202,13 +202,9 @@ QString PythonRotateAndCaptureState::outcomeAnnouncement(const RotationInfo* rot
     }
     switch (rotationInfo->bearingState()) {
     case RotationInfo::Confirmed:
-        return tr("Rotation complete. Tag confirmed, sector %1, bearing %2 degrees")
-            .arg(rotationInfo->bearingSector() + 1)
-            .arg(qRound(rotationInfo->bearingDeg()));
+        return tr("Rotation complete. Tag confirmed, bearing %1 degrees").arg(qRound(rotationInfo->bearingDeg()));
     case RotationInfo::Unconfirmed:
-        return tr("Rotation complete. Unconfirmed, sector %1, bearing %2 degrees")
-            .arg(rotationInfo->bearingSector() + 1)
-            .arg(qRound(rotationInfo->bearingDeg()));
+        return tr("Rotation complete. Unconfirmed, bearing %1 degrees").arg(qRound(rotationInfo->bearingDeg()));
     case RotationInfo::Heard:
         return tr("Rotation complete. Tag heard, no bearing");
     case RotationInfo::NothingHeard:
