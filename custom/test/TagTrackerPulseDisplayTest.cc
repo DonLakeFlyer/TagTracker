@@ -470,12 +470,12 @@ void TagTrackerPulseDisplayTest::_outcomeAnnouncement()
     RotationInfo unconfirmed(8);
     unconfirmed.setBearingResult(134.6f, 0.5f, 1u, 12.0f, false);
     QCOMPARE(PythonRotateAndCaptureState::outcomeAnnouncement(&unconfirmed),
-             QStringLiteral("Rotation complete. Unconfirmed, sector 4, bearing 135 degrees"));
+             QStringLiteral("Rotation complete. Unconfirmed, bearing 135 degrees"));
 
     RotationInfo confirmed(8);
     confirmed.setBearingResult(134.6f, 0.9f, 3u, 20.0f, true);
     QCOMPARE(PythonRotateAndCaptureState::outcomeAnnouncement(&confirmed),
-             QStringLiteral("Rotation complete. Tag confirmed, sector 4, bearing 135 degrees"));
+             QStringLiteral("Rotation complete. Tag confirmed, bearing 135 degrees"));
 }
 
 UT_REGISTER_TEST(TagTrackerPulseDisplayTest, TestLabel::Unit)

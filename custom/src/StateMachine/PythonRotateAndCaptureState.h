@@ -30,7 +30,7 @@ public:
     // Starts at the slice nearest a finite prior bearing, otherwise at slice 0.
     static QList<int> sliceVisitOrder(int rotationDivisions, double priorBearingDeg, double antennaOffsetDeg);
 
-    // Spoken at the end of the rotation: confirmed / unconfirmed with sector and bearing, or nothing heard
+    // Spoken at the end of the rotation: confirmed / unconfirmed with bearing, or nothing heard
     static QString outcomeAnnouncement(const RotationInfo* rotationInfo);
 
 private slots:

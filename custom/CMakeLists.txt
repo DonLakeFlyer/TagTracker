@@ -194,6 +194,8 @@ set(CUSTOM_SOURCES
 
 if(QGC_BUILD_TESTING)
     list(APPEND CUSTOM_SOURCES
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/CustomStateMachineTest.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/CustomStateMachineTest.h
         ${CMAKE_CURRENT_SOURCE_DIR}/test/OperationProgressTest.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/test/OperationProgressTest.h
         ${CMAKE_CURRENT_SOURCE_DIR}/test/TagTrackerPulseDisplayTest.cc
@@ -203,6 +205,7 @@ if(QGC_BUILD_TESTING)
     )
 
     include(QGCTest)
+    add_qgc_test(CustomStateMachineTest LABELS Unit)
     add_qgc_test(OperationProgressTest LABELS Unit)
     add_qgc_test(TagTrackerPulseDisplayTest LABELS Unit)
     add_qgc_test(TunnelProtocolTextTest LABELS Unit)
