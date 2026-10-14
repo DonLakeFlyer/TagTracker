@@ -37,6 +37,7 @@ PythonRotateAndCaptureState::PythonRotateAndCaptureState(QState* parentState)
     startCollection.detection_margin          = _customSettings->detectionMargin()->rawValue().toDouble();
     startCollection.confidence_ratio          = _customSettings->confidenceRatio()->rawValue().toDouble();
     startCollection.debug_detector            = _customSettings->debugDetector()->rawValue().toBool() ? 1 : 0;
+    startCollection.dump_spectrogram          = _customSettings->dumpSpectrogram()->rawValue().toBool() ? 1 : 0;
     startCollection.antenna_id                = _customSettings->antennaModel()->rawValue().toUInt();
 
     FinishCollection_t finishCollection {};

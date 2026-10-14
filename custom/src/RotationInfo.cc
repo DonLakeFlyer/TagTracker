@@ -72,13 +72,17 @@ double RotationInfo::displayStrength(double signalPsd, double noisePsd)
 
 void RotationInfo::_applyPulseToSlice(const PythonPulseInfo_t& pulseInfo, int sliceIndex)
 {
-    if (pulseInfo.detection_status == kNoPulseDetectionStatus) {
-        return;
-    }
-
     SliceInfo* slice = _slices.value<SliceInfo*>(sliceIndex);
     if (!slice) {
         qCWarning(CustomPluginLog) << "Missing slice object sliceIndex:" << sliceIndex;
+        return;
+    }
+
+    if (pulseInfo.detection_status == kNoPulseDetectionStatus) {
+        // The controller's verdict that the tag was not found on this heading,
+        // possibly replacing a value shown for another lock candidate.
+        slice->clearTag(pulseInfo.tag_id);
+        _updateMaxSNR();
         return;
     }
 

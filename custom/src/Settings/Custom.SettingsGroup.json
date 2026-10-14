@@ -144,6 +144,14 @@
     "default":          false
 },
 {
+    "name":             "dumpSpectrogram",
+    "shortDesc":        "Save detector spectrograms",
+    "longDesc":         "Save every heading's spectrogram and IQ with the detector logs so the flight can be replayed offline. About 30 MB per selected tag per 8-heading rotation at K=20; scales with tags, headings and K.",
+    "label":            "Save detector spectrograms",
+    "type":             "bool",
+    "default":          true
+},
+{
     "name":             "controllerVerboseLogging",
     "shortDesc":        "Controller verbose logging",
     "label":            "Controller verbose logging",

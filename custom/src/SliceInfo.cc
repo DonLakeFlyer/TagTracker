@@ -41,9 +41,7 @@ void SliceInfo::updateMaxSNR(uint32_t tagId, double snr, bool confirmedPulse, co
                              << "snr:" << snr
                              << "confirmed:" << confirmedPulse;
 
-    const double oldDisplaySNR = displaySNR();
-    const QString oldDisplaySource = displaySource();
-    const bool oldLowConfidenceOnly = lowConfidenceOnly();
+    const DisplayState old = _displayState();
 
     if (confirmedPulse) {
         // Latest confirmed value per tag wins: a locked re-measurement supersedes that
@@ -61,43 +59,86 @@ void SliceInfo::updateMaxSNR(uint32_t tagId, double snr, bool confirmedPulse, co
         _confirmedByTag.insert(tagId, {snr, sourceRateLabel});
         _recomputeConfirmedMax();
     } else {
-        if (!qIsNaN(_maxLowConfidenceSNR) && snr <= _maxLowConfidenceSNR) {
+        auto it = _lowConfidenceByTag.find(tagId);
+        if (it != _lowConfidenceByTag.end() && snr <= it->snr) {
             return;
         }
 
         qCDebug(CustomPluginLog) << "Updating low-confidence max SNR sliceIndex:" << _sliceIndex
                                  << "centerHeading:" << _centerHeading
                                  << "sliceDegrees:" << _sliceDegrees
+                                 << "tag_id:" << tagId
                                  << "snr:" << snr;
-        _maxLowConfidenceSNR = snr;
-        _maxLowConfidenceSourceRateLabel = sourceRateLabel;
+        _lowConfidenceByTag.insert(tagId, {snr, sourceRateLabel});
+        _recomputeLowConfidenceMax();
     }
 
-    const double newDisplaySNR = displaySNR();
-    const QString newDisplaySource = displaySource();
-    const bool newLowConfidenceOnly = lowConfidenceOnly();
+    _emitDisplayChanges(old);
+}
 
-    if (oldDisplaySNR != newDisplaySNR) {
-        emit displaySNRChanged(newDisplaySNR);
+void SliceInfo::clearTag(uint32_t tagId)
+{
+    if (!_confirmedByTag.contains(tagId) && !_lowConfidenceByTag.contains(tagId)) {
+        return;
     }
-    if (oldDisplaySource != newDisplaySource) {
-        emit displaySourceChanged(newDisplaySource);
+
+    qCDebug(CustomPluginLog) << "Clearing tag SNR sliceIndex:" << _sliceIndex << "tag_id:" << tagId;
+
+    const DisplayState old = _displayState();
+
+    if (_confirmedByTag.remove(tagId)) {
+        _recomputeConfirmedMax();
     }
-    if (oldLowConfidenceOnly != newLowConfidenceOnly) {
-        emit lowConfidenceOnlyChanged(newLowConfidenceOnly);
+    if (_lowConfidenceByTag.remove(tagId)) {
+        _recomputeLowConfidenceMax();
     }
+
+    _emitDisplayChanges(old);
+}
+
+SliceInfo::DisplayState SliceInfo::_displayState() const
+{
+    return {displaySNR(), displaySource(), lowConfidenceOnly()};
+}
+
+void SliceInfo::_emitDisplayChanges(const DisplayState& old)
+{
+    const DisplayState now = _displayState();
+    // NaN != NaN: compare emptiness explicitly so a cleared slice still notifies.
+    if (qIsNaN(old.snr) != qIsNaN(now.snr) || (!qIsNaN(now.snr) && old.snr != now.snr)) {
+        emit displaySNRChanged(now.snr);
+    }
+    if (old.source != now.source) {
+        emit displaySourceChanged(now.source);
+    }
+    if (old.lowConfidenceOnly != now.lowConfidenceOnly) {
+        emit lowConfidenceOnlyChanged(now.lowConfidenceOnly);
+    }
+}
+
+SliceInfo::TagValue SliceInfo::_maxOf(const QHash<uint32_t, TagValue>& values)
+{
+    TagValue max {qQNaN(), QString()};
+    for (auto it = values.cbegin(); it != values.cend(); ++it) {
+        if (qIsNaN(max.snr) || it->snr > max.snr) {
+            max = *it;
+        }
+    }
+    return max;
+}
+
+void SliceInfo::_recomputeLowConfidenceMax()
+{
+    const TagValue max = _maxOf(_lowConfidenceByTag);
+    _maxLowConfidenceSNR = max.snr;
+    _maxLowConfidenceSourceRateLabel = max.sourceRateLabel;
 }
 
 void SliceInfo::_recomputeConfirmedMax()
 {
-    double newMax = qQNaN();
-    QString newLabel;
-    for (auto it = _confirmedByTag.cbegin(); it != _confirmedByTag.cend(); ++it) {
-        if (qIsNaN(newMax) || it->snr > newMax) {
-            newMax = it->snr;
-            newLabel = it->sourceRateLabel;
-        }
-    }
+    const TagValue max = _maxOf(_confirmedByTag);
+    const double newMax = max.snr;
+    const QString& newLabel = max.sourceRateLabel;
     if (newMax != _maxSNR || newLabel != _maxSNRSourceRateLabel) {
         _maxSNR = newMax;
         _maxSNRSourceRateLabel = newLabel;
