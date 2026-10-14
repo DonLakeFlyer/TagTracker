@@ -16,6 +16,9 @@ private slots:
     void _rateLabel();
     void _confirmedMeasurementReplacesPriorSliceValue();
     void _confirmedMeasurementsAggregateAcrossTags();
+    void _noDetectionClearsOnlyThatTag();
+    void _noDetectionClearsLowConfidence();
+    void _noDetectionPulseClearsRotationSlice();
     void _startupWaitIsNotHeartbeatFailure();
     void _heartbeatWatchdogArmsOnlyWhenStarted();
     void _stopHeartbeatWatchdogsClearsLoss();

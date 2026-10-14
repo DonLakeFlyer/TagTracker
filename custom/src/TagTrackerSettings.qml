@@ -177,6 +177,13 @@ SettingsPage {
         FactCheckBoxSlider {
             Layout.fillWidth:   true
             text:               fact.shortDescription
+            fact:               _customSettings.dumpSpectrogram
+            visible:            _isPythonMode
+        }
+
+        FactCheckBoxSlider {
+            Layout.fillWidth:   true
+            text:               fact.shortDescription
             fact:               _customSettings.controllerVerboseLogging
         }
 

@@ -429,10 +429,14 @@ void CustomPlugin::_handlePythonPulse(const mavlink_tunnel_t& tunnel)
         return;
     }
 
-    detectorList()->handlePythonPulse(pulseInfo);
+    // During a rotation a no-detection is a heading's final verdict, not the
+    // live detector state; it only updates the rose.
+    if (!(_activeRotation && pulseInfo.detection_status == kNoPulseDetectionStatus)) {
+        detectorList()->handlePythonPulse(pulseInfo);
+    }
 
     if (_activeRotation) {
-        // Low-confidence and no-pulse reports reach the rose too: the former paint orange, the latter are ignored there
+        // Low-confidence reports paint orange; no-detections clear the tag's value on that heading
         auto rotationInfo = _rotationInfoList.value<RotationInfo*>(_rotationInfoList.count() - 1);
         if (rotationInfo) {
             rotationInfo->pulseReceived(pulseInfo);

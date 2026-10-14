@@ -25,6 +25,7 @@ public:
     QString displaySource(void) const;
     bool lowConfidenceOnly(void) const;
     void updateMaxSNR(uint32_t tagId, double snr, bool confirmedPulse, const QString& sourceRateLabel);
+    void clearTag(uint32_t tagId);
 
 signals:
     void maxSNRChanged(double maxSNR);
@@ -33,12 +34,22 @@ signals:
     void lowConfidenceOnlyChanged(bool lowConfidenceOnly);
 
 private:
-    struct ConfirmedValue {
+    struct TagValue {
         double  snr;
         QString sourceRateLabel;
     };
 
+    struct DisplayState {
+        double  snr;
+        QString source;
+        bool    lowConfidenceOnly;
+    };
+
+    static TagValue _maxOf(const QHash<uint32_t, TagValue>& values);
     void _recomputeConfirmedMax();
+    void _recomputeLowConfidenceMax();
+    DisplayState _displayState() const;
+    void _emitDisplayChanges(const DisplayState& old);
 
     int     _sliceIndex     = 0;
     double  _centerHeading  = 0.0;
@@ -48,5 +59,7 @@ private:
     QString _maxSNRSourceRateLabel;
     QString _maxLowConfidenceSourceRateLabel;
     // Latest confirmed value per tag; _maxSNR is the max across tags
-    QHash<uint32_t, ConfirmedValue> _confirmedByTag;
+    QHash<uint32_t, TagValue> _confirmedByTag;
+    // Highest low-confidence value per tag; _maxLowConfidenceSNR is the max across tags
+    QHash<uint32_t, TagValue> _lowConfidenceByTag;
 };

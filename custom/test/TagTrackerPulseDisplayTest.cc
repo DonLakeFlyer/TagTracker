@@ -99,6 +99,88 @@ void TagTrackerPulseDisplayTest::_confirmedMeasurementsAggregateAcrossTags()
     QCOMPARE(sliceInfo.displaySource(), QStringLiteral("M"));
 }
 
+void TagTrackerPulseDisplayTest::_noDetectionClearsOnlyThatTag()
+{
+    SliceInfo sliceInfo(0, 0.0, 45.0);
+    QSignalSpy displaySpy(&sliceInfo, &SliceInfo::displaySNRChanged);
+
+    sliceInfo.updateMaxSNR(1, 66.0, true, QStringLiteral("R"));
+    sliceInfo.updateMaxSNR(2, 50.0, true, QStringLiteral("M"));
+
+    // The live candidate changed and was not found here: tag 1's old value goes, tag 2 stays.
+    sliceInfo.clearTag(1);
+    QCOMPARE(sliceInfo.displaySNR(), 50.0);
+    QCOMPARE(sliceInfo.displaySource(), QStringLiteral("M"));
+
+    displaySpy.clear();
+    sliceInfo.clearTag(2);
+    QVERIFY(qIsNaN(sliceInfo.displaySNR()));
+    QCOMPARE(displaySpy.count(), 1);
+
+    // Clearing a tag with no value is a no-op.
+    displaySpy.clear();
+    sliceInfo.clearTag(3);
+    QCOMPARE(displaySpy.count(), 0);
+}
+
+void TagTrackerPulseDisplayTest::_noDetectionClearsLowConfidence()
+{
+    SliceInfo sliceInfo(0, 0.0, 45.0);
+
+    sliceInfo.updateMaxSNR(1, 20.0, false, QStringLiteral("R"));
+    sliceInfo.clearTag(1);
+    QVERIFY(qIsNaN(sliceInfo.displaySNR()));
+    QVERIFY(!sliceInfo.lowConfidenceOnly());
+
+    // Clearing the confirmed value must not fall back to the same tag's stale low-confidence value.
+    sliceInfo.updateMaxSNR(1, 20.0, false, QStringLiteral("R"));
+    sliceInfo.updateMaxSNR(1, 40.0, true, QStringLiteral("R"));
+    sliceInfo.clearTag(1);
+    QVERIFY(qIsNaN(sliceInfo.displaySNR()));
+
+    // Another tag's low-confidence value survives.
+    sliceInfo.updateMaxSNR(1, 30.0, false, QStringLiteral("R"));
+    sliceInfo.updateMaxSNR(2, 10.0, false, QStringLiteral("M"));
+    sliceInfo.clearTag(1);
+    QCOMPARE(sliceInfo.displaySNR(), 10.0);
+    QCOMPARE(sliceInfo.displaySource(), QStringLiteral("M"));
+    QVERIFY(sliceInfo.lowConfidenceOnly());
+}
+
+void TagTrackerPulseDisplayTest::_noDetectionPulseClearsRotationSlice()
+{
+    using namespace TunnelProtocol;
+
+    const auto pulse = [](uint32_t tagId, float yawDeg, uint8_t detectionStatus, double signalPsd) {
+        PythonPulseInfo_t pulseInfo{};
+        pulseInfo.tag_id = tagId;
+        pulseInfo.yaw_deg = yawDeg;
+        pulseInfo.detection_status = detectionStatus;
+        pulseInfo.confirmed_status = detectionStatus == kConfirmedDetectionStatus;
+        pulseInfo.rate_state = kRateStateA;
+        pulseInfo.snr = 20.0;
+        pulseInfo.signal_psd = signalPsd;
+        pulseInfo.noise_psd = 1.0e-10;
+        return pulseInfo;
+    };
+
+    RotationInfo rotationInfo(8);
+    SliceInfo* northSlice = rotationInfo.slices()->value<SliceInfo*>(0);
+
+    rotationInfo.pulseReceived(pulse(1, 0.0f, kConfirmedDetectionStatus, 1.0e-6));
+    rotationInfo.pulseReceived(pulse(2, 0.0f, kConfirmedDetectionStatus, 1.0e-8));
+    QCOMPARE(northSlice->displaySNR(), 40.0);
+    QCOMPARE(rotationInfo.maxSNR(), 40.0);
+
+    // A no-detection on another heading leaves this one alone.
+    rotationInfo.pulseReceived(pulse(1, 90.0f, kNoPulseDetectionStatus, 0.0));
+    QCOMPARE(northSlice->displaySNR(), 40.0);
+
+    rotationInfo.pulseReceived(pulse(1, 10.0f, kNoPulseDetectionStatus, 0.0));
+    QCOMPARE(northSlice->displaySNR(), 20.0);
+    QCOMPARE(rotationInfo.maxSNR(), 20.0);
+}
+
 void TagTrackerPulseDisplayTest::_startupWaitIsNotHeartbeatFailure()
 {
     PythonDetectorInfo detectorInfo(2, QStringLiteral("Test tag"), 1333, 20);
