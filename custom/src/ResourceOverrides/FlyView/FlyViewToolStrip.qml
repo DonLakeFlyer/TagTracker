@@ -1,12 +1,3 @@
-/****************************************************************************
- *
- * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
- *
- * QGroundControl is licensed according to the terms in the file
- * COPYING.md in the root of the source code directory.
- *
- ****************************************************************************/
-
 import QtQml.Models
 
 import QGroundControl
@@ -15,7 +6,7 @@ import QGroundControl.FlyView
 import QGroundControl.CustomControls
 
 ToolStrip {
-    id:     _root
+    id: _root
 
     signal displayPreFlightChecklist
 
@@ -31,14 +22,6 @@ ToolStrip {
         onDisplayPreFlightChecklist: _root.displayPreFlightChecklist()
 
         model: [
-            ToolStripAction {
-                text:           qsTr("Plan")
-                iconSource:     "/qmlimages/Plan.svg"
-                onTriggered:{
-                    mainWindow.showPlanView()
-                    viewer3DWindow.close()
-                }
-            },
             GuidedActionTakeoff { },
             GuidedActionLand { },
             GuidedActionRTL { },
