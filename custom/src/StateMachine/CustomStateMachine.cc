@@ -10,8 +10,15 @@
 CustomStateMachine::CustomStateMachine(const QString& machineName, QObject* parent)
     : QGCStateMachine(machineName, MultiVehicleManager::instance()->activeVehicle(), parent)
 {
-    connect(this, &CustomStateMachine::stopped, this, [this] () {
+    connect(this, &CustomStateMachine::stopped, this, [this]() {
         qobject_cast<CustomPlugin*>(CustomPlugin::instance())->rotationIsEnding();
+        if (!_vehicleLost) {
+            disconnect(vehicle(), &Vehicle::flightModeChanged, this, &CustomStateMachine::_flightModeChanged);
+        }
+    });
+
+    // finished() is not followed by stopped(), so a machine that completes normally must also drop the watch
+    connect(this, &CustomStateMachine::finished, this, [this]() {
         if (!_vehicleLost) {
             disconnect(vehicle(), &Vehicle::flightModeChanged, this, &CustomStateMachine::_flightModeChanged);
         }
