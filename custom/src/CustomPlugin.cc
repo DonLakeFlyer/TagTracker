@@ -17,6 +17,7 @@
 #include "Vehicle.h"
 #include "VehicleLinkManager.h"
 #include "QGCApplication.h"
+#include "AppMessages.h"
 #include "SettingsManager.h"
 #include "AppSettings.h"
 #include "FlyViewSettings.h"
@@ -102,7 +103,11 @@ void CustomPlugin::init()
     QGCCorePlugin::init();
 
     // TagTracker logging is on by default; QGC only enables categories the user opted into.
-    QGCLoggingCategoryManager::instance()->setCategoryEnabled(QString::fromLatin1(CustomPluginLog().categoryName()), true);
+    // Tests keep debug output off so strict log checking only sees warnings and above.
+    if (!QGC::runningUnitTests()) {
+        QGCLoggingCategoryManager::instance()->setCategoryEnabled(QString::fromLatin1(CustomPluginLog().categoryName()),
+                                                                  true);
+    }
 
     _csvLogManager.csvClearPrevRotationLogs();
 }
