@@ -111,7 +111,7 @@
     "longDesc":         "Directional antenna whose reception pattern the controller fits for the bearing. Values match TunnelProtocol ANTENNA_ID_*.",
     "label":            "Antenna Model",
     "type":             "uint32",
-    "enumStrings":      "Telonics RA-2AHS (2-element),Telonics RA-23K (3-element)",
+    "enumStrings":      "Telonics RA-2AHS (metal),Telonics RA-23K (flexible)",
     "enumValues":       "0,1",
     "default":          0
 },
