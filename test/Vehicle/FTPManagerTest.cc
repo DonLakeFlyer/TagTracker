@@ -1,5 +1,6 @@
 #include "FTPManagerTest.h"
 
+#include <QtCore/QDir>
 #include <QtCore/QFile>
 #include <QtCore/QRegularExpression>
 #include <QtCore/QStandardPaths>
@@ -10,6 +11,7 @@
 #include "FTPManager.h"
 #include "MAVLinkLib.h"
 #include "MAVLinkProtocol.h"
+#include "MAVLinkSigningKeys.h"
 #include "MockLinkFTP.h"
 #include "MultiVehicleManager.h"
 #include "UnitTest.h"
@@ -18,8 +20,38 @@ const FTPManagerTest::TestCase_t FTPManagerTest::_rgTestCases[] = {
     {"/general.json"},
 };
 
+void FTPManagerTest::_testDownloadExplicitFileNameIsBasename()
+{
+    // An explicit fileName can come from the vehicle: a ListDirectory entry is surfaced to
+    // QML and passed straight back as the local name. It must not be usable as a path.
+    _connectMockLinkNoInitialConnectSequence();
+    FTPManager* ftpManager = _vehicle->ftpManager();
+    QSignalSpy spyDownloadComplete(ftpManager, &FTPManager::downloadComplete);
+
+    QTemporaryDir tempDir;
+    QVERIFY(tempDir.isValid());
+
+    ftpManager->download(MAV_COMP_ID_AUTOPILOT1, _rgTestCases[0].file, tempDir.path(),
+                         QStringLiteral("../../QGC03_escaped.bin"));
+    QVERIFY_SIGNAL_WAIT(spyDownloadComplete, TestTimeout::longMs());
+    QCOMPARE(spyDownloadComplete.count(), 1);
+
+    const QList<QVariant> arguments = spyDownloadComplete.takeFirst();
+    QVERIFY2(arguments[1].toString().isEmpty(), qPrintable(arguments[1].toString()));
+
+    const QString downloaded = QDir::cleanPath(QFileInfo(arguments[0].toString()).absoluteFilePath());
+    const QString root = QDir::cleanPath(QDir(tempDir.path()).absolutePath());
+    QVERIFY2(downloaded.startsWith(root + QLatin1Char('/')), qPrintable(downloaded));
+    QCOMPARE(QFileInfo(downloaded).fileName(), QStringLiteral("QGC03_escaped.bin"));
+    QVERIFY(!QFile::exists(QDir(root).filePath(QStringLiteral("../../QGC03_escaped.bin"))));
+
+    QFile::remove(downloaded);
+    _disconnectMockLink();
+}
+
 void FTPManagerTest::cleanup()
 {
+    MAVLinkSigningKeys::instance()->removeAllKeys();
     VehicleTestManualConnect::cleanup();
 }
 
@@ -365,23 +397,34 @@ void FTPManagerTest::_testLateBurstPacketIsKept()
 void FTPManagerTest::_testReadChunkSizeFollowsLinkType_data()
 {
     QTest::addColumn<MockConfiguration::Options>("options");
+    QTest::addColumn<bool>("signedLink");
     QTest::addColumn<int>("expectedChunkSize");
-    QTest::newRow("non_radio_link") << MockConfiguration::Options(MockConfiguration::OptionNoRadioStatus)
-                                     << static_cast<int>(FTPManager::kFullReadChunkSize);
-    QTest::newRow("radio_link") << MockConfiguration::Options(MockConfiguration::OptionNone)
-                                 << static_cast<int>(FTPManager::kRadioReadChunkSize);
+    QTest::newRow("non_radio_link") << MockConfiguration::Options(MockConfiguration::OptionNoRadioStatus) << false
+                                    << static_cast<int>(FTPManager::kFullReadChunkSize);
+    QTest::newRow("radio_link") << MockConfiguration::Options(MockConfiguration::OptionNone) << false
+                                << static_cast<int>(FTPManager::kRadioReadChunkSize);
+    QTest::newRow("signed_radio_link") << MockConfiguration::Options(MockConfiguration::OptionNone) << true
+                                       << static_cast<int>(FTPManager::kRadioReadChunkSizeSigned);
 }
 
-// SiK/RFD radios have a ~252 byte air frame; a full 239 byte FTP payload spans two frames and is lost if either
-// is. Once RADIO_STATUS (which only radios inject) has been seen on the link, reads must ask for smaller chunks.
-// Dropping one burst packet forces the ReadFile fill phase so both request paths are checked.
+// A SiK radio splits any packet larger than its max_data_packet_length, only 118 bytes with error correction on.
+// Once RADIO_STATUS (which only radios inject) has been seen on the link, reads must ask for chunks that fit, and
+// smaller still when signing adds its signature. Dropping one burst packet forces the ReadFile fill phase so both
+// request paths are checked.
 void FTPManagerTest::_testReadChunkSizeFollowsLinkType()
 {
     QFETCH(MockConfiguration::Options, options);
+    QFETCH(bool, signedLink);
     QFETCH(int, expectedChunkSize);
 
     _connectMockLinkNoInitialConnectSequence(options);
     MockLinkFTP* mockFtp = _mockLink->mockLinkFTP();
+    if (signedLink) {
+        QVERIFY(MAVLinkSigningKeys::instance()->addKey(QStringLiteral("FtpTestKey"), QStringLiteral("FtpTestPass")));
+        _vehicle->signingController()->enable(QStringLiteral("FtpTestKey"));
+        QTRY_VERIFY_WITH_TIMEOUT(_vehicle->signingController()->signingStatus().state == SigningStatus::State::On,
+                                 TestTimeout::mediumMs());
+    }
     const bool radioExpected = !options.testFlag(MockConfiguration::OptionNoRadioStatus);
     if (radioExpected) {
         QTRY_VERIFY_WITH_TIMEOUT(_mockLink->isRadioLink(), TestTimeout::mediumMs());

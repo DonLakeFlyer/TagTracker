@@ -25,7 +25,12 @@ private slots:
     void _testAPMCopterIndicators();
     void _testEmergencyStopReplacesDisarmInFlight_data();
     void _testEmergencyStopReplacesDisarmInFlight();
+    void _testArmRequiresEnforcedChecklist();
+    void _testDisarmReachableWithoutParameters();
+    void _testRebootRequiredIndicator_data();
+    void _testRebootRequiredIndicator();
     void _testIndicatorDrawerClosesOnVehicleDisconnect();
+    void _testVehicleMessagesMarkReadAndClear();
 
 private:
     /// Shared implementation: connect a MockLink via \a factory and cycle

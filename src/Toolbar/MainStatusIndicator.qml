@@ -9,16 +9,14 @@ RowLayout {
     spacing:    ScreenTools.defaultFontPixelWidth
 
     property var    _activeVehicle:     QGroundControl.multiVehicleManager.activeVehicle
+    property var    _guidedController:  globals.guidedControllerFlyView
     property bool   _armed:             _activeVehicle ? _activeVehicle.armed : false
     property real   _margins:           ScreenTools.defaultFontPixelWidth
     property real   _spacing:           ScreenTools.defaultFontPixelWidth / 2
     property bool   _healthAndArmingChecksSupported: _activeVehicle ? _activeVehicle.healthAndArmingCheckReport.supported : false
-    property bool   _vehicleFlies:      _activeVehicle ? !(_activeVehicle.rover || _activeVehicle.sub) : false
-    // Rover/Sub report flying whenever armed but accept a normal disarm, so only aircraft lose Disarm in flight
-    property bool   _aircraftInFlight:  _armed && _vehicleFlies && _activeVehicle.flying
-    property bool   _showEmergencyStop: _aircraftInFlight && QGroundControl.corePlugin.options.flyView.guidedBarShowEmergencyStop
-    property var    _vehicleInAir:      _activeVehicle ? _activeVehicle.flying || _activeVehicle.landing : false
+    property var    _vehicleInAir:      _activeVehicle ? _activeVehicle.airborne || _activeVehicle.landing : false
     property bool   _vtolInFWDFlight:   _activeVehicle ? _activeVehicle.vtolInFwdFlight : false
+    property bool   _rebootRequired:    _activeVehicle ? _activeVehicle.rebootRequired : false
 
     function dropMainStatusIndicator() {
         let overallStatusComponent = _activeVehicle ? overallStatusIndicatorPage : overallStatusOfflineIndicatorPage
@@ -30,7 +28,9 @@ RowLayout {
     QGCLabel {
         id:                 mainStatusLabel
         Layout.fillHeight:  true
-        Layout.preferredWidth: contentWidth + (criticalMessageBadge.visible ? criticalMessageBadge.width / 2 : 0)
+        Layout.preferredWidth: Math.max(contentWidth,
+                                        criticalMessageBadge.width + rebootRequiredIcon.width +
+                                        firmwareUpdateBadge.width + ScreenTools.defaultFontPixelWidth * 0.5)
         verticalAlignment:  Text.AlignVCenter
         text:               mainStatusText()
         color:              qgcPal.text
@@ -64,7 +64,7 @@ RowLayout {
                         }
                     }
 
-                    if (_activeVehicle.flying) {
+                    if (_activeVehicle.underway) {
                         return mainStatusLabel._flyingText
                     } else if (_activeVehicle.landing) {
                         return mainStatusLabel._landingText
@@ -120,7 +120,7 @@ RowLayout {
             color:              qgcPal.colorRed
             visible:            _criticalMessageCount > 0
 
-            property int _criticalMessageCount: _activeVehicle ? _activeVehicle.criticalMessageCount : 0
+            property int _criticalMessageCount: _activeVehicle ? _activeVehicle.unreadCriticalMessageCount : 0
 
             QGCLabel {
                 anchors.centerIn:   parent
@@ -128,6 +128,38 @@ RowLayout {
                 color:              qgcPal.buttonHighlightText
                 font.pointSize:     ScreenTools.smallFontPointSize
                 font.bold:          true
+            }
+        }
+
+        QGCColoredImage {
+            id:                 rebootRequiredIcon
+            objectName:         "mainStatusRebootRequiredIcon"
+            anchors.verticalCenter: criticalMessageBadge.verticalCenter
+            anchors.right:      criticalMessageBadge.visible ? criticalMessageBadge.left : parent.right
+            anchors.rightMargin: criticalMessageBadge.visible ? ScreenTools.defaultFontPixelWidth * 0.25 : 0
+            width:              criticalMessageBadge.width * 0.9
+            height:             width
+            source:             "/res/PowerButton.svg"
+            color:              qgcPal.colorOrange
+            visible:            _rebootRequired
+        }
+
+        Rectangle {
+            id:                 firmwareUpdateBadge
+            objectName:         "mainStatusFirmwareUpdateBadge"
+            anchors.verticalCenter: criticalMessageBadge.verticalCenter
+            anchors.right:      rebootRequiredIcon.visible ? rebootRequiredIcon.left : (criticalMessageBadge.visible ? criticalMessageBadge.left : parent.right)
+            anchors.rightMargin: (rebootRequiredIcon.visible || criticalMessageBadge.visible) ? ScreenTools.defaultFontPixelWidth * 0.25 : 0
+            width:              criticalMessageBadge.width
+            height:             width
+            radius:             width / 2
+            color:              Qt.rgba(1, 1, 1, 0.75)
+            visible:            _activeVehicle ? _activeVehicle.newStableFirmwareVersion !== "" && !_activeVehicle.newStableFirmwareVersionAcknowledged : false
+
+            QGCColoredImage {
+                anchors.fill:   parent
+                source:         "/res/UpdateAvailable.svg"
+                color:          qgcPal.colorBlue
             }
         }
 
@@ -188,15 +220,16 @@ RowLayout {
             property bool parametersReady: QGroundControl.multiVehicleManager.parameterReadyVehicleAvailable
 
             RowLayout {
-                spacing: ScreenTools.defaultFontPixelWidth
-                // Emergency stop must stay reachable while parameters are still loading
-                visible: parametersReady || _showEmergencyStop
+                Layout.fillWidth:   true
+                spacing:            ScreenTools.defaultFontPixelWidth
+                // Stop controls must stay reachable without parameters
+                visible:            parametersReady || _guidedController.showEmergencyStop || _guidedController.showDisarm || _rebootRequired
 
                 QGCDelayButton {
                     objectName: "mainStatusArmButton"
-                    enabled:    _armed || !_healthAndArmingChecksSupported || _activeVehicle.healthAndArmingCheckReport.canArm
+                    enabled:    _armed || _guidedController.showArm
                     text:       _armed ? qsTr("Disarm") : qsTr("Arm")
-                    visible:    parametersReady && !_aircraftInFlight
+                    visible:    _armed ? _guidedController.showDisarm : parametersReady
 
                     onActivated: {
                         _activeVehicle.armed = !_armed
@@ -204,24 +237,23 @@ RowLayout {
                     }
                 }
 
-                QGCDelayButton {
+                QGCButton {
                     objectName:         "mainStatusEmergencyStopButton"
                     text:               qsTr("Emergency Stop")
                     backgroundColor:    qgcPal.colorRed
                     textColor:          qgcPal.buttonHighlightText
                     fontWeight:         Font.Bold
-                    alwaysShowHelp:     true
-                    visible:            _showEmergencyStop
+                    visible:            _guidedController.showEmergencyStop
 
-                    onActivated: {
-                        _activeVehicle.emergencyStop()
+                    onClicked: {
+                        _guidedController.confirmAction(_guidedController.actionEmergencyStop)
                         mainWindow.closeIndicatorDrawer()
                     }
                 }
 
                 QGCDelayButton {
                     text:       qsTr("Force Arm")
-                    visible:    parametersReady && !_armed && QGroundControl.settingsManager.flyViewSettings.allowForceArm.rawValue
+                    visible:    parametersReady && _guidedController.showForceArm
 
                     onActivated: {
                         _activeVehicle.forceArm()
@@ -259,21 +291,130 @@ RowLayout {
                         mainWindow.closeIndicatorDrawer()
                     }
                 }
-            }
 
-            SettingsGroupLayout {
-                Layout.fillWidth:   true
-                heading:            qsTr("Vehicle Messages")
+                Item { Layout.fillWidth: true }
 
-                VehicleMessageList {
-                    id:                 vehicleMessageList
-                    Layout.fillWidth:   true
-                    visible:            !noMessages
+                QGCLabel {
+                    Layout.maximumWidth:    ScreenTools.defaultFontPixelWidth * 16
+                    Layout.maximumHeight:   rebootButton.height
+                    text:                   qsTr("Reboot required for changes to take effect")
+                    font.pointSize:         ScreenTools.smallFontPointSize
+                    wrapMode:               Text.WordWrap
+                    elide:                  Text.ElideRight
+                    horizontalAlignment:    Text.AlignRight
+                    visible:                _rebootRequired && !_armed
                 }
 
                 QGCLabel {
-                    text: qsTr("No new vehicle messages")
-                    visible: vehicleMessageList.noMessages
+                    objectName:             "mainStatusRebootDisarmLabel"
+                    Layout.maximumWidth:    ScreenTools.defaultFontPixelWidth * 16
+                    Layout.maximumHeight:   rebootButton.height
+                    text:                   qsTr("Reboot required. Disarm vehicle first.")
+                    font.pointSize:         ScreenTools.smallFontPointSize
+                    wrapMode:               Text.WordWrap
+                    elide:                  Text.ElideRight
+                    horizontalAlignment:    Text.AlignRight
+                    visible:                _rebootRequired && _armed
+                }
+
+                QGCDelayButton {
+                    id:         rebootButton
+                    objectName: "mainStatusRebootButton"
+                    text:       qsTr("Reboot Vehicle")
+                    visible:    _rebootRequired && !_armed
+
+                    onActivated: {
+                        _activeVehicle.rebootVehicle()
+                        mainWindow.closeIndicatorDrawer()
+                    }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth:   true
+                spacing:            ScreenTools.defaultFontPixelWidth
+                visible:            _activeVehicle && _activeVehicle.newStableFirmwareVersion !== ""
+
+                QGCLabel {
+                    objectName:         "mainStatusFirmwareUpdateLabel"
+                    text:               _activeVehicle ? qsTr("Firmware update available: %1.%2.%3 → %4")
+                                                             .arg(_activeVehicle.firmwareMajorVersion)
+                                                             .arg(_activeVehicle.firmwareMinorVersion)
+                                                             .arg(_activeVehicle.firmwarePatchVersion)
+                                                             .arg(_activeVehicle.newStableFirmwareVersion) : ""
+                }
+
+                QGCButton {
+                    objectName:     "mainStatusFirmwareUpdateAckButton"
+                    implicitHeight: contentItem.implicitHeight + topPadding + bottomPadding
+                    heightFactor:   0.2
+                    leftPadding:    ScreenTools.defaultFontPixelWidth
+                    rightPadding:   leftPadding
+                    text:           qsTr("Acknowledge and Hide")
+                    pointSize:      ScreenTools.smallFontPointSize
+                    visible:        _activeVehicle && !_activeVehicle.newStableFirmwareVersionAcknowledged
+                    onClicked:      _activeVehicle.acknowledgeNewStableFirmwareVersion()
+                }
+            }
+
+            ColumnLayout {
+                Layout.fillWidth:   true
+                spacing:            ScreenTools.defaultFontPixelHeight / 4
+
+                RowLayout {
+                    Layout.fillWidth:   true
+                    Layout.leftMargin:  ScreenTools.defaultFontPixelHeight / 2
+                    Layout.rightMargin: ScreenTools.defaultFontPixelHeight / 2
+                    spacing:            ScreenTools.defaultFontPixelWidth / 2
+
+                    QGCLabel {
+                        Layout.fillWidth:   true
+                        text:               qsTr("Vehicle Messages")
+                        font.pointSize:     ScreenTools.defaultFontPointSize + 1
+                        font.bold:          true
+                    }
+
+                    QGCButton {
+                        objectName:     "vehicleMessagesMarkReadButton"
+                        implicitHeight: contentItem.implicitHeight + topPadding + bottomPadding
+                        heightFactor:   0.2
+                        leftPadding:    ScreenTools.defaultFontPixelWidth
+                        rightPadding:   leftPadding
+                        text:           qsTr("Mark as Read")
+                        pointSize:      ScreenTools.smallFontPointSize
+                        visible:        _activeVehicle && _activeVehicle.hasUnreadMessages
+                        onClicked:      _activeVehicle.markMessagesRead()
+                    }
+
+                    QGCButton {
+                        objectName:     "vehicleMessagesClearButton"
+                        implicitHeight: contentItem.implicitHeight + topPadding + bottomPadding
+                        heightFactor:   0.2
+                        leftPadding:    ScreenTools.defaultFontPixelWidth
+                        rightPadding:   leftPadding
+                        text:           qsTr("Clear")
+                        pointSize:      ScreenTools.smallFontPointSize
+                        visible:        !vehicleMessageList.noMessages
+                        onClicked: {
+                            _activeVehicle.clearMessages()
+                            mainWindow.closeIndicatorDrawer()
+                        }
+                    }
+                }
+
+                SettingsGroupLayout {
+                    Layout.fillWidth:   true
+
+                    VehicleMessageList {
+                        id:                 vehicleMessageList
+                        Layout.fillWidth:   true
+                        visible:            !noMessages
+                    }
+
+                    QGCLabel {
+                        text: qsTr("No new vehicle messages")
+                        visible: vehicleMessageList.noMessages
+                    }
                 }
             }
 

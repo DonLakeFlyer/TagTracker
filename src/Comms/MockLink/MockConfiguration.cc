@@ -9,7 +9,7 @@ MockConfiguration::MockConfiguration(const QString &name, QObject *parent)
     qCDebug(MockConfigurationLog) << this;
 }
 
-MockConfiguration::MockConfiguration(const MockConfiguration *copy, QObject *parent)
+MockConfiguration::MockConfiguration(const MockConfiguration* copy, QObject* parent)
     : LinkConfiguration(copy, parent)
     , _firmwareType(copy->firmwareType())
     , _vehicleType(copy->vehicleType())
@@ -18,12 +18,14 @@ MockConfiguration::MockConfiguration(const MockConfiguration *copy, QObject *par
     , _enableCamera(copy->enableCamera())
     , _enableGimbal(copy->enableGimbal())
     , _enableProximity(copy->enableProximity())
+    , _enableADSB(copy->enableADSB())
     , _failureMode(copy->failureMode())
     , _incrementVehicleId(copy->incrementVehicleId())
     , _startArmed(copy->startArmed())
     , _preloadMission(copy->preloadMission())
     , _stayMavlinkV1(copy->stayMavlinkV1())
     , _sendRadioStatus(copy->sendRadioStatus())
+    , _companionParams(copy->companionParams())
     , _cameraCaptureVideo(copy->cameraCaptureVideo())
     , _cameraCaptureImage(copy->cameraCaptureImage())
     , _cameraHasModes(copy->cameraHasModes())
@@ -34,6 +36,7 @@ MockConfiguration::MockConfiguration(const MockConfiguration *copy, QObject *par
     , _cameraHasTrackingPoint(copy->cameraHasTrackingPoint())
     , _cameraHasTrackingRectangle(copy->cameraHasTrackingRectangle())
     , _videoStreamType(copy->videoStreamTypeEnum())
+    , _homeLocation(copy->homeLocationEnum())
     , _gimbalHasRollAxis(copy->gimbalHasRollAxis())
     , _gimbalHasPitchAxis(copy->gimbalHasPitchAxis())
     , _gimbalHasYawAxis(copy->gimbalHasYawAxis())
@@ -68,6 +71,7 @@ void MockConfiguration::copyFrom(const LinkConfiguration *source)
     setEnableCamera(mockLinkSource->enableCamera());
     setEnableGimbal(mockLinkSource->enableGimbal());
     setEnableProximity(mockLinkSource->enableProximity());
+    setEnableADSB(mockLinkSource->enableADSB());
     setIncrementVehicleId(mockLinkSource->incrementVehicleId());
     setFailureMode(mockLinkSource->failureMode());
     setCameraCaptureVideo(mockLinkSource->cameraCaptureVideo());
@@ -80,6 +84,7 @@ void MockConfiguration::copyFrom(const LinkConfiguration *source)
     setCameraHasTrackingPoint(mockLinkSource->cameraHasTrackingPoint());
     setCameraHasTrackingRectangle(mockLinkSource->cameraHasTrackingRectangle());
     setVideoStreamType(mockLinkSource->videoStreamType());
+    setHomeLocation(mockLinkSource->homeLocation());
     setGimbalHasRollAxis(mockLinkSource->gimbalHasRollAxis());
     setGimbalHasPitchAxis(mockLinkSource->gimbalHasPitchAxis());
     setGimbalHasYawAxis(mockLinkSource->gimbalHasYawAxis());
@@ -92,6 +97,7 @@ void MockConfiguration::copyFrom(const LinkConfiguration *source)
     setPreloadMission(mockLinkSource->preloadMission());
     setStayMavlinkV1(mockLinkSource->stayMavlinkV1());
     setSendRadioStatus(mockLinkSource->sendRadioStatus());
+    setCompanionParams(mockLinkSource->companionParams());
 }
 
 void MockConfiguration::loadSettings(QSettings &settings, const QString &root)
@@ -105,6 +111,7 @@ void MockConfiguration::loadSettings(QSettings &settings, const QString &root)
     setEnableCamera(settings.value(_enableCameraKey, false).toBool());
     setEnableGimbal(settings.value(_enableGimbalKey, false).toBool());
     setEnableProximity(settings.value(_enableProximityKey, false).toBool());
+    setEnableADSB(settings.value(_enableADSBKey, false).toBool());
     setIncrementVehicleId(settings.value(_incrementVehicleIdKey, true).toBool());
     setFailureMode(static_cast<FailureMode_t>(settings.value(_failureModeKey, static_cast<int>(FailNone)).toInt()));
     setCameraCaptureVideo(settings.value(_cameraCaptureVideoKey, true).toBool());
@@ -117,6 +124,7 @@ void MockConfiguration::loadSettings(QSettings &settings, const QString &root)
     setCameraHasTrackingPoint(settings.value(_cameraHasTrackingPointKey, true).toBool());
     setCameraHasTrackingRectangle(settings.value(_cameraHasTrackingRectangleKey, true).toBool());
     setVideoStreamType(settings.value(_videoStreamTypeKey, static_cast<int>(VideoStreamNone)).toInt());
+    setHomeLocation(settings.value(_homeLocationKey, static_cast<int>(HomeLocationPX4SITL)).toInt());
     setGimbalHasRollAxis(settings.value(_gimbalHasRollAxisKey, true).toBool());
     setGimbalHasPitchAxis(settings.value(_gimbalHasPitchAxisKey, true).toBool());
     setGimbalHasYawAxis(settings.value(_gimbalHasYawAxisKey, true).toBool());
@@ -140,6 +148,7 @@ void MockConfiguration::saveSettings(QSettings &settings, const QString &root) c
     settings.setValue(_enableCameraKey, enableCamera());
     settings.setValue(_enableGimbalKey, enableGimbal());
     settings.setValue(_enableProximityKey, enableProximity());
+    settings.setValue(_enableADSBKey, enableADSB());
     settings.setValue(_incrementVehicleIdKey, incrementVehicleId());
     settings.setValue(_failureModeKey, failureMode());
     settings.setValue(_cameraCaptureVideoKey, cameraCaptureVideo());
@@ -152,6 +161,7 @@ void MockConfiguration::saveSettings(QSettings &settings, const QString &root) c
     settings.setValue(_cameraHasTrackingPointKey, cameraHasTrackingPoint());
     settings.setValue(_cameraHasTrackingRectangleKey, cameraHasTrackingRectangle());
     settings.setValue(_videoStreamTypeKey, videoStreamType());
+    settings.setValue(_homeLocationKey, homeLocation());
     settings.setValue(_gimbalHasRollAxisKey, gimbalHasRollAxis());
     settings.setValue(_gimbalHasPitchAxisKey, gimbalHasPitchAxis());
     settings.setValue(_gimbalHasYawAxisKey, gimbalHasYawAxis());
@@ -162,4 +172,19 @@ void MockConfiguration::saveSettings(QSettings &settings, const QString &root) c
     settings.setValue(_gimbalDeviceIdKey, gimbalDeviceId());
 
     settings.endGroup();
+}
+
+QGeoCoordinate MockConfiguration::homeCoordinate(HomeLocation location)
+{
+    switch (location) {
+        case HomeLocationArduPilotSITL:
+            // CMAC entry in ArduPilot Tools/autotest/locations.txt
+            return QGeoCoordinate(-35.363261, 149.165230, 584.0);
+        case HomeLocationTerrainTest:
+            return QGeoCoordinate(47.6305111, -122.0863806, 9.26);
+        case HomeLocationPX4SITL:
+            break;
+    }
+
+    return QGeoCoordinate(47.397, 8.5455, 488.056);
 }

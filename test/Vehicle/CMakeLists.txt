@@ -9,10 +9,14 @@ target_sources(
             APMAirframeComponentControllerTest.h
             APMStartMissionTest.cc
             APMStartMissionTest.h
+            FirmwarePluginTest.cc
+            FirmwarePluginTest.h
             FTPManagerTest.cc
             FTPManagerTest.h
             FTPControllerTest.cc
             FTPControllerTest.h
+            GenericFirmwareCommandFallbackTest.cc
+            GenericFirmwareCommandFallbackTest.h
             GuidedModeROITest.cc
             GuidedModeROITest.h
             InitialConnectTest.cc
@@ -43,10 +47,14 @@ target_sources(
             StandardModesTest.h
             TrajectoryPointsTest.cc
             TrajectoryPointsTest.h
+            VehicleAirborneTest.cc
+            VehicleAirborneTest.h
             VehicleDistanceSensorFactGroupTest.cc
             VehicleDistanceSensorFactGroupTest.h
-            VehicleGPSAggregateFactGroupTest.cc
-            VehicleGPSAggregateFactGroupTest.h
+            VehicleFirmwareUpdateTest.cc
+            VehicleFirmwareUpdateTest.h
+            VehicleGPSFactGroupTest.cc
+            VehicleGPSFactGroupTest.h
             VehicleLinkManagerTest.cc
             VehicleLinkManagerTest.h
 )
@@ -60,12 +68,14 @@ add_subdirectory(ComponentInformation)
 
 add_qgc_test(APMAirframeComponentControllerTest LABELS Integration Vehicle)
 add_qgc_test(APMStartMissionTest LABELS Integration Vehicle)
+add_qgc_test(FirmwarePluginTest LABELS Unit Vehicle)
 add_qgc_test(FTPControllerTest LABELS Integration Vehicle RESOURCE_LOCK TempFiles)
 add_qgc_test(FTPManagerTest LABELS Integration Vehicle)
 if(NOT QGC_NO_SERIAL_LINK)
     target_sources(${CMAKE_PROJECT_NAME} PRIVATE FirmwareUpgradeControllerTest.cc FirmwareUpgradeControllerTest.h)
     add_qgc_test(FirmwareUpgradeControllerTest LABELS Unit Vehicle)
 endif()
+add_qgc_test(GenericFirmwareCommandFallbackTest LABELS Integration Vehicle)
 add_qgc_test(GuidedModeROITest LABELS Integration Vehicle)
 add_qgc_test(GuidedModeROIAPMTest LABELS Integration Vehicle)
 add_qgc_test(InitialConnectTest LABELS Integration Vehicle)
@@ -82,6 +92,8 @@ add_qgc_test(SendMavCommandWithSignallingTest LABELS Integration Vehicle)
 add_qgc_test(SetEstimatorOriginTest LABELS Integration Vehicle)
 add_qgc_test(StandardModesTest LABELS Integration Vehicle)
 add_qgc_test(TrajectoryPointsTest LABELS Unit Vehicle)
+add_qgc_test(VehicleAirborneTest LABELS Integration Vehicle)
 add_qgc_test(VehicleDistanceSensorFactGroupTest LABELS Integration Vehicle)
-add_qgc_test(VehicleGPSAggregateFactGroupTest LABELS Unit)
+add_qgc_test(VehicleFirmwareUpdateTest LABELS Integration Vehicle)
+add_qgc_test(VehicleGPSFactGroupTest LABELS Unit GPS)
 add_qgc_test(VehicleLinkManagerTest LABELS Integration Vehicle SERIAL)

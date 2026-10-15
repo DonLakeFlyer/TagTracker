@@ -57,6 +57,9 @@ public:
     double vehicleLongitude() const { return _vehicleLongitude; }
     double vehicleAltitudeAMSL() const { return _vehicleAltitudeAMSL; }
 
+    /// Configured home position, before the per-vehicle offset applied to the vehicle position
+    QGeoCoordinate homeCoordinate() const { return _homeCoordinate; }
+
     bool signingEnabled() const { return _signingEnabled; }
 
     /// Sends the specified mavlink message to QGC
@@ -187,6 +190,9 @@ public:
     /// Index-based PARAM_REQUEST_READs received, in arrival order: (componentId, paramIndex)
     QList<QPair<int, int>> paramRequestReadIndexLog() const { return _paramRequestReadIndexLog; }
 
+    /// Target component of each PARAM_REQUEST_LIST received, in arrival order
+    QList<int> paramRequestListTargetLog() const { return _paramRequestListTargetLog; }
+
     /// Change a float parameter value directly on MockLink (for testing cache invalidation)
     void setMockParamValue(int componentId, const QString &paramName, float value);
 
@@ -315,6 +321,7 @@ private:
     void _handleRequestMessageAvailableModes(const mavlink_command_long_t &request, bool &accepted);
 
     void _sendHeartBeat();
+    void _sendCompanionHeartBeat();
     void _sendHighLatency2();
     void _sendHomePosition();
     void _sendGpsRawInt();
@@ -372,11 +379,17 @@ private:
     const bool _enableCamera = false;
     const bool _enableGimbal = false;
     const bool _enableProximity = false;
+    const bool _enableADSB = _mockConfig->enableADSB();
     const MockConfiguration::FailureMode_t _failureMode = MockConfiguration::FailNone;
     const bool _stayMavlinkV1 = false;  ///< Test-only: never upgrade outgoing traffic to MAVLink v2
     const bool _ftpCapability = false;  ///< Test-only: advertise MAV_PROTOCOL_CAPABILITY_FTP
     const bool _sendRadioStatusEnabled = true; ///< Stream RADIO_STATUS at 1Hz (marks the link as a radio link)
+    const bool _companionParams = _mockConfig->companionParams();  ///< Test-only: companion param component
     const uint8_t _vehicleSystemId = 0;
+    const QGeoCoordinate _homeCoordinate = MockConfiguration::homeCoordinate(_mockConfig->homeLocationEnum());
+    const double _defaultVehicleLatitude = _homeCoordinate.latitude();
+    const double _defaultVehicleLongitude = _homeCoordinate.longitude();
+    const double _defaultVehicleHomeAltitude = _homeCoordinate.altitude();
     const double _vehicleLatitude = 0.0;
     const double _vehicleLongitude = 0.0;
     // These are just set for reporting the fields in _respondWithAutopilotVersion()
@@ -482,6 +495,7 @@ private:
     bool _hashCheckNoResponse = false;
     int _hashCheckRequestCount = 0;
     QList<QPair<int, int>> _paramRequestReadIndexLog;
+    QList<int> _paramRequestListTargetLog;
     bool _paramRequestListHashCheckSent = false;
     bool _resetSysAutostartOnParamReset = false;
 
@@ -545,22 +559,10 @@ private:
 
     static std::atomic<int> _nextVehicleSystemId;
 
-#ifdef QGC_MOCKLINK_TERRAIN_TEST_HOME
-    // Alternate vehicle location which is a good spot for testing varying terrain
-    static constexpr double _defaultVehicleLatitude = 47.6305111;
-    static constexpr double _defaultVehicleLongitude = -122.0863806;
-    static constexpr double _defaultVehicleHomeAltitude = 9.26;
-#else
-    // Vehicle position is set close to default Gazebo vehicle location. This allows for multi-vehicle
-    // testing of a gazebo vehicle and a mocklink vehicle
-    static constexpr double _defaultVehicleLatitude = 47.397;
-    static constexpr double _defaultVehicleLongitude = 8.5455;
-    static constexpr double _defaultVehicleHomeAltitude = 488.056;
-#endif
-
     static constexpr const char *_failParam = "COM_FLTMODE6";
 
     static constexpr uint8_t _vehicleComponentId = MAV_COMP_ID_AUTOPILOT1;
+    static constexpr uint8_t _companionComponentId = MAV_COMP_ID_ONBOARD_COMPUTER;
 
     // Simulated DroneCAN node exposed as its own param component (FailMissingParamOnAllRequestsNonDefaultComponent and friends)
     static constexpr uint8_t _nonDefaultParamComponentId = 125;

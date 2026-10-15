@@ -20,6 +20,17 @@ def get_gstreamer_macos_urls(version: str) -> tuple[str, str]:
     return runtime, devel
 
 
+def _download_gstreamer_package(url: str, dest: Path, expected_sha256: str) -> bool:
+    if _c.download_file(url, dest, warn_on_failure=True, expected_sha256=expected_sha256):
+        return True
+    mirror_url = (
+        "https://qgroundcontrol.s3.us-west-2.amazonaws.com/dependencies/gstreamer/macos/"
+        f"{dest.name}"
+    )
+    _c.log_warn(f"Retrying GStreamer package from S3 mirror: {mirror_url}")
+    return _c.download_file(mirror_url, dest, expected_sha256=expected_sha256)
+
+
 def install_macos(dry_run: bool = False) -> bool:
     """Install macOS dependencies."""
     _c.log_info("Installing macOS dependencies...")
@@ -86,7 +97,7 @@ def install_macos(dry_run: bool = False) -> bool:
                 with ThreadPoolExecutor(max_workers=2) as executor:
                     futures = {
                         executor.submit(
-                            _c.download_file,
+                            _download_gstreamer_package,
                             url,
                             pkg_path,
                             expected_sha256=expected_sha256,

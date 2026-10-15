@@ -28,8 +28,11 @@ private slots:
     void _paramReadNoResponse();
     void _paramWriteParamError();
     void _paramReadParamError();
+    void _rebootRequiredNoticeDebounced();
     void _FTPnoFailure();
     void _FTPChangeParam();
+    void _FTPRequestsHeartbeatComponentParams_data();
+    void _FTPRequestsHeartbeatComponentParams();
     void _bulkRefreshExactNamesAllSucceed();
     void _bulkRefreshPrefixExpansion();
     void _bulkRefreshUnknownNameSkipped();

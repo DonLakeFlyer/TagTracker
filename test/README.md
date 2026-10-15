@@ -24,6 +24,7 @@
   - [QML Test Split](#qml-test-split)
   - [JUnit XML Output](#junit-xml-output)
 - [MultiSignalSpy](#multisignalspy)
+- [Manual Test Plans](#manual-test-plans)
 - [Code Coverage](#code-coverage)
 - [Sanitizers](#sanitizers)
 - [Debugging Test Failures](#debugging-test-failures)
@@ -172,6 +173,9 @@ to absorb instrumentation overhead. `TIMEOUT <seconds>` on `add_qgc_test()` alwa
 | `Joystick`       | Joystick/controller tests                                                                 |
 | `AnalyzeView`    | Log analysis and geo-tagging tests                                                        |
 | `Terrain`        | Terrain query and tile tests                                                              |
+| `GPS`            | GPS receiver, corrections and NTRIP tests; every test under `test/GPS` carries it         |
+| `Fuzz`           | Fuzzer smoke runs: fixed inputs through a fuzz harness, without libFuzzer                 |
+| `QML`            | QML test runners and QML lint checks                                                      |
 
 ### Wait/Timeout Helpers
 
@@ -328,7 +332,7 @@ ctest --output-junit results.xml
 
 Windows x64 and the macOS Release CI leg enable `QGC_BUILD_PORTABLE_TESTS` alongside the normal
 application build (the macOS Debug leg runs the Unit and Integration suites instead, same as
-Linux). The six `Portable.*` CTest entries use small Qt Test executables, with the same test
+Linux). The ten `Portable.*` CTest entries use small Qt Test executables, with the same test
 bodies and production utility libraries as the Linux application tests. They require no
 QGCApplication, vehicles, or QML engine. The portable command-line parser target enables
 its own test hooks; the packaged application keeps its normal build configuration.
@@ -342,6 +346,35 @@ ctest --test-dir build --build-config Debug --output-on-failure -L Portable
 Use `PortableTest` and `QGC_REGISTER_PORTABLE_TEST` for these suites. Full application
 builds use the existing UnitTest harness; standalone executables use Qt Test with warnings
 failing tests. Keep application-dependent fixtures in the full harness.
+
+## GPS protocol golden transcripts
+
+`GPSGoldenTranscriptTest` pins the native GPS receiver protocols on a virtual clock. For each
+scenario it records host-to-receiver bytes, baud changes, configuration evidence, identity and
+decoded events. It also records the events decoded from every file in `test/GPS/Core/Protocols/corpus/`
+and `test/GPS/Core/Protocols/fixtures/` at several chunk sizes. The expected transcripts live in
+`test/GPS/Core/Protocols/golden/`, and `test/GPS/Core/Protocols/Support/GoldenTranscript.h` documents the driver
+seam. The suite also checks that a decoder armed without I/O for a recording replay
+(`GPSProtocolRuntime::armDecodeOnly()`) decodes those files as the configured decoder does.
+[`test/GPS/Core/Protocols/GPSGoldenTranscriptTest.cc`](GPS/Core/Protocols/GPSGoldenTranscriptTest.cc) describes the
+format. A scenario that behaves exactly as another one names it in `sameAs` and has no golden of its own, and a
+scenario records its stream phase only when that differs from every other scenario's of its family.
+
+A mismatch prints a diff hunk. Rewrite the goldens only for a deliberate, justified behaviour
+change, then review the diff. Update mode also removes files no scenario produces:
+
+```bash
+QGC_GPS_GOLDEN_UPDATE=1 ctest --test-dir build -R GPSGoldenTranscriptTest
+```
+
+`test/GPS/Standalone` builds `QGCGPSCore` and `QGCNTRIPHttp` without the application, with the receiver
+qualification runner and the NTRIP decoder smoke test. With Clang, `-DQGC_GPS_LIBFUZZER=ON` adds the protocol and
+NTRIP libFuzzer harnesses and builds both libraries with ASan and UBSan:
+
+```bash
+cmake -S test/GPS/Standalone -B build-gps -DCMAKE_CXX_COMPILER=clang++ -DQGC_GPS_LIBFUZZER=ON
+cmake --build build-gps && ctest --test-dir build-gps
+```
 
 ## MultiSignalSpy
 
@@ -367,6 +400,21 @@ int value = spy.argument<int>("valueChanged");
 
 // Multiple-signal API (each signal emitted exactly once)
 QVERIFY(spy.emittedOnce("signal1", "signal2"));
+```
+
+## Manual Test Plans
+
+`plans/` holds `.plan` files for manually checking 2D/3D mission display. There is one for each
+MockLink home location and PX4/ArduPilot vehicle type. Each plan mixes altitude frames
+(relative, AMSL, calculated above terrain, and terrain frame on ArduPilot) and item types over
+~3 km legs, so the paths cross terrain. The plans exercise the UI and aren't meant to be flown.
+Start a MockLink with the matching home location, then load the plan in Plan View and upload it.
+
+`PlanMasterControllerTest::_testManualTestPlansLoad` loads every plan, so they stay loadable as the
+plan format changes. Regenerate them after changing the generator:
+
+```bash
+test/plans/generate_test_plans.py
 ```
 
 ## Code Coverage

@@ -67,7 +67,7 @@ SetupPage {
             property bool   _compassAutoRot:                _compassAutoRotAvailable ? _compassAutoRotFact.rawValue == 2 : false
             property bool   _showSimpleAccelCalOption:      false
             property bool   _doSimpleAccelCal:              false
-            property var    _gcsPosition:                    QGroundControl.qgcPositionManger.gcsPosition
+            property var    _gcsPosition:                    QGroundControl.positionManager.gcsPosition
             property var    _mapPosition:                    QGroundControl.flightMapPosition
 
             function showOrientationsDialog(calType) {
@@ -308,14 +308,6 @@ SetupPage {
                                             qsTr("- Red indicates a compass which should not be used.\n\n") +
                                             qsTr("YOU MUST REBOOT YOUR VEHICLE AFTER EACH CALIBRATION.")
                         }
-
-                        QGCButton {
-                            text:       qsTr("Reboot Vehicle")
-                            onClicked: {
-                                controller.vehicle.rebootVehicle()
-                                postOnboardCompassCalibrationDialog.close()
-                            }
-                        }
                     }
                 }
             }
@@ -343,14 +335,6 @@ SetupPage {
                             anchors.right:  parent.right
                             wrapMode:       Text.WordWrap
                             text:           qsTr("YOU MUST REBOOT YOUR VEHICLE AFTER EACH CALIBRATION.")
-                        }
-
-                        QGCButton {
-                            text:       qsTr("Reboot Vehicle")
-                            onClicked: {
-                                controller.vehicle.rebootVehicle()
-                                postCalibrationDialog.close()
-                            }
                         }
                     }
                 }

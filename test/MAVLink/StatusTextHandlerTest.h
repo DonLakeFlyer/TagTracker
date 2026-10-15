@@ -10,8 +10,14 @@ private slots:
     void _testGetMessageText();
     void _testHandleTextMessage();
     void _testHandleErrorMessageAndMultiComponentPrefix();
-    void _testCriticalMessageCount();
-    void _testChunkedStatusTextMissingChunk();
+    void _testUnreadCriticalMessageCount();
+    void _testNewMessagesAreUnread();
+    void _testMarkAllRead();
+    void _testMarkAllReadThenNewMessage();
+    void _testClearMessagesEmitsFormattedMessagesChanged();
+    void _testChunkedStatusTextReassembly_data();
+    void _testChunkedStatusTextReassembly();
+    void _testChunkedStatusTextLateChunkStartsNewSequence();
     void _testChunkedStatusTextTimeoutAddsEllipsis();
     void _testChunkedStatusTextResetsWhenChunkIdChanges();
     void _testMavlinkMessageReceivedIgnoresNonStatusText();
