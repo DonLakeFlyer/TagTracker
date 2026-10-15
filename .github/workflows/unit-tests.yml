@@ -1,0 +1,73 @@
+name: Unit Tests
+
+on:
+  push:
+    branches:
+      - master
+      - 'Stable*'
+    paths-ignore:
+      - 'docs/**'
+      - 'custom/docs/**'
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - 'custom/docs/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  test:
+    name: macOS Debug Unit Tests
+    runs-on: macos-15
+    timeout-minutes: 120
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Build Setup
+        uses: ./.github/actions/build-setup
+        with:
+          qt-host: mac
+          qt-arch: clang_64
+          build-type: Debug
+
+      - name: Install Dependencies
+        uses: ./.github/actions/install-dependencies
+
+      - name: CMake configure
+        uses: ./.github/actions/cmake-configure
+        with:
+          build-dir: ${{ runner.temp }}/build
+          build-type: Debug
+          preset: macOS-debug
+          testing: true
+
+      - name: Build
+        id: build
+        uses: ./.github/actions/cmake-build
+        with:
+          build-dir: ${{ runner.temp }}/build
+          build-type: Debug
+
+      - name: Run and report tests
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        uses: ./.github/actions/test-phase
+        with:
+          build-dir: ${{ runner.temp }}/build
+          suite: tagtracker
+          integration-exclude-labels: 'Flaky|Network|StockUI'
