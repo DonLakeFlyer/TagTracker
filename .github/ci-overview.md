@@ -241,8 +241,10 @@ Dependency updates are split between two bots to avoid overlapping PRs:
 - **Dependabot** (`.github/dependabot.yml`) owns action references in `.github/workflows`, grouped
   weekly. Merge with `@dependabot merge`.
 - **Renovate** (`.github/renovate.json`) owns `npm`, Python (pep621/uv), pre-commit, devcontainer,
-  Dockerfile, Gradle Wrapper, and composite-action dependencies. Workflow paths are excluded so
-  the bots do not open overlapping action updates.
+  Dockerfile, Node (`.nvmrc`), Android Gradle, and composite-action dependencies. Workflow paths are
+  excluded so the bots do not open overlapping action updates. Updates arrive as weekly grouped PRs;
+  major updates wait for approval on the Dependency Dashboard issue. `androidx.core` is not updated
+  because newer releases require a compileSdk newer than Qt supports.
 
 ## CI Conventions
 
@@ -398,7 +400,7 @@ uv run --project tools --group scripts --group test pytest -q tools/tests .githu
   custom-plugin unit/integration suites, excluding stock-UI integration tests. Master
   pushes, merge-queue runs, and manual dispatches also build Release without test hooks
   and verify its AppImage. Debug and Release retain separate compiler caches.
-- Windows x64 and the macOS Release leg run six standalone portable utility executables in their
+- Windows x64 and the macOS Release leg run ten standalone portable utility executables in their
   existing platform build jobs (`QGC_BUILD_PORTABLE_TESTS=ON`). They share test bodies with the full
   Linux harness and do not enable test hooks in the packaged application. The macOS Debug leg
   runs the Unit and Integration suites; only the Release leg packages and uploads the DMG.

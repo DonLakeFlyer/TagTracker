@@ -1,18 +1,19 @@
 #include "ParameterManagerTest.h"
 
-#include <QtCore/QElapsedTimer>
-#include <QtCore/QRegularExpression>
-#include <QtTest/QSignalSpy>
-
 #include <algorithm>
 #include <cmath>
 #include <limits>
+
+#include <QtCore/QElapsedTimer>
+#include <QtCore/QRegularExpression>
+#include <QtTest/QSignalSpy>
 
 #include "BulkRefreshJob.h"
 #include "LogManager.h"
 #include "MockLinkFTP.h"
 #include "MultiVehicleManager.h"
 #include "ParameterManager.h"
+#include "QGCApplication.h"
 #include "QGCMath.h"
 #include "Vehicle.h"
 
@@ -140,10 +141,13 @@ void ParameterManagerTest::_requestListNoResponse()
     QSignalSpy spyParamsReady(vehicleMgr, &MultiVehicleManager::parameterReadyVehicleAvailableChanged);
     QSignalSpy spyProgress(vehicle->parameterManager(), &ParameterManager::loadProgressChanged);
     expectAppMessage(QRegularExpression("did not respond to request for parameters"));
+    expectLogMessage("FactSystem.ParameterManager", QtWarningMsg,
+                     QRegularExpression("did not respond to request for parameters"));
     // We should not get any progress bar updates, nor a parameter ready signal.
     // ParameterManager exhausts initial request retries in bounded test intervals.
     QVERIFY_NO_SIGNAL_WAIT(spyProgress, TestTimeout::shortMs());
     QVERIFY_NO_SIGNAL_WAIT(spyParamsReady, ParameterManager::kTestMaxInitialRequestTimeMs);
+    verifyExpectedLogMessage();
     verifyExpectedLogMessage();
 }
 
@@ -364,9 +368,8 @@ void ParameterManagerTest::_requestListSharedIndexAcrossComponents()
 void ParameterManagerTest::_paramWriteNoAckRetry()
 {
     _ignoreParamResponseTimeouts();
-    // BAT1_V_CHARGED requires a vehicle reboot, so writing it pops the reboot
-    // app message (debounce is reset per-test by the framework)
-    expectAppMessage(QRegularExpression("Reboot vehicle for changes to take effect"));
+    // BAT1_V_CHARGED requires a vehicle reboot, so writing it pops the reboot-required notice
+    expectAppMessage(QRegularExpression("Vehicle reboot required for changes to take effect"));
     _setParamWithFailureMode(MockLink::FailParamSetFirstAttemptNoAck, true /* expectSuccess */,
                              QStringLiteral("BAT1_V_CHARGED"), MAV_AUTOPILOT_PX4);
     verifyExpectedLogMessage();
@@ -375,9 +378,9 @@ void ParameterManagerTest::_paramWriteNoAckRetry()
 void ParameterManagerTest::_paramWriteNoAckPermanent()
 {
     _ignoreParamResponseTimeouts();
-    // Expectations verify in FIFO order: reboot message first (fires at local
+    // Expectations verify in FIFO order: reboot notice first (fires at local
     // setRawValue), then the write-failed message (fires after retries exhaust)
-    expectAppMessage(QRegularExpression("Reboot vehicle for changes to take effect"));
+    expectAppMessage(QRegularExpression("Vehicle reboot required for changes to take effect"));
     expectAppMessage(QRegularExpression("Parameter write failed"));
     _setParamWithFailureMode(MockLink::FailParamSetNoAck, false /* expectSuccess */,
                              QStringLiteral("BAT1_V_CHARGED"), MAV_AUTOPILOT_PX4);
@@ -451,9 +454,9 @@ void ParameterManagerTest::_paramReadNoResponse()
 
 void ParameterManagerTest::_paramWriteParamError()
 {
-    // Expectations verify in FIFO order: reboot message first (fires at local
+    // Expectations verify in FIFO order: reboot notice first (fires at local
     // setRawValue), then the write-failed message (fires on the PARAM_ERROR ack)
-    expectAppMessage(QRegularExpression("Reboot vehicle for changes to take effect"));
+    expectAppMessage(QRegularExpression("Vehicle reboot required for changes to take effect"));
     expectAppMessage(QRegularExpression("Parameter write failed"));
     _setParamWithFailureMode(MockLink::FailParamSetParamError, false /* expectSuccess */,
                              QStringLiteral("BAT1_V_CHARGED"), MAV_AUTOPILOT_PX4);
@@ -544,7 +547,9 @@ void ParameterManagerTest::_setParamWithFailureMode(MockLink::ParamSetFailureMod
     QVERIFY(paramSetSuccessSpy.isValid());
     QSignalSpy paramSetFailureSpy(paramManager, &ParameterManager::_paramSetFailure);
     QVERIFY(paramSetFailureSpy.isValid());
+    QVERIFY(!_vehicle->rebootRequired());
     fact->setRawValue(newValue);
+    QCOMPARE(_vehicle->rebootRequired(), fact->vehicleRebootRequired());
     // We should see pendingWrites go to true and then back to false
     bool sawPendingTrue = false;
     bool sawPendingFalse = false;
@@ -617,6 +622,42 @@ void ParameterManagerTest::_setParamWithFailureMode(MockLink::ParamSetFailureMod
     _disconnectMockLink();
 }
 
+void ParameterManagerTest::_rebootRequiredNoticeDebounced()
+{
+    _connectMockLink(MAV_AUTOPILOT_PX4);
+    QVERIFY(_vehicle);
+    ParameterManager* const paramManager = _vehicle->parameterManager();
+    QVERIFY(paramManager);
+    Fact* const fact = paramManager->getParameter(MAV_COMP_ID_AUTOPILOT1, QStringLiteral("BAT1_V_CHARGED"));
+    QVERIFY(fact);
+    QVERIFY(fact->vehicleRebootRequired());
+    QVERIFY(!_vehicle->rebootRequired());
+    QSignalSpy rebootRequiredSpy(_vehicle, &Vehicle::rebootRequiredChanged);
+    QVERIFY(rebootRequiredSpy.isValid());
+    QSignalSpy pendingSpy(paramManager, &ParameterManager::pendingWritesChanged);
+    QVERIFY(pendingSpy.isValid());
+
+    const QRegularExpression notice("Vehicle reboot required for changes to take effect");
+    const double originalValue = fact->rawValue().toDouble();
+    expectAppMessage(notice);
+    fact->setRawValue(originalValue + 0.1);
+    verifyExpectedLogMessage();
+
+    // A change right after the first one is debounced
+    fact->setRawValue(originalValue + 0.2);
+
+    // Once the debounce window has passed, a later change notifies again
+    qgcApp()->resetRebootMessageDebounce();
+    expectAppMessage(notice);
+    fact->setRawValue(originalValue + 0.3);
+    verifyExpectedLogMessage();
+
+    QVERIFY(_vehicle->rebootRequired());
+    QCOMPARE(rebootRequiredSpy.count(), 1);
+    QTRY_VERIFY_WITH_TIMEOUT(!pendingSpy.isEmpty() && !pendingSpy.last().at(0).toBool(), TestTimeout::longMs());
+    _disconnectMockLink();
+}
+
 void ParameterManagerTest::_FTPnoFailure()
 {
     // Test APM FTP-based parameter download (param.pck).
@@ -659,6 +700,46 @@ void ParameterManagerTest::_FTPnoFailure()
     QCOMPARE(battLowVoltFact->rawValue().toFloat(), 0.0f);
     QCOMPARE(rc1MinFact->rawValue().toInt(), 1000);
     QCOMPARE(batt2MonFact->rawValue().toInt(), 4);
+}
+
+void ParameterManagerTest::_FTPRequestsHeartbeatComponentParams_data()
+{
+    QTest::addColumn<MAV_AUTOPILOT>("firmwareType");
+
+    QTest::newRow("ArduPilot") << MAV_AUTOPILOT_ARDUPILOTMEGA;
+    QTest::newRow("PX4") << MAV_AUTOPILOT_PX4;
+}
+
+// param.pck only carries the autopilot's params. Other components that heartbeat must still be asked over the
+// parameter protocol, without making the autopilot stream the params it just sent in the file.
+void ParameterManagerTest::_FTPRequestsHeartbeatComponentParams()
+{
+    QFETCH(MAV_AUTOPILOT, firmwareType);
+    QVERIFY2(!_mockLink, "MockLink already connected");
+    // The AVAILABLE_MODES enumeration started during connect can still be in flight while the companion loads
+    // and fails against MockLink. Timing dependent.
+    ignoreLogMessage("Vehicle.StandardModes", QtWarningMsg, QRegularExpression("Failed to retrieve available modes"));
+
+    MultiVehicleManager* vehicleMgr = MultiVehicleManager::instance();
+    QSignalSpy spyVehicle(vehicleMgr, &MultiVehicleManager::activeVehicleAvailableChanged);
+    QSignalSpy spyParamsReady(vehicleMgr, &MultiVehicleManager::parameterReadyVehicleAvailableChanged);
+    _mockLink = (firmwareType == MAV_AUTOPILOT_PX4)
+                    ? MockLink::startPX4MockLink(MockConfiguration::OptionCompanionParams)
+                    : MockLink::startAPMArduPlaneMockLink(MockConfiguration::OptionCompanionParams);
+    QVERIFY_SIGNAL_COUNT_WAIT(spyVehicle, 1, TestTimeout::mediumMs());
+    QVERIFY_SIGNAL_COUNT_WAIT(spyParamsReady, 1, TestTimeout::longMs());
+    QVERIFY(_mockLink->receivedMavlinkMessageCount(MAVLINK_MSG_ID_FILE_TRANSFER_PROTOCOL) > 0);
+
+    Vehicle* const vehicle = vehicleMgr->activeVehicle();
+    QVERIFY(vehicle);
+    ParameterManager* const paramManager = vehicle->parameterManager();
+    QVERIFY(paramManager);
+    QTRY_COMPARE_WITH_TIMEOUT(paramManager->parameterNames(MAV_COMP_ID_ONBOARD_COMPUTER).count(), 3,
+                              TestTimeout::longMs());
+
+    const QList<int> requestListTargets = _mockLink->paramRequestListTargetLog();
+    QVERIFY(!requestListTargets.contains(MAV_COMP_ID_AUTOPILOT1));
+    QVERIFY(!requestListTargets.contains(MAV_COMP_ID_ALL));
 }
 
 void ParameterManagerTest::_FTPChangeParam()

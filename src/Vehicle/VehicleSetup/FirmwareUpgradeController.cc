@@ -89,6 +89,7 @@ static QMap<int, QString> px4_board_name_map {
     {1198, "aedrox_aedroxh7_default"},
     {1123, "siyi_n7_default"},
     {1124, "3dr_ctrl-zero-h7-oem-revg_default"},
+    {1949, "agam_fmu-v6xrt_default"},
     {5600, "zeroone_x6_default"},
     {6110, "svehicle_e2_default"},
     {7000, "cuav_7-nano_default"},
@@ -96,7 +97,8 @@ static QMap<int, QString> px4_board_name_map {
     {7002, "cuav_x25-evo_default"},
     {7003, "cuav_x25-super_default"},
     {7004, "cuav_x25-mega_default"},
-    {7120, "accton-godwit_ga1_default"}
+    {7120, "accton-godwit_ga1_default"},
+	{1183, "narinfc_h7_default"}
 };
 
 uint qHash(const FirmwareUpgradeController::FirmwareIdentifier& firmwareId)

@@ -27,7 +27,7 @@ TakeoffState::TakeoffState(QState* parentState, double takeoffAltRel)
 
 void TakeoffState::_onEntry()
 {
-    if (_vehicle->flying()) {
+    if (_vehicle->airborne()) {
         setError("Vehicle is already flying");
         return;
     }

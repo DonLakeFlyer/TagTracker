@@ -37,6 +37,26 @@ bool ScheduledTask::schedule(std::chrono::microseconds delay, RuntimeScheduler::
     return _state->id != 0;
 }
 
+bool ScheduledTask::scheduleRepeating(std::chrono::microseconds interval, RuntimeScheduler::Callback callback)
+{
+    if (!callback) {
+        cancel();
+        return false;
+    }
+    return _scheduleRepeating(interval, std::make_shared<RuntimeScheduler::Callback>(std::move(callback)));
+}
+
+bool ScheduledTask::_scheduleRepeating(std::chrono::microseconds interval,
+                                       std::shared_ptr<RuntimeScheduler::Callback> callback)
+{
+    return schedule(interval, [this, interval, callback = std::move(callback)]() {
+        // Keep the callable alive even if it cancels or replaces this task.
+        const auto run = callback;
+        (void) _scheduleRepeating(interval, run);
+        (*run)();
+    });
+}
+
 void ScheduledTask::cancel()
 {
     ++_state->generation;

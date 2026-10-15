@@ -23,7 +23,7 @@ TextArea {
 
     function formatMessage(message) {
         message = message.replace(new RegExp("<#E>", "g"), "color: " + qgcPal.warningText + "; font: " + (ScreenTools.defaultFontPointSize.toFixed(0) - 1) + "pt monospace;");
-        message = message.replace(new RegExp("<#I>", "g"), "color: " + qgcPal.warningText + "; font: " + (ScreenTools.defaultFontPointSize.toFixed(0) - 1) + "pt monospace;");
+        message = message.replace(new RegExp("<#I>", "g"), "color: " + qgcPal.colorOrange + "; font: " + (ScreenTools.defaultFontPointSize.toFixed(0) - 1) + "pt monospace;");
         message = message.replace(new RegExp("<#N>", "g"), "color: " + qgcPal.text + "; font: " + (ScreenTools.defaultFontPointSize.toFixed(0) - 1) + "pt monospace;");
         return message;
     }
@@ -35,6 +35,7 @@ TextArea {
     Connections {
         target: _activeVehicle
         function onNewFormattedMessage(formattedMessage) { messageText.insert(0, formatMessage(formattedMessage)) }
+        function onFormattedMessagesChanged() { messageText.text = formatMessage(_activeVehicle.formattedMessages) }
     }
 
     FactPanelController {
@@ -66,37 +67,6 @@ TextArea {
             title:          qsTr("Edit Parameter")
             fact:           messageText._fact
             destroyOnClose: true
-        }
-    }
-
-    Rectangle {
-        anchors.right:   parent.right
-        anchors.top:     parent.top
-        width:                      ScreenTools.defaultFontPixelHeight * 1.25
-        height:                     width
-        radius:                     width / 2
-        color:                      QGroundControl.globalPalette.button
-        border.color:               QGroundControl.globalPalette.buttonText
-        visible:                    !noMessages
-
-        QGCColoredImage {
-            anchors.margins:    ScreenTools.defaultFontPixelHeight * 0.25
-            anchors.centerIn:   parent
-            anchors.fill:       parent
-            sourceSize.height:  height
-            source:             "/res/TrashDelete.svg"
-            fillMode:           Image.PreserveAspectFit
-            mipmap:             true
-            smooth:             true
-            color:              qgcPal.text
-        }
-
-        QGCMouseArea {
-            fillItem: parent
-            onClicked: {
-                _activeVehicle.clearMessages()
-                mainWindow.closeIndicatorDrawer()
-            }
         }
     }
 }
