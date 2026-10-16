@@ -11,6 +11,10 @@ from pathlib import Path
 from . import _common as _c
 from ._packages import get_macos_packages
 
+MACOS_GSTREAMER_BASE_URL = (
+    "https://qgroundcontrol.s3.us-west-2.amazonaws.com/dependencies/gstreamer/macos"
+)
+
 
 def get_gstreamer_macos_urls(version: str) -> tuple[str, str]:
     """Get GStreamer download URLs for macOS."""
@@ -23,10 +27,7 @@ def get_gstreamer_macos_urls(version: str) -> tuple[str, str]:
 def _download_gstreamer_package(url: str, dest: Path, expected_sha256: str) -> bool:
     if _c.download_file(url, dest, warn_on_failure=True, expected_sha256=expected_sha256):
         return True
-    mirror_url = (
-        "https://qgroundcontrol.s3.us-west-2.amazonaws.com/dependencies/gstreamer/macos/"
-        f"{dest.name}"
-    )
+    mirror_url = f"{MACOS_GSTREAMER_BASE_URL}/{dest.name}"
     _c.log_warn(f"Retrying GStreamer package from S3 mirror: {mirror_url}")
     return _c.download_file(mirror_url, dest, expected_sha256=expected_sha256)
 

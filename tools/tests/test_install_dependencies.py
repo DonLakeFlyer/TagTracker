@@ -515,7 +515,7 @@ def test_install_macos_gstreamer_fallback(
     def download(url: str, dest: Path, **kwargs: object) -> bool:
         if fallback_package is None or dest.name != urls[fallback_package].rsplit("/", 1)[-1]:
             return True
-        return mirror_succeeds if "amazonaws.com" in url else False
+        return mirror_succeeds if url.startswith(_macos.MACOS_GSTREAMER_BASE_URL) else False
 
     with (
         patch.object(_macos._c, "has_command", return_value=True),
@@ -537,9 +537,7 @@ def test_install_macos_gstreamer_fallback(
         package_calls = [entry for entry in dl.call_args_list if entry.args[1].name == filename]
         expected_urls = [primary_url]
         if label == fallback_package:
-            expected_urls.append(
-                f"https://qgroundcontrol.s3.us-west-2.amazonaws.com/dependencies/gstreamer/macos/{filename}"
-            )
+            expected_urls.append(f"{_macos.MACOS_GSTREAMER_BASE_URL}/{filename}")
         assert [entry.args[0] for entry in package_calls] == expected_urls
         checksum = checksums["macos" if label == "runtime" else "macos_devel"]
         assert package_calls[0].kwargs == {
