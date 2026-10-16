@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <radialGradient id="sweep" cx="512" cy="512" r="340" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00E5A0" stop-opacity="0.05"/>
+      <stop offset="1" stop-color="#00E5A0" stop-opacity="0.85"/>
+    </radialGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="#1B1F3B"/>
+  <g fill="none" stroke="#00E5A0" stroke-opacity="0.45" stroke-width="22">
+    <circle cx="512" cy="512" r="120"/>
+    <circle cx="512" cy="512" r="230"/>
+    <circle cx="512" cy="512" r="340"/>
+  </g>
+  <g transform="rotate(35 512 512)">
+    <path d="M512 512 L371 203 A340 340 0 0 1 653 203 Z" fill="url(#sweep)"/>
+    <circle cx="512" cy="172" r="44" fill="#FFFFFF"/>
+  </g>
+  <circle cx="512" cy="512" r="44" fill="#00E5A0"/>
+</svg>

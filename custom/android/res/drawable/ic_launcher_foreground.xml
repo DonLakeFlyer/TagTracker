@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adaptive icon foreground derived from custom/res/icons/tagtracker.svg, scaled into the 66/108dp safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="1024"
+    android:viewportHeight="1024">
+    <group
+        android:pivotX="512"
+        android:pivotY="512"
+        android:scaleX="0.8"
+        android:scaleY="0.8">
+        <path
+            android:pathData="M512,512m-120,0a120,120 0,1 0,240 0a120,120 0,1 0,-240 0"
+            android:strokeColor="#00E5A0"
+            android:strokeAlpha="0.45"
+            android:strokeWidth="22"/>
+        <path
+            android:pathData="M512,512m-230,0a230,230 0,1 0,460 0a230,230 0,1 0,-460 0"
+            android:strokeColor="#00E5A0"
+            android:strokeAlpha="0.45"
+            android:strokeWidth="22"/>
+        <path
+            android:pathData="M512,512m-340,0a340,340 0,1 0,680 0a340,340 0,1 0,-680 0"
+            android:strokeColor="#00E5A0"
+            android:strokeAlpha="0.45"
+            android:strokeWidth="22"/>
+        <group
+            android:pivotX="512"
+            android:pivotY="512"
+            android:rotation="35">
+            <path android:pathData="M512,512L371,203A340,340 0,0 1,653 203Z">
+                <aapt:attr name="android:fillColor">
+                    <gradient
+                        android:type="radial"
+                        android:centerX="512"
+                        android:centerY="512"
+                        android:gradientRadius="340"
+                        android:startColor="#0D00E5A0"
+                        android:endColor="#D900E5A0"/>
+                </aapt:attr>
+            </path>
+            <path
+                android:pathData="M512,172m-44,0a44,44 0,1 0,88 0a44,44 0,1 0,-88 0"
+                android:fillColor="#FFFFFF"/>
+        </group>
+        <path
+            android:pathData="M512,512m-44,0a44,44 0,1 0,88 0a44,44 0,1 0,-88 0"
+            android:fillColor="#00E5A0"/>
+    </group>
+</vector>

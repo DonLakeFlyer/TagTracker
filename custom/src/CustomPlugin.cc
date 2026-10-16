@@ -159,7 +159,7 @@ const QVariantList& CustomPlugin::toolBarIndicators(void)
 {
     _toolbarIndicators = QGCCorePlugin::toolBarIndicators();
 
-    _toolbarIndicators.append(QVariant::fromValue(QUrl::fromUserInput("qrc:/qml/ControllerIndicator.qml")));
+    _toolbarIndicators.prepend(QVariant::fromValue(QUrl::fromUserInput("qrc:/qml/ControllerIndicator.qml")));
     return _toolbarIndicators;
 }
 
