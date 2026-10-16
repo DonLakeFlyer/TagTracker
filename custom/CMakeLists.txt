@@ -96,6 +96,23 @@ qt_add_resources(${CMAKE_PROJECT_NAME} custom_res
     FILES ${CUSTOM_RES_RESOURCES}
 )
 
+# Replaces upstream branding via CustomOverrideInterceptor (qrc:/res/<name> -> :/Custom/res/<name>).
+#   QGCLogoFull/QGCLogoArrow: toolbar logo and map GCS marker (without/with heading).
+#   QGCLogoWhite: single-color glyph tinted by the theme (Settings menu and settings page icons).
+#   qgroundcontrol.ico: Linux window icon.
+set(CUSTOM_BRAND_LOGO "${CMAKE_CURRENT_SOURCE_DIR}/res/icons/tagtracker_logo.svg")
+set(CUSTOM_BRAND_LOGO_ARROW "${CMAKE_CURRENT_SOURCE_DIR}/res/icons/tagtracker_logo_arrow.svg")
+set(CUSTOM_BRAND_LOGO_MONO "${CMAKE_CURRENT_SOURCE_DIR}/res/icons/tagtracker_logo_mono.svg")
+set(CUSTOM_BRAND_WINDOW_ICON "${CMAKE_CURRENT_SOURCE_DIR}/res/icons/tagtracker.ico")
+set_source_files_properties("${CUSTOM_BRAND_LOGO}" PROPERTIES QT_RESOURCE_ALIAS "QGCLogoFull.svg")
+set_source_files_properties("${CUSTOM_BRAND_LOGO_ARROW}" PROPERTIES QT_RESOURCE_ALIAS "QGCLogoArrow.svg")
+set_source_files_properties("${CUSTOM_BRAND_LOGO_MONO}" PROPERTIES QT_RESOURCE_ALIAS "QGCLogoWhite.svg")
+set_source_files_properties("${CUSTOM_BRAND_WINDOW_ICON}" PROPERTIES QT_RESOURCE_ALIAS "qgroundcontrol.ico")
+qt_add_resources(${CMAKE_PROJECT_NAME} custom_brand
+    PREFIX "/Custom/res"
+    FILES ${CUSTOM_BRAND_LOGO} ${CUSTOM_BRAND_LOGO_ARROW} ${CUSTOM_BRAND_LOGO_MONO} ${CUSTOM_BRAND_WINDOW_ICON}
+)
+
 # ============================================================================
 # QGroundControl.CustomControls QML Module
 # ============================================================================
