@@ -90,6 +90,18 @@
     "default":          0
 },
 {
+    "name":             "calibrationYawRate",
+    "shortDesc":        "Calibration Sweep Yaw Rate",
+    "longDesc":         "Yaw rate for the antenna pattern calibration sweep (one 360 degree turn clockwise, then one counter-clockwise, while the controller records IQ).",
+    "label":            "Calibration Sweep Yaw Rate",
+    "type":             "double",
+    "min":              0.5,
+    "max":              30,
+    "decimalPlaces":    1,
+    "units":            "deg/s",
+    "default":          2.5
+},
+{
     "name":         "allowMultiTagDetection",
     "shortDesc":    "Allow Multi Tag Detection",
     "label":        "Allow Multi Tag Detection",

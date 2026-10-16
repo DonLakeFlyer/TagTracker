@@ -40,6 +40,18 @@ void TunnelProtocolTextTest::_formatsAck()
              QStringLiteral("ACK sent: request_id: 7 command: START_COLLECTION request_id: 42 result: COMMAND_RESULT_FAILURE"));
 }
 
+void TunnelProtocolTextTest::_formatsStartIqRecording()
+{
+    StartIqRecording_t start{};
+    start.header.command            = COMMAND_ID_START_IQ_RECORDING;
+    start.radio_center_frequency_hz = 147970000;
+    start.gain                      = 21;
+
+    const QString text = format(Direction::Sent, start);
+    QVERIFY2(text.startsWith(QStringLiteral("START_IQ_RECORDING sent:")), qPrintable(text));
+    QVERIFY2(text.contains(QStringLiteral("radio_center_frequency_hz: 147970000")), qPrintable(text));
+}
+
 void TunnelProtocolTextTest::_payloadShorterThanHeader()
 {
     const uint8_t payload[3] = {};

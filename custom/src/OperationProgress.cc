@@ -34,6 +34,8 @@ QString OperationProgress::titleForCommand(uint32_t command)
     case COMMAND_ID_SAVE_LOGS:          return tr("Saving logs");
     case COMMAND_ID_CLEAN_LOGS:         return tr("Deleting logs");
     case COMMAND_ID_START_COLLECTION:   return tr("Rotation");
+    case COMMAND_ID_START_IQ_RECORDING: return tr("Starting IQ recording");
+    case COMMAND_ID_STOP_IQ_RECORDING:  return tr("Stopping IQ recording");
     }
     return tr("Controller busy");
 }

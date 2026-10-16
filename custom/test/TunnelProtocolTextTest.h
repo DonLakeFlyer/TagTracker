@@ -8,6 +8,7 @@ class TunnelProtocolTextTest : public UnitTest
 
 private slots:
     void _formatsAck();
+    void _formatsStartIqRecording();
     void _payloadShorterThanHeader();
     void _payloadSizeMismatch();
     void _unknownCommandAndValues();

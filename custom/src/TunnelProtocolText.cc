@@ -93,6 +93,7 @@ QString _heartbeatStatusName(uint32_t status)
         TUNNEL_NAME_CASE(HEARTBEAT_STATUS_HAS_TAGS);
         TUNNEL_NAME_CASE(HEARTBEAT_STATUS_DETECTING);
         TUNNEL_NAME_CASE(HEARTBEAT_STATUS_CAPTURE);
+        TUNNEL_NAME_CASE(HEARTBEAT_STATUS_RECORDING);
     }
     return _unknownName("HEARTBEAT_STATUS_", status);
 }
@@ -197,6 +198,8 @@ QString commandName(uint32_t command)
         TUNNEL_COMMAND_CASE(OPERATION_PROGRESS);
         TUNNEL_COMMAND_CASE(SET_LOG_LEVEL);
         TUNNEL_COMMAND_CASE(DETECTOR_HEARTBEAT);
+        TUNNEL_COMMAND_CASE(START_IQ_RECORDING);
+        TUNNEL_COMMAND_CASE(STOP_IQ_RECORDING);
     }
     return _unknownName("COMMAND_ID_", command);
 }
@@ -349,6 +352,21 @@ QString formatMessage(Direction direction, const uint8_t* payload, size_t length
                 return sizeMismatch(sizeof(m));
             }
             writer.add("gain", m.gain).add("frequency_hz", m.frequency_hz);
+            break;
+        }
+        case COMMAND_ID_START_IQ_RECORDING: {
+            StartIqRecording_t m;
+            if (!_decode(payload, length, m)) {
+                return sizeMismatch(sizeof(m));
+            }
+            writer.add("radio_center_frequency_hz", m.radio_center_frequency_hz).add("gain", m.gain);
+            break;
+        }
+        case COMMAND_ID_STOP_IQ_RECORDING: {
+            StopIqRecording_t m;
+            if (!_decode(payload, length, m)) {
+                return sizeMismatch(sizeof(m));
+            }
             break;
         }
         case COMMAND_ID_HEARTBEAT: {

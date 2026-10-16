@@ -44,6 +44,7 @@ Item {
             break
         case CustomPlugin.ControllerStatusReceivingTags:
         case CustomPlugin.ControllerStatusCapture:
+        case CustomPlugin.ControllerStatusRecording:
             _startDetectionEnabled = false
             _stopDetectionEnabled = false
             break
@@ -77,6 +78,14 @@ Item {
             visible:    _customSettings.detectionFlightMode.rawValue !== CustomSettings.Auto,
             enabled:    _controllerAvailable && !_controllerBusy && (QGroundControl.corePlugin.controllerStatus == CustomPlugin.ControllerStatusHasTags || QGroundControl.corePlugin.controllerStatus == CustomPlugin.ControllerStatusIdle),
             action:     _customController.actionRawCapture,
+        },
+
+        {
+            title:      _customController.calibrationSweepTitle,
+            visible:    _customSettings.detectionFlightMode.rawValue !== CustomSettings.SurveyDetection,
+            enabled:    _controllerAvailable && !_controllerBusy && _activeVehicle.airborne && !QGroundControl.corePlugin.rotationInProgress
+                        && (_controllerStatus == CustomPlugin.ControllerStatusHasTags || _controllerStatus == CustomPlugin.ControllerStatusIdle),
+            action:     _customController.actionCalibrationSweep,
         },
 
         {

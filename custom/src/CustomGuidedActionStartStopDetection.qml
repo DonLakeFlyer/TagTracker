@@ -35,6 +35,7 @@ GuidedToolStripAction {
             break
         case CustomPlugin.ControllerStatusReceivingTags:
         case CustomPlugin.ControllerStatusCapture:
+        case CustomPlugin.ControllerStatusRecording:
             text = customController.startDetectionTitle
             actionEnabled = false
             break

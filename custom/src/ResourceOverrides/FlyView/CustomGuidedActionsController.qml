@@ -12,6 +12,7 @@ QtObject {
     readonly property int actionClearLogs:                  customActionStart + 7
     readonly property int actionClearMap:                    customActionStart + 8
     readonly property int actionDownloadLogs:               customActionStart + 9
+    readonly property int actionCalibrationSweep:           customActionStart + 10
 
     readonly property string autoDetectionTitle:            qsTr("Go")
     readonly property string startDetectionTitle:           qsTr("Start Detection")
@@ -22,6 +23,7 @@ QtObject {
     readonly property string saveLogsTitle:                 qsTr("Save Logs (SD Card)")
     readonly property string clearLogsTitle:                qsTr("Clear Logs")
     readonly property string clearMapTitle:                 qsTr("Clear Map")
+    readonly property string calibrationSweepTitle:         qsTr("Calibration Sweep")
 
     readonly property string autoDetectionMessage:          qsTr("Takeoff, rotate, return.")
     readonly property string startDetectionMessage:         qsTr("Start pulse detection for the specified tag(s).")
@@ -32,6 +34,7 @@ QtObject {
     readonly property string saveLogsMessage:               qsTr("Save companion logs to the vehicle SD card.")
     readonly property string clearLogsMessage:              qsTr("Clear companion logs.")
     readonly property string clearMapMessage:               qsTr("Clear pulse map items.")
+    readonly property string calibrationSweepMessage:       qsTr("Record IQ while turning 360 degrees clockwise, then 360 degrees counter-clockwise. PX4 flies a slow 3 m radius circle, up to 6 m from the current position: keep that area clear.")
 
     function customConfirmAction(actionCode, actionData, mapIndicator, confirmDialog) {
         switch (actionCode) {
@@ -80,6 +83,11 @@ QtObject {
             confirmDialog.title = downloadLogsTitle
             confirmDialog.message = downloadLogsMessage
             break
+        case actionCalibrationSweep:
+            confirmDialog.hideTrigger = true
+            confirmDialog.title = calibrationSweepTitle
+            confirmDialog.message = calibrationSweepMessage
+            break
         default:
             return false;
         }
@@ -115,6 +123,9 @@ QtObject {
             break
         case actionDownloadLogs:
             QGroundControl.corePlugin.companionLogDownloader.download()
+            break
+        case actionCalibrationSweep:
+            QGroundControl.corePlugin.calibrationSweep()
             break
         default:
             return false;

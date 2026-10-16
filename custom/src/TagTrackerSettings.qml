@@ -147,6 +147,13 @@ SettingsPage {
             label:              fact.shortDescription
             fact:               _customSettings.antennaOffset
         }
+
+        LabelledFactTextField {
+            Layout.fillWidth:   true
+            label:              fact.shortDescription
+            fact:               _customSettings.calibrationYawRate
+            visible:            _isPythonMode
+        }
     }
 
     SettingsGroupLayout {
