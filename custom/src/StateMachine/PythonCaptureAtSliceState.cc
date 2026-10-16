@@ -75,7 +75,7 @@ void PythonCaptureAtSliceState::_buildStates(uint32_t collectionId, uint32_t sli
     // States
     auto announceRotateState        = new SayState("Announce Rotate", this, QStringLiteral("Searching at %1 degrees").arg(_sliceHeadingDegrees));
     auto rotateCommandState         = _rotateMavlinkCommandState(this);
-    auto waitForHeadingState        = new FactWaitForValueTarget(this, _vehicle->heading(), _sliceHeadingDegrees, 1.0, 20 * 1000);
+    auto waitForHeadingState        = new FactWaitForValueTarget(this, _vehicle->heading(), _sliceHeadingDegrees, 1.0, 20 * 1000, true /* angleDegrees */);
     auto startSliceState            = new SendTunnelCommandState("Python StartCollectionSlice", this, reinterpret_cast<uint8_t*>(&startSlice), sizeof(startSlice));
     auto waitForDetectionResultState= new PythonWaitForDetectionResultState(this, collectionId, startSlice.slice_id);
     auto finalState                 = new QFinalState(this);
