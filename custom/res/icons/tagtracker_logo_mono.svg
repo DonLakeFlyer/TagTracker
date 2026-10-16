@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Hand-derived from tagtracker.svg. Single color: the app tints it by alpha, so only opacity matters. -->
+  <rect x="44" y="44" width="936" height="936" rx="256" fill="none" stroke="#FFFFFF" stroke-width="64"/>
+  <g fill="none" stroke="#FFFFFF" stroke-width="40">
+    <circle cx="512" cy="512" r="110"/>
+    <circle cx="512" cy="512" r="220"/>
+    <circle cx="512" cy="512" r="330"/>
+  </g>
+  <g transform="rotate(35 512 512)">
+    <path d="M512 512 L375 211 A330 330 0 0 1 649 211 Z" fill="#FFFFFF" fill-opacity="0.6"/>
+    <circle cx="512" cy="182" r="56" fill="#FFFFFF"/>
+  </g>
+  <circle cx="512" cy="512" r="56" fill="#FFFFFF"/>
+</svg>
