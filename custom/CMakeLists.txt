@@ -190,6 +190,8 @@ set(CUSTOM_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/StopDetectionState.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/TakeoffState.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/TakeoffState.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/YawSweepState.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/YawSweepState.h
 )
 
 if(QGC_BUILD_TESTING)
@@ -221,7 +223,7 @@ set(CUSTOM_SOURCES ${CUSTOM_SOURCES} PARENT_SCOPE)
 CPMAddPackage(
     NAME              TunnelProtocol
     GITHUB_REPOSITORY DonLakeFlyer/TagTrackerTunnelProtocol
-    GIT_TAG           8f39f958284ad8c77f2e54c1c2b167c63ee739a5
+    GIT_TAG           0d929cf1e417acd2095a45b99d5adec6646f1d77
     DOWNLOAD_ONLY     TRUE
 )
 

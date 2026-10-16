@@ -34,6 +34,7 @@ public:
     DEFINE_SETTINGFACT(gain)
     DEFINE_SETTINGFACT(detectionFlightMode)
     DEFINE_SETTINGFACT(antennaOffset)
+    DEFINE_SETTINGFACT(calibrationYawRate)
     DEFINE_SETTINGFACT(antennaType)
     DEFINE_SETTINGFACT(antennaModel)
     DEFINE_SETTINGFACT(useSNRForPulseStrength)

@@ -42,7 +42,8 @@ public:
         ControllerStatusReceivingTags  = HEARTBEAT_STATUS_RECEIVING_TAGS,
         ControllerStatusHasTags        = HEARTBEAT_STATUS_HAS_TAGS,
         ControllerStatusDetecting      = HEARTBEAT_STATUS_DETECTING,
-        ControllerStatusCapture        = HEARTBEAT_STATUS_CAPTURE
+        ControllerStatusCapture        = HEARTBEAT_STATUS_CAPTURE,
+        ControllerStatusRecording      = HEARTBEAT_STATUS_RECORDING
     };
 
     Q_PROPERTY(bool                 controllerLostHeartbeat MEMBER  _controllerLostHeartbeat    NOTIFY controllerLostHeartbeatChanged)
@@ -65,6 +66,7 @@ public:
     DetectorList *      detectorList() { return DetectorList::instance(); }
     QString             holdFlightMode();
     static QString      holdFlightMode(Vehicle* vehicle);
+    static QString      orbitFlightMode();  // PX4 only
     uint32_t            controllerProtocolVersion() const { return _controllerProtocolVersion; }
     bool                protocolCompatible() const;
     bool                hasPriorBearing() const { return std::isfinite(_priorBearingDeg); }
@@ -83,9 +85,13 @@ public:
     TagDatabase* tagDatabase();
     CompanionLogDownloader* companionLogDownloader() { return &_companionLogDownloader; }
     OperationProgress*      operationProgress() { return &_operationProgress; }
+    /// Shows calibration sweep progress (degrees turned across both turns, 0..kCalibrationSweepDegrees) on the progress card.
+    void                    reportCalibrationSweepProgress(uint32_t state, uint32_t progressDeg, const QString& message);
+    static constexpr uint32_t kCalibrationSweepDegrees = 720;
 
     Q_INVOKABLE void autoDetection      ();
     Q_INVOKABLE void startRotation      (void);
+    Q_INVOKABLE void calibrationSweep   (void);
     Q_INVOKABLE void startDetection     (void);
     Q_INVOKABLE void stopDetection      (void);
     Q_INVOKABLE void rawCapture         (void);
@@ -151,6 +157,7 @@ private:
     void    _sendLogLevel               (void);
     /// Fire-and-forget tunnel frame outside a state machine; false if no compatible link.
     bool    _sendTunnelFrame            (const void* payload, size_t size);
+    bool    _sendTunnelFrame            (Vehicle* vehicle, const void* payload, size_t size);
 
     bool                    _activeRotation     = false;
     bool                    _rotationInProgress = false;
@@ -178,6 +185,8 @@ private:
 
     bool                    _controllerLostHeartbeat = true;
     QTimer                  _controllerHeartbeatTimer;
+    QElapsedTimer           _orphanRecordingStopTimer;
+    static constexpr int    kOrphanRecordingStopIntervalMSecs = 5000;
 
     CSVLogManager           _csvLogManager;
     CompanionLogDownloader  _companionLogDownloader;

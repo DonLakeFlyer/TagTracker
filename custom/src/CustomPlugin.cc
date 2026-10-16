@@ -10,6 +10,8 @@
 #include "SetFlightModeState.h"
 #include "StartDetectionState.h"
 #include "StopDetectionState.h"
+#include "YawSweepState.h"
+#include "DelayState.h"
 #include "FunctionState.h"
 #include "ConditionalState.h"
 #include "SayState.h"
@@ -349,6 +351,16 @@ void CustomPlugin::_handleTunnelHeartbeat(const mavlink_tunnel_t& tunnel)
             }
         }
     }
+    // A sweep's stop can be lost with the link, and nothing else ends a recording
+    if (_controllerStatus == ControllerStatusRecording && !_rotationInProgress
+        && (!_orphanRecordingStopTimer.isValid() || _orphanRecordingStopTimer.elapsed() > kOrphanRecordingStopIntervalMSecs)) {
+        _orphanRecordingStopTimer.start();
+        qCWarning(CustomPluginLog) << "Controller is recording with no calibration sweep running, stopping it";
+        StopIqRecording_t stop {};
+        stop.header.command    = COMMAND_ID_STOP_IQ_RECORDING;
+        stop.header.request_id = SendTunnelCommandState::nextRequestId();
+        _sendTunnelFrame(&stop, sizeof(stop));
+    }
     if (_controllerCPUTemp != heartbeat.cpu_temp_c) {
         _controllerCPUTemp = heartbeat.cpu_temp_c;
         emit controllerCPUTempChanged();
@@ -578,6 +590,140 @@ void CustomPlugin::startRotation(void)
     _startRotationMachine(stateMachine);
 }
 
+void CustomPlugin::calibrationSweep(void)
+{
+    qCDebug(CustomPluginLog) << "Calibration sweep requested";
+
+    if (!_validateVehicleAvailable()) {
+        return;
+    }
+    if (!MultiVehicleManager::instance()->activeVehicle()->airborne()) {
+        qgcApp()->showAppMessage(tr("Vehicle must be flying for a calibration sweep"));
+        return;
+    }
+    if (_rotationInProgress) {
+        qgcApp()->showAppMessage(tr("A rotation is already in progress"));
+        return;
+    }
+    if (!_validatePythonCollectionAllowed()) {
+        return;
+    }
+    if (!_validateAtLeastOneTagSelected()) {
+        return;
+    }
+
+    StartIqRecording_t startRecording {};
+    startRecording.header.command               = COMMAND_ID_START_IQ_RECORDING;
+    startRecording.radio_center_frequency_hz    = TagDatabase::instance()->channelizerTuner();
+    startRecording.gain                         = _customSettings->gain()->rawValue().toUInt();
+    if (startRecording.radio_center_frequency_hz == 0) {
+        qgcApp()->showAppMessage(tr("Channelizer tuner failed"));
+        return;
+    }
+
+    StopIqRecording_t stopRecording {};
+    stopRecording.header.command = COMMAND_ID_STOP_IQ_RECORDING;
+
+    const double yawRate = _customSettings->calibrationYawRate()->rawValue().toDouble();
+
+    auto stateMachine = new CustomStateMachine("Calibration Sweep", this);
+    stateMachine->setEventMode(CustomStateMachine::CancelOnFlightModeChange);
+
+    Vehicle* vehicle = stateMachine->vehicle();
+    // Only an orbit this sweep commanded may be ended by it; any other Orbit belongs to the pilot
+    auto orbitSent = std::make_shared<bool>(false);
+    auto inOurOrbit = [vehicle = QPointer<Vehicle>(vehicle), orbitSent]() {
+        return *orbitSent && vehicle && vehicle->flightMode() == orbitFlightMode();
+    };
+
+    // Stationary at the start heading, whatever the vehicle was doing before
+    auto holdState              = new SetFlightModeState(stateMachine, holdFlightMode(vehicle));
+    auto sendTagsState          = new SendTagsState(stateMachine);
+    auto startRecordingState    = new SendTunnelCommandState("StartIqRecording", stateMachine, reinterpret_cast<uint8_t*>(&startRecording), sizeof(startRecording));
+    auto announceStartState     = new SayState("AnnounceCalibrationStart", stateMachine, "Recording. Calibration sweep starting");
+    // Lets the recorder start and gives the fit a stationary lead-in at the start heading
+    auto leadInState            = new DelayState(stateMachine, 10 * 1000);
+    auto announceCWState        = new SayState("AnnounceClockwise", stateMachine, "Sweeping clockwise");
+    auto clockwiseState         = new YawSweepState(stateMachine, true /* clockwise */, yawRate, 0 /* progressOffsetDeg */);
+    auto announceCCWState       = new SayState("AnnounceCounterClockwise", stateMachine, "Sweeping counter clockwise");
+    auto counterClockwiseState  = new YawSweepState(stateMachine, false /* clockwise */, yawRate, 360 /* progressOffsetDeg */);
+    auto endOrbitState          = new ConditionalState("InOurOrbit", stateMachine, inOurOrbit);
+    auto endOrbitHoldState      = new SetFlightModeState(stateMachine, holdFlightMode(vehicle));
+    auto stopRecordingState     = new SendTunnelCommandState("StopIqRecording", stateMachine, reinterpret_cast<uint8_t*>(&stopRecording), sizeof(stopRecording));
+    auto announceEndState       = new SayState("AnnounceCalibrationEnd", stateMachine, "Calibration sweep complete");
+    auto finalState             = new QFinalState(stateMachine);
+
+    holdState->addTransition            (holdState,             &SetFlightModeState::flightModeChanged,     sendTagsState);
+    sendTagsState->addTransition        (sendTagsState,         &QState::finished,                          startRecordingState);
+    startRecordingState->addTransition  (startRecordingState,   &SendTunnelCommandState::commandSucceeded,  announceStartState);
+    announceStartState->addTransition   (announceStartState,    &SayState::advance,                         leadInState);
+    leadInState->addTransition          (leadInState,           &DelayState::delayComplete,                 announceCWState);
+    announceCWState->addTransition      (announceCWState,       &SayState::advance,                         clockwiseState);
+    clockwiseState->addTransition       (clockwiseState,        &YawSweepState::sweepComplete,              announceCCWState);
+    announceCCWState->addTransition     (announceCCWState,      &SayState::advance,                         counterClockwiseState);
+    counterClockwiseState->addTransition(counterClockwiseState, &YawSweepState::sweepComplete,              endOrbitState);
+    endOrbitState->addTransition        (endOrbitState,         &ConditionalState::advance,                 endOrbitHoldState);
+    endOrbitState->addTransition        (endOrbitState,         &ConditionalState::skipped,                 stopRecordingState);
+    endOrbitHoldState->addTransition    (endOrbitHoldState,     &SetFlightModeState::flightModeChanged,     stopRecordingState);
+    stopRecordingState->addTransition   (stopRecordingState,    &SendTunnelCommandState::commandSucceeded,  announceEndState);
+    announceEndState->addTransition     (announceEndState,      &SayState::advance,                         finalState);
+
+    connect(clockwiseState,         &YawSweepState::orbitSent, stateMachine, [orbitSent]() { *orbitSent = true; });
+    connect(counterClockwiseState,  &YawSweepState::orbitSent, stateMachine, [orbitSent]() { *orbitSent = true; });
+
+    stateMachine->registerStopHandler([this, vehicle = QPointer<Vehicle>(vehicle), inOurOrbit]() {
+        if (inOurOrbit()) {
+            vehicle->setFlightMode(holdFlightMode(vehicle));
+        }
+        StopIqRecording_t stop {};
+        stop.header.command    = COMMAND_ID_STOP_IQ_RECORDING;
+        stop.header.request_id = SendTunnelCommandState::nextRequestId();
+        if (!vehicle || !_sendTunnelFrame(vehicle, &stop, sizeof(stop))) {
+            qCWarning(CustomPluginLog) << "Not sending STOP_IQ_RECORDING: no compatible controller link";
+        }
+    });
+
+    stateMachine->setInitialState(holdState);
+
+    // The controller reports nothing during the sweep, so the card is driven locally
+    connect(stateMachine, &QStateMachine::finished, this, [this]() {
+        DetectorList::instance()->clearDetectors();
+        reportCalibrationSweepProgress(OPERATION_STATE_COMPLETE, kCalibrationSweepDegrees, tr("Calibration sweep complete"));
+    });
+    connect(stateMachine, &QStateMachine::stopped, this, [this]() {
+        DetectorList::instance()->clearDetectors();
+        reportCalibrationSweepProgress(OPERATION_STATE_FAILED, 0, tr("Calibration sweep cancelled"));
+    });
+
+    _startRotationMachine(stateMachine);
+}
+
+void CustomPlugin::reportCalibrationSweepProgress(uint32_t state, uint32_t progressDeg, const QString& message)
+{
+    OperationProgress_t frame {};
+    frame.header.command = COMMAND_ID_OPERATION_PROGRESS;
+    frame.command        = COMMAND_ID_START_IQ_RECORDING;
+    frame.request_id     = 0;
+    frame.step           = progressDeg;
+    frame.step_count     = kCalibrationSweepDegrees;
+
+    // A request_id 0 operation takes its title from its first frame's message
+    const QString title = tr("Calibration sweep");
+    const bool cardShowsSweep = _operationProgress.running() && _operationProgress.command() == COMMAND_ID_START_IQ_RECORDING
+                                && _operationProgress.title() == title;
+    if (!cardShowsSweep) {
+        frame.state = OPERATION_STATE_RUNNING;
+        strncpy(frame.message, title.toUtf8().constData(), sizeof(frame.message) - 1);
+        _operationProgress.handleFrame(frame);
+    }
+
+    frame.state = state;
+    memset(frame.message, 0, sizeof(frame.message));
+    strncpy(frame.message, message.toUtf8().constData(), sizeof(frame.message) - 1);
+
+    _operationProgress.handleFrame(frame);
+}
+
 void CustomPlugin::_startRotationMachine(CustomStateMachine* stateMachine)
 {
     // Reserve the rotation before start() so a second request during async setup is rejected
@@ -759,6 +905,11 @@ QString CustomPlugin::holdFlightMode(Vehicle* vehicle)
     return vehicle->px4Firmware() ? "Hold" : "Guided";
 }
 
+QString CustomPlugin::orbitFlightMode()
+{
+    return QStringLiteral("Orbit");
+}
+
 void CustomPlugin::_say(QString text)
 {
     qCDebug(CustomPluginLog) << "text:" << text;
@@ -866,6 +1017,11 @@ void CustomPlugin::_sendLogLevel()
 
 bool CustomPlugin::_sendTunnelFrame(const void* payload, size_t size)
 {
+    return _sendTunnelFrame(MultiVehicleManager::instance()->activeVehicle(), payload, size);
+}
+
+bool CustomPlugin::_sendTunnelFrame(Vehicle* vehicle, const void* payload, size_t size)
+{
     if (size > sizeof(mavlink_tunnel_t::payload)) {
         qCCritical(CustomPluginLog) << "Tunnel frame too large size:" << size
                                     << "max:" << sizeof(mavlink_tunnel_t::payload);
@@ -875,7 +1031,6 @@ bool CustomPlugin::_sendTunnelFrame(const void* payload, size_t size)
         return false;
     }
 
-    Vehicle* vehicle = MultiVehicleManager::instance()->activeVehicle();
     if (!vehicle) {
         return false;
     }
@@ -1076,6 +1231,7 @@ const char* CustomPlugin::controllerStatusString(int status)
     case ControllerStatusHasTags:       return "HasTags";
     case ControllerStatusDetecting:     return "Detecting";
     case ControllerStatusCapture:       return "Capture";
+    case ControllerStatusRecording:     return "Recording";
     default:                            return "Unknown";
     }
 }
