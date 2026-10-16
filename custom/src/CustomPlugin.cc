@@ -547,7 +547,7 @@ void CustomPlugin::autoDetection()
     announceAutoEndState->addTransition     (announceAutoEndState,      &SayState::advance,       stillInHoldState);
     stillInHoldState->addTransition         (stillInHoldState,          &ConditionalState::advance,         rtlState);
     stillInHoldState->addTransition         (stillInHoldState,          &ConditionalState::skipped,         finalState);
-    rtlState->addTransition                 (rtlState,                  &QState::finished,                  finalState);
+    rtlState->addTransition                 (rtlState,                  &SetFlightModeState::flightModeChanged, finalState);
 
     stateMachine->registerStopHandler([this]() { _sendStopDetectionDirect(); });
 
