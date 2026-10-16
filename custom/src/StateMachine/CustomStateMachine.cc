@@ -31,6 +31,13 @@ CustomStateMachine::CustomStateMachine(const QString& machineName, QObject* pare
 
 void CustomStateMachine::setError(const QString& errorString)
 {
+    // stop() is asynchronous: a state timer can still fire after a pilot cancel and must not RTL
+    if (_stopping) {
+        qCDebug(CustomPluginLog) << "machine:" << objectName() << "ignoring error while stopping:" << errorString;
+        return;
+    }
+    _stopping = true;
+
     const bool rtlOnError = _eventMode & RTLOnError;
 
     qCWarning(CustomPluginLog) << "machine:" << objectName() << "error:" << errorString;
@@ -57,9 +64,11 @@ void CustomStateMachine::displayError()
 
 void CustomStateMachine::_flightModeChanged(const QString& flightMode)
 {
-    const QString holdFlightMode = qobject_cast<CustomPlugin*>(CustomPlugin::instance())->holdFlightMode();
+    const QString holdFlightMode = CustomPlugin::holdFlightMode(vehicle());
 
-    if (_eventMode & CancelOnFlightModeChange && flightMode != holdFlightMode) {
+    if (_eventMode & CancelOnFlightModeChange && flightMode != holdFlightMode
+        && (_allowedFlightMode.isEmpty() || flightMode != _allowedFlightMode)) {
+        _stopping = true;
         disconnect(vehicle(), &Vehicle::flightModeChanged, this, &CustomStateMachine::_flightModeChanged);
         AudioOutput::instance()->say(QStringLiteral("%1 cancelled. User is in control of vehicle.").arg(objectName()));
         _runStopHandler();
@@ -79,6 +88,7 @@ void CustomStateMachine::_vehicleRemoved(Vehicle* vehicle)
         return;
     }
     qCWarning(CustomPluginLog) << "Vehicle removed while running, cancelling machine:" << objectName();
+    _stopping = true;
     AudioOutput::instance()->say(QStringLiteral("%1 cancelled. Vehicle disconnected.").arg(objectName()));
     _runStopHandler();
     stopMachine();
