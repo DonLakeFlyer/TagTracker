@@ -147,6 +147,8 @@ set(CUSTOM_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/DetectorList.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/OperationProgress.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/OperationProgress.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/PulseLogSidecar.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/PulseLogSidecar.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/PulseMapItem.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/PythonDetectorInfo.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/PythonDetectorInfo.h
@@ -159,6 +161,8 @@ set(CUSTOM_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/TagDatabase.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/TunnelProtocolText.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/TunnelProtocolText.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/TelemetryPairing.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/TelemetryPairing.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/UavrtDetectorInfo.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/UavrtDetectorInfo.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/CustomState.cc
@@ -198,17 +202,23 @@ if(QGC_BUILD_TESTING)
         ${CMAKE_CURRENT_SOURCE_DIR}/test/CustomStateMachineTest.h
         ${CMAKE_CURRENT_SOURCE_DIR}/test/OperationProgressTest.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/test/OperationProgressTest.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/PulseLogFolderTest.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/PulseLogFolderTest.h
         ${CMAKE_CURRENT_SOURCE_DIR}/test/TagTrackerPulseDisplayTest.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/test/TagTrackerPulseDisplayTest.h
         ${CMAKE_CURRENT_SOURCE_DIR}/test/TunnelProtocolTextTest.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/test/TunnelProtocolTextTest.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/TelemetryPairingTest.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/TelemetryPairingTest.h
     )
 
     include(QGCTest)
     add_qgc_test(CustomStateMachineTest LABELS Unit)
     add_qgc_test(OperationProgressTest LABELS Unit)
+    add_qgc_test(PulseLogFolderTest LABELS Integration Vehicle)
     add_qgc_test(TagTrackerPulseDisplayTest LABELS Unit)
     add_qgc_test(TunnelProtocolTextTest LABELS Unit)
+    add_qgc_test(TelemetryPairingTest LABELS Unit)
 endif()
 
 set(CUSTOM_SOURCES ${CUSTOM_SOURCES} PARENT_SCOPE)
