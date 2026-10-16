@@ -2,11 +2,14 @@
 #include "CustomLoggingCategory.h"
 #include "Fact.h"
 
-FactWaitForValueTarget::FactWaitForValueTarget(QState* parentState, Fact* fact, double targetValue, double targetVariance, int waitMsecs)
+#include <cmath>
+
+FactWaitForValueTarget::FactWaitForValueTarget(QState* parentState, Fact* fact, double targetValue, double targetVariance, int waitMsecs, bool angleDegrees)
     : CustomState("FactWaitForValueTarget", parentState)
     , _fact                 (fact)
     , _targetValue          (targetValue)
     , _targetVariance       (targetVariance)
+    , _angleDegrees         (angleDegrees)
 {
     connect(&_targetWaitTimer, &QTimer::timeout, this, &FactWaitForValueTarget::_waitTimeout);
 
@@ -38,7 +41,8 @@ void FactWaitForValueTarget::_rawValueChanged(QVariant rawValue)
         return;
     }
 
-    if (qAbs(rawValue.toDouble() - _targetValue) <= _targetVariance) {
+    const double error = rawValue.toDouble() - _targetValue;
+    if (qAbs(_angleDegrees ? std::remainder(error, 360.0) : error) <= _targetVariance) {
         // Target value reached
         qCDebug(CustomPluginLog) << "Target value reached fact:" << _fact->name()
                                  << "targetValue:" << _targetValue;

@@ -7,6 +7,8 @@
 #include <QtTest/QSignalSpy>
 
 #include "CustomStateMachine.h"
+#include "Fact.h"
+#include "FactWaitForValueTarget.h"
 #include "Vehicle.h"
 
 void CustomStateMachineTest::_flightModeChangeAfterFinishDoesNotCancel()
@@ -92,6 +94,25 @@ void CustomStateMachineTest::_errorAfterCancelIsIgnored()
     const QString flightMode = _vehicle->flightMode();
     machine->setError(QStringLiteral("late error"));
     QCOMPARE(_vehicle->flightMode(), flightMode);
+}
+
+void CustomStateMachineTest::_headingTargetWrapsAtNorth()
+{
+    Fact heading(0, QStringLiteral("heading"), FactMetaData::valueTypeDouble);
+    heading.setRawValue(10.0);
+
+    QScopedPointer<CustomStateMachine> machine(new CustomStateMachine(QStringLiteral("Test"), nullptr));
+    auto waitState = new FactWaitForValueTarget(machine.data(), &heading, 0.0, 1.0, 5000, true /* angleDegrees */);
+    auto finalState = new QFinalState(machine.data());
+    waitState->addTransition(waitState, &FactWaitForValueTarget::success, finalState);
+    machine->setInitialState(waitState);
+
+    QSignalSpy finishedSpy(machine.data(), &QStateMachine::finished);
+    machine->start();
+    QTRY_VERIFY_WITH_TIMEOUT(machine->isRunning(), 5000);
+
+    heading.setRawValue(359.6);
+    QTRY_VERIFY_WITH_TIMEOUT(!finishedSpy.isEmpty(), 1000);
 }
 
 UT_REGISTER_TEST(CustomStateMachineTest, TestLabel::Unit)
