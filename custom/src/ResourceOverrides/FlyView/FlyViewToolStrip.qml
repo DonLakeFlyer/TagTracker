@@ -8,18 +8,12 @@ import QGroundControl.CustomControls
 ToolStrip {
     id: _root
 
-    signal displayPreFlightChecklist
-
     ToolStripActionList {
         id: fullActionList
-
-        signal displayPreFlightChecklist
 
         property var customController:  _guidedController._customController
         property var activeVehicle:     QGroundControl.multiVehicleManager.activeVehicle
         property bool controllerIdle:   QGroundControl.corePlugin.controllerStatus == CustomPlugin.ControllerStatusIdle || QGroundControl.corePlugin.controllerStatus == CustomPlugin.ControllerStatusHasLogs
-
-        onDisplayPreFlightChecklist: _root.displayPreFlightChecklist()
 
         model: [
             GuidedActionTakeoff { },
@@ -33,8 +27,6 @@ ToolStrip {
 
     ToolStripActionList {
         id: autoActionList
-
-        signal displayPreFlightChecklist
 
         property var customController:  _guidedController._customController
         property var activeVehicle:     QGroundControl.multiVehicleManager.activeVehicle
