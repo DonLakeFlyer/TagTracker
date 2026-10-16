@@ -36,7 +36,6 @@ public:
     static QGCCorePlugin *instance();
 
     // IMPORTANT: This enum must match the heartbeat status values in TunnelProtocol.h
-    Q_ENUMS(ControllerStatus)
     enum ControllerStatus {
         ControllerStatusIdle           = HEARTBEAT_STATUS_IDLE,
         ControllerStatusReceivingTags  = HEARTBEAT_STATUS_RECEIVING_TAGS,
@@ -45,6 +44,7 @@ public:
         ControllerStatusCapture        = HEARTBEAT_STATUS_CAPTURE,
         ControllerStatusRecording      = HEARTBEAT_STATUS_RECORDING
     };
+    Q_ENUM(ControllerStatus)
 
     Q_PROPERTY(bool                 controllerLostHeartbeat MEMBER  _controllerLostHeartbeat    NOTIFY controllerLostHeartbeatChanged)
     Q_PROPERTY(int                  controllerStatus        MEMBER  _controllerStatus           NOTIFY controllerStatusChanged)

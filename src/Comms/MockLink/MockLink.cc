@@ -518,6 +518,12 @@ void MockLink::sendStatusTextMessages()
     _sendStatusTextMessages();
 }
 
+void MockLink::sendBootStatusTextMessages()
+{
+    sendStatusTextMessage(MAV_SEVERITY_INFO, QStringLiteral("Status text boot info"));
+    sendStatusTextMessage(MAV_SEVERITY_NOTICE, QStringLiteral("Status text boot notice"));
+}
+
 bool MockLink::_allocateMavlinkChannel()
 {
     // should only be called by the LinkManager during setup
@@ -2363,6 +2369,7 @@ void MockLink::_handleCommandInt(const mavlink_message_t &msg)
         _mavCustomMode = static_cast<uint32_t>(request.param2);
         commandResult = MAV_RESULT_ACCEPTED;
         break;
+    case MAV_CMD_DO_REPOSITION:  // Unit test support: lets tests verify how firmware plugins send reposition
     case MAV_CMD_MISSION_START:
         commandResult = MAV_RESULT_ACCEPTED;
         break;
@@ -3453,22 +3460,28 @@ void MockLink::_sendAvailableMode(uint8_t modeIndexOneBased)
     qCDebug(MockLinkLog) << "_sendAvailableMode modeIndexOneBased:" << modeIndexOneBased;
 
     const FlightMode_t &availableMode = _flightModeList()[modeIndexOneBased - 1];
+
+    if (_availableModesSequenceBumpAtIndex.load() == modeIndexOneBased) {
+        ++_availableModesMonitorSeqNumber;
+
+        if (_availableModesSequenceBumpRepeatedly.load() && _availableModesMonitorSeqNumber.load() == 0) {
+            ++_availableModesMonitorSeqNumber;
+        }
+
+        if (!_availableModesSequenceBumpRepeatedly.load()) {
+            _availableModesSequenceBumpAtIndex = 0;
+        }
+    }
+
     char modeName[MAVLINK_MSG_AVAILABLE_MODES_FIELD_MODE_NAME_LEN] = {};
     std::strncpy(modeName, availableMode.name, sizeof(modeName) - 1);
 
     mavlink_message_t msg{};
 
     (void) mavlink_msg_available_modes_pack_chan(
-        _vehicleSystemId,
-        _vehicleComponentId,
-        _outgoingMavlinkChannel,
-        &msg,
-        _availableModesCount(),
-        modeIndexOneBased,
-        availableMode.standard_mode,
-        availableMode.custom_mode,
-        availableMode.canBeSet ? 0 : MAV_MODE_PROPERTY_NOT_USER_SELECTABLE,
-        modeName);
+        _vehicleSystemId, _vehicleComponentId, _outgoingMavlinkChannel, &msg, _availableModesCount(), modeIndexOneBased,
+        availableMode.standard_mode, availableMode.custom_mode,
+        availableMode.canBeSet ? 0 : MAV_MODE_PROPERTY_NOT_USER_SELECTABLE, modeName, _availableModesMonitorSeqNumber);
     respondWithMavlinkMessage(msg);
 }
 
