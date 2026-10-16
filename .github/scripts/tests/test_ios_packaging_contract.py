@@ -139,16 +139,20 @@ def test_ios_workflow_builds_device_and_simulator_targets() -> None:
             "runner": "macos-15",
             "build_type": "Release",
             "preset": "iOS",
+            "qt_arch": "ios_device",
         },
         {
             "target": "simulator",
             "runner": "macos-15-intel",
             "build_type": "Debug",
             "preset": "iOS-debug",
+            "qt_arch": "ios_simulator_x86_64",
         },
     ]
 
     steps = {step["name"]: step for step in job["steps"]}
+    setup = steps["Build Setup (iOS)"]["with"]
+    assert setup["qt-arch"] == "${{ matrix.qt_arch }}"
     configure = steps["Configure"]["with"]
     assert "'iOS-appstore'" in configure["preset"]
     assert "github.ref_type == 'tag'" in configure["preset"]
@@ -198,6 +202,9 @@ def test_ios_qt_action_exports_cross_compile_roots() -> None:
     )
     assert steps["Install Qt (Host macOS)"]["id"] == "qt-host"
     assert steps["Install Qt for iOS"]["id"] == "qt-target"
+    assert steps["Install Qt for iOS"]["with"]["arch"] == "${{ inputs.arch }}"
+    for step_name in ("Install Qt (Host macOS)", "Install Qt for iOS"):
+        assert steps[step_name]["with"]["aqt-source"] == "${{ inputs.aqt-source }}"
 
 
 def test_ios_contract_dependencies_are_sparse_checked_out() -> None:
@@ -278,15 +285,15 @@ def test_selects_matching_ios_xcframework_slices(tmp_path: Path) -> None:
     script.write_text(
         f'include("{REPO_ROOT}/cmake/modules/AppleXCFramework.cmake")\n'
         f'qgc_find_ios_xcframework_slice(XCFRAMEWORK "{xcframework}" PLATFORM iphoneos '
-        "ARCHITECTURES arm64 OUT_VAR device_framework)\n"
+        "ARCHITECTURES arm64 OUT_VAR device_slice)\n"
         f'qgc_find_ios_xcframework_slice(XCFRAMEWORK "{xcframework}" PLATFORM iphonesimulator '
-        "ARCHITECTURES arm64 x86_64 OUT_VAR simulator_framework)\n"
-        f'file(WRITE "{result_path}" "${{device_framework}}\n${{simulator_framework}}\n")\n'
+        "ARCHITECTURES arm64 x86_64 OUT_VAR simulator_slice)\n"
+        f'file(WRITE "{result_path}" "${{device_slice}}\n${{simulator_slice}}\n")\n'
     )
 
     subprocess.run(["cmake", "-P", str(script)], check=True, capture_output=True, text=True)
 
     assert result_path.read_text().splitlines() == [
-        str(xcframework / "ios-arm64/Video.framework"),
-        str(xcframework / "ios-arm64_x86_64-simulator/Video.framework"),
+        str(xcframework / "ios-arm64"),
+        str(xcframework / "ios-arm64_x86_64-simulator"),
     ]

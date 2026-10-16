@@ -279,11 +279,10 @@ bool QGCApplication::_initQmlRootWindow()
     _qmlAppEngine->addImageProvider(_qgcImageProviderId, new QGCImageProvider());
     _qmlAppEngine->addImageProvider(QLatin1String(ColoredSvgImageProvider::ProviderId), new ColoredSvgImageProvider());
 
+    // RHI graphics config / forced device must be applied before the root window's scene graph initializes. Android
+    // exposes the window synchronously when the root QML shows it, so configure it as soon as its surface exists.
+    GraphicsSetup::configureMainWindowOnCreation();
     QGCCorePlugin::instance()->createRootWindow(_qmlAppEngine);
-
-    // The root QQuickWindow exists now (load() is synchronous) but its scene graph has not been
-    // initialized yet -- the only safe point to apply RHI graphics config / forced device.
-    GraphicsSetup::configureMainWindow(mainRootWindow());
 
     return mainRootWindow() != nullptr;
 }
@@ -587,12 +586,6 @@ bool QGCApplication::compressEvent(QEvent* event, QObject* receiver, QPostEventL
         return QGuiApplication::compressEvent(event, receiver, postedEvents);
     }
 
-    // QMetaCallEvent::id() was removed in 6.11; its protected Data is reachable from a derived helper.
-    struct MetaCallHelper : public QMetaCallEvent {
-        int id() const { return d.method_offset_ + d.method_relative_; }
-    };
-    const auto methodId = [](const QMetaCallEvent *e) { return static_cast<const MetaCallHelper*>(e)->id(); };
-
     for (QPostEventList::iterator it = postedEvents->begin(); it != postedEvents->end(); ++it) {
         QPostEvent& cur = *it;
         if (cur.receiver != receiver || cur.event == 0 || cur.event->type() != event->type()) {
@@ -600,7 +593,7 @@ bool QGCApplication::compressEvent(QEvent* event, QObject* receiver, QPostEventL
         }
         const QMetaCallEvent* cur_mce = static_cast<QMetaCallEvent*>(cur.event);
         if (cur_mce->sender() != mce->sender() || cur_mce->signalId() != mce->signalId() ||
-            methodId(cur_mce) != methodId(mce)) {
+            cur_mce->id() != mce->id()) {
             continue;
         }
 
