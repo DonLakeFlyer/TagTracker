@@ -11,10 +11,12 @@
 #include "StartDetectionState.h"
 #include "StopDetectionState.h"
 #include "FunctionState.h"
+#include "ConditionalState.h"
 #include "SayState.h"
 #include "RotationInfo.h"
 
 #include "Vehicle.h"
+#include "FirmwarePlugin.h"
 #include "VehicleLinkManager.h"
 #include "QGCApplication.h"
 #include "AppMessages.h"
@@ -492,6 +494,9 @@ void CustomPlugin::autoDetection()
     connect(MultiVehicleManager::instance()->activeVehicle(), &Vehicle::armedChanged, this, &CustomPlugin::_stopDetectionOnDisarmed, Qt::UniqueConnection);
 
     auto stateMachine = new CustomStateMachine("Auto Detection", this);
+    // A pilot mode change at any point, including during takeoff, ends the machine
+    stateMachine->setEventMode(CustomStateMachine::CancelOnFlightModeChange);
+    stateMachine->setAllowedFlightMode(MultiVehicleManager::instance()->activeVehicle()->firmwarePlugin()->takeOffFlightMode());
 
     AirspyStatusInfo_t airspyStatusInfo;
     memset(&airspyStatusInfo, 0, sizeof(airspyStatusInfo));
@@ -500,13 +505,22 @@ void CustomPlugin::autoDetection()
     auto announceAutoStartState = new SayState("AnnounceAuto", stateMachine, "Starting auto detection");
     auto airspyStatusState      = new SendTunnelCommandState("AirspyStatusCheck", stateMachine, reinterpret_cast<uint8_t*>(&airspyStatusInfo), sizeof(airspyStatusInfo));
     auto takeoffState           = new TakeoffState(stateMachine, _customSettings->takeoffAltitude()->rawValue().toDouble());
-    auto eventModeRTLState      = new FunctionState("eventModeRTLState", stateMachine, [stateMachine] () { stateMachine->setEventMode(CustomStateMachine::CancelOnFlightModeChange | CustomStateMachine::RTLOnError); });
+    auto eventModeRTLState      = new FunctionState("eventModeRTLState", stateMachine, [stateMachine] () {
+        stateMachine->setAllowedFlightMode(QString());
+        stateMachine->setEventMode(CustomStateMachine::CancelOnFlightModeChange | CustomStateMachine::RTLOnError);
+    });
     // Python collections start/stop their own detection per slice
     auto startDetectionState    = new StartDetectionState(stateMachine, false /* sendCommand */);
     auto stopDetectionState     = new StopDetectionState(stateMachine, false /* sendCommand */);
     auto rotateAndCaptureState  = new PythonRotateAndCaptureState(stateMachine);
     auto announceAutoEndState   = new SayState("AnnounceAutoEnd", stateMachine, "Auto detection complete. Returning");
-    auto eventModeNoneState     = new FunctionState("eventModeNoneState", stateMachine, [stateMachine] () { stateMachine->setEventMode(0); });
+    // Never RTL over a pilot who has taken over; from here only our own RTL is exempt
+    auto stillInHoldState       = new ConditionalState("StillInHold", stateMachine,
+                                                       [stateMachine] () { Vehicle* vehicle = stateMachine->vehicle(); return vehicle && vehicle->flightMode() == holdFlightMode(vehicle); },
+                                                       [stateMachine] () {
+                                                           stateMachine->setAllowedFlightMode(stateMachine->vehicle()->rtlFlightMode());
+                                                           stateMachine->setEventMode(CustomStateMachine::CancelOnFlightModeChange);
+                                                       });
     auto rtlState               = new SetFlightModeState(stateMachine, MultiVehicleManager::instance()->activeVehicle()->rtlFlightMode());
     auto finalState             = new QFinalState(stateMachine);
 
@@ -516,10 +530,11 @@ void CustomPlugin::autoDetection()
     startDetectionState->addTransition      (startDetectionState,       &CustomState::finished,             takeoffState);
     takeoffState->addTransition             (takeoffState,              &TakeoffState::takeoffComplete,     eventModeRTLState);
     eventModeRTLState->addTransition        (eventModeRTLState,         &FunctionState::advance,  rotateAndCaptureState);
-    rotateAndCaptureState->addTransition    (rotateAndCaptureState,     &QState::finished,                  eventModeNoneState);
-    eventModeNoneState->addTransition       (eventModeNoneState,        &FunctionState::advance,  stopDetectionState);
+    rotateAndCaptureState->addTransition    (rotateAndCaptureState,     &QState::finished,                  stopDetectionState);
     stopDetectionState->addTransition       (stopDetectionState,        &CustomState::finished,             announceAutoEndState);
-    announceAutoEndState->addTransition     (announceAutoEndState,      &SayState::advance,       rtlState);
+    announceAutoEndState->addTransition     (announceAutoEndState,      &SayState::advance,       stillInHoldState);
+    stillInHoldState->addTransition         (stillInHoldState,          &ConditionalState::advance,         rtlState);
+    stillInHoldState->addTransition         (stillInHoldState,          &ConditionalState::skipped,         finalState);
     rtlState->addTransition                 (rtlState,                  &QState::finished,                  finalState);
 
     stateMachine->registerStopHandler([this]() { _sendStopDetectionDirect(); });
@@ -736,7 +751,12 @@ void CustomPlugin::cleanLogs()
 
 QString CustomPlugin::holdFlightMode(void)
 {
-    return MultiVehicleManager::instance()->activeVehicle()->px4Firmware() ? "Hold" : "Guided";
+    return holdFlightMode(MultiVehicleManager::instance()->activeVehicle());
+}
+
+QString CustomPlugin::holdFlightMode(Vehicle* vehicle)
+{
+    return vehicle->px4Firmware() ? "Hold" : "Guided";
 }
 
 void CustomPlugin::_say(QString text)

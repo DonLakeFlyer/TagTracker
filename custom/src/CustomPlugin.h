@@ -64,6 +64,7 @@ public:
     bool                isPythonMode    () { return _customSettings->isPythonMode(); }
     DetectorList *      detectorList() { return DetectorList::instance(); }
     QString             holdFlightMode();
+    static QString      holdFlightMode(Vehicle* vehicle);
     uint32_t            controllerProtocolVersion() const { return _controllerProtocolVersion; }
     bool                protocolCompatible() const;
     bool                hasPriorBearing() const { return std::isfinite(_priorBearingDeg); }

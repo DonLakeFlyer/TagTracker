@@ -17,6 +17,8 @@ public:
 
     void setError(const QString& errorString);
     void registerStopHandler(std::function<void()> handler) { _stopHandler = handler; }
+    /// A mode the machine itself puts the vehicle in, so entering it is not a user cancel.
+    void setAllowedFlightMode(const QString& flightMode) { _allowedFlightMode = flightMode; }
 
     enum {
         CancelOnFlightModeChange = 0x01,
@@ -36,6 +38,8 @@ private:
 
     QString                 _errorString;
     uint                    _eventMode = 0;
+    QString                 _allowedFlightMode;
     bool                    _vehicleLost = false;
+    bool                    _stopping = false;  // cancelled or failed; later errors are ignored
     std::function<void()>   _stopHandler;
 };

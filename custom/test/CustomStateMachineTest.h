@@ -9,4 +9,6 @@ class CustomStateMachineTest : public VehicleTest
 private slots:
     void _flightModeChangeAfterFinishDoesNotCancel();
     void _flightModeChangeWhileRunningCancels();
+    void _allowedFlightModeDoesNotCancel();
+    void _errorAfterCancelIsIgnored();
 };
