@@ -220,13 +220,19 @@ public:
     /// firmware storing calibration results (e.g. CAL_MAG0_ID).
     void setInt32ParamValue(int componentId, const QString &paramName, int32_t value) { _mapParamName2Value[componentId][paramName] = QVariant::fromValue(value); }
 
-    /// Returns the current MockLink-side value of a parameter. Used by unit tests
-    /// to verify that PARAM_SET writes reached the simulated firmware.
-    QVariant paramValue(int componentId, const QString &paramName) const { return _mapParamName2Value.value(componentId).value(paramName); }
+    /// Returns the current MockLink-side value of a parameter, including PX4 unused parameters. Used by unit
+    /// tests to verify that PARAM_SET writes reached the simulated firmware.
+    QVariant paramValue(int componentId, const QString& paramName) const;
 
     /// Override the OPEN_DRONE_ID_ARM_STATUS the simulated RID device sends at 1Hz.
     /// status is a MAV_ODID_ARM_STATUS value.
     void setRemoteIDArmStatus(uint8_t status, const QString& error);
+
+    /// Sets the MAV_SYS_STATUS_PREARM_CHECK enabled and health bits in the 1Hz SYS_STATUS
+    void setPrearmCheck(bool enabled, bool passed)
+    {
+        _prearmCheck = (enabled ? _prearmCheckEnabled : 0) | (passed ? _prearmCheckPassed : 0);
+    }
 
     static MockLink *startPX4MockLink(MockConfiguration::Options options = MockConfiguration::OptionNone, MockConfiguration::FailureMode_t failureMode = MockConfiguration::FailNone, MockConfiguration::VideoStreamType videoStreamType = MockConfiguration::VideoStreamNone);
     /// Starts a MockLink from a fully caller-configured MockConfiguration (ownership transfers to LinkManager)
@@ -323,6 +329,7 @@ private:
     void _handleParamMapRC(const mavlink_message_t &msg);
     void _handleSetupSigning(const mavlink_message_t &msg);
     void _sendParamError(int componentId, const char *paramId, int16_t paramIndex, uint8_t errorCode);
+    void _sendPX4UnusedParamValue(const QString& paramName);
     void _handleRequestMessage(const mavlink_command_long_t &request, bool &accepted, bool &noAck);
     void _handleRequestMessageAutopilotVersion(const mavlink_command_long_t &request, bool &accepted);
     void _handleRequestMessageDebug(const mavlink_command_long_t &request, bool &accepted, bool &noAck);
@@ -455,6 +462,9 @@ private:
 
     double _vehicleAltitudeAMSL = _defaultVehicleHomeAltitude;
     std::atomic<bool> _commLost = false;
+    static constexpr uint8_t _prearmCheckEnabled = 1 << 0;
+    static constexpr uint8_t _prearmCheckPassed = 1 << 1;
+    std::atomic<uint8_t> _prearmCheck = 0;  ///< One atomic so SYS_STATUS never sees half of a setPrearmCheck() update
     std::atomic<bool> _duplicateResponses = false;
     bool _mavlinkV2Upgraded = false;    ///< True once outgoing traffic has switched from v1 to v2
     bool _signingEnabled = false;
@@ -556,6 +566,9 @@ private:
     QMap<uint32_t, mavlink_message_t> _lastReceivedMavlinkMessageMap;
     QMap<int, QMap<QString, QVariant>> _mapParamName2Value;
     QMap<int, QMap<QString, MAV_PARAM_TYPE>> _mapParamName2MavParamType;
+    /// PX4 only streams parameters a module has looked up. These autopilot int32 parameters exist on the vehicle
+    /// but are left out of the parameter list, while reads and writes by name are still answered.
+    QMap<QString, int32_t> _px4UnusedParams;
 
     struct ADSBVehicle {
         QGeoCoordinate coordinate;
