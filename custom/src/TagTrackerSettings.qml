@@ -24,7 +24,7 @@ SettingsPage {
         TagManufacturersDialog { }
     }
 
-    SettingsGroupLayout {
+    QGCGroupBox {
         Layout.fillWidth:   true
         heading:            qsTr("Tags")
 
@@ -105,7 +105,7 @@ SettingsPage {
         }
     }
 
-    SettingsGroupLayout {
+    QGCGroupBox {
         Layout.fillWidth:   true
         heading:            qsTr("Flight")
 
@@ -156,7 +156,7 @@ SettingsPage {
         }
     }
 
-    SettingsGroupLayout {
+    QGCGroupBox {
         Layout.fillWidth:   true
         heading:            qsTr("Detection")
 
@@ -242,7 +242,7 @@ SettingsPage {
         }
     }
 
-    SettingsGroupLayout {
+    QGCGroupBox {
         Layout.fillWidth:   true
         heading:            qsTr("Display")
 

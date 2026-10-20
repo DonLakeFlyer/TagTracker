@@ -16,6 +16,14 @@ HealthAndArmingCheckProblem::HealthAndArmingCheckProblem(const QString& message,
     qCDebug(HealthAndArmingCheckReportLog) << this;
 }
 
+void HealthAndArmingCheckProblem::setAcknowledged(bool acknowledged)
+{
+    if (acknowledged != _acknowledged) {
+        _acknowledged = acknowledged;
+        emit acknowledgedChanged();
+    }
+}
+
 /*===========================================================================*/
 
 HealthAndArmingCheckReport::HealthAndArmingCheckReport(QObject *parent)
@@ -35,42 +43,56 @@ void HealthAndArmingCheckReport::update(uint8_t compid, const EventHandler &even
     if (compid != MAV_COMP_ID_AUTOPILOT1) {
         return;
     }
-    if (flightModeGroup == -1) {
-        qCWarning(HealthAndArmingCheckReportLog) << "Flight mode group not set";
-        return;
+
+    // A mode missing from the metadata still gets the report: the mode group results are valid for other modes
+    const bool currentModeKnown = (flightModeGroup >= 0) && (flightModeGroup < MaxModeGroups);
+    if (!currentModeKnown) {
+        flightModeGroup = -1;
+        if (!_supported || (_modeGroupResults.currentModeGroup != -1)) {
+            qCWarning(HealthAndArmingCheckReportLog) << "Flight mode group not set";
+        }
     }
     _supported = true;
 
     const events::HealthAndArmingChecks::Results &results = eventHandler.healthAndArmingChecks()->results();
 
-    _problemsForCurrentMode->clearAndDeleteContents();
-    _hasWarningsOrErrors = false;
-    for (const auto& check : results.checks(flightModeGroup)) {
+    QList<Check> checks;
+    for (const auto& check : results.checks()) {
         QString severity = "";
         if (events::externalLogLevel(check.log_levels) <= events::Log::Error) {
             severity = "error";
-            _hasWarningsOrErrors = true;
         } else if (events::externalLogLevel(check.log_levels) <= events::Log::Warning) {
             severity = "warning";
-            _hasWarningsOrErrors = true;
         }
 
         QString description = QString::fromStdString(check.description);
-        _problemsForCurrentMode->append(new HealthAndArmingCheckProblem(
-            QString::fromStdString(check.message),
-            description.replace("\n", "<br/>"),
-            severity,
-            this));
+        checks.append(Check{
+            .ackKey = (static_cast<quint64>(check.id) << 32) | check.affected_health_component_index,
+            .message = QString::fromStdString(check.message),
+            .description = description.replace("\n", "<br/>"),
+            .severity = severity,
+            // Without a current mode every check is listed, since any of them might apply
+            .inCurrentMode = !currentModeKnown || ((check.affected_mode_groups & (1ull << flightModeGroup)) != 0),
+        });
     }
+    _rebuild(checks);
 
-    _canArm = results.canArm(flightModeGroup);
-    if (_missionModeGroup != -1) {
-        // TODO: use results.canRun(_missionModeGroup) while armed
-        _canStartMission = results.canArm(_missionModeGroup);
+    _modeGroupResults.currentModeGroup = flightModeGroup;
+    _modeGroupResults.canArm = 0;
+    _modeGroupResults.canRun = 0;
+    for (int modeGroup = 0; modeGroup < MaxModeGroups; modeGroup++) {
+        const quint64 modeGroupBit = 1ull << modeGroup;
+        if (results.canArm(modeGroup)) {
+            _modeGroupResults.canArm |= modeGroupBit;
+        }
+        if (results.canRun(modeGroup)) {
+            _modeGroupResults.canRun |= modeGroupBit;
+        }
     }
-    if (_takeoffModeGroup != -1) {
-        _canTakeoff = results.canArm(_takeoffModeGroup);
-    }
+    qCDebug(HealthAndArmingCheckReportLog)
+        << "currentModeGroup:" << flightModeGroup << "canArm:" << Qt::hex << _modeGroupResults.canArm
+        << "canRun:" << _modeGroupResults.canRun << Qt::dec << "checks:" << checks.count()
+        << "currentModeProblems:" << _problemsForCurrentMode->count();
 
     const auto& healthComponents = results.healthComponents().health_components;
 
@@ -90,25 +112,65 @@ void HealthAndArmingCheckReport::update(uint8_t compid, const EventHandler &even
     emit updated();
 }
 
-void HealthAndArmingCheckReport::setModeGroups(int takeoffModeGroup, int missionModeGroup)
+void HealthAndArmingCheckReport::acknowledgeAllWarnings()
 {
-    _takeoffModeGroup = takeoffModeGroup;
-    _missionModeGroup = missionModeGroup;
+    if (_currentModeWarningKeys.isEmpty()) {
+        return;
+    }
+
+    _acknowledgedWarningKeys.unite(_currentModeWarningKeys);
+    for (int i = 0; i < _problemsForCurrentMode->count(); i++) {
+        auto* const problem = _problemsForCurrentMode->value<HealthAndArmingCheckProblem*>(i);
+        if (problem && (problem->severity() == QStringLiteral("warning"))) {
+            problem->setAcknowledged(true);
+        }
+    }
+
+    emit updated();
+}
+
+void HealthAndArmingCheckReport::_rebuild(const QList<Check>& checks)
+{
+    // Checks are matched by key rather than text, so a warning whose values change stays acknowledged.
+    // Mode-independent so acknowledgements survive a mode switch.
+    QSet<quint64> reportedWarningKeys;
+    for (const Check& check : checks) {
+        if (check.severity == QStringLiteral("warning")) {
+            reportedWarningKeys.insert(check.ackKey);
+        }
+    }
+    _acknowledgedWarningKeys.intersect(reportedWarningKeys);
+
+    _problemsForCurrentMode->clearAndDeleteContents();
+    _currentModeWarningKeys.clear();
+    for (const Check& check : checks) {
+        if (!check.inCurrentMode) {
+            continue;
+        }
+
+        auto* const problem = new HealthAndArmingCheckProblem(check.message, check.description, check.severity, this);
+        if (check.severity == QStringLiteral("warning")) {
+            _currentModeWarningKeys.insert(check.ackKey);
+            problem->setAcknowledged(_acknowledgedWarningKeys.contains(check.ackKey));
+        }
+        _problemsForCurrentMode->append(problem);
+    }
 }
 
 #ifdef QGC_UNITTEST_BUILD
 void HealthAndArmingCheckReport::setProblemsForTest(const QStringList& severities)
 {
     _supported = true;
-    _problemsForCurrentMode->clearAndDeleteContents();
-    _hasWarningsOrErrors = false;
+    QList<Check> checks;
     for (const QString& severity : severities) {
-        _problemsForCurrentMode->append(
-            new HealthAndArmingCheckProblem(QStringLiteral("Test problem"), QString(), severity, this));
-        if (!severity.isEmpty()) {
-            _hasWarningsOrErrors = true;
-        }
+        checks.append(Check{
+            .ackKey = static_cast<quint64>(checks.count()),
+            .message = QStringLiteral("Test problem"),
+            .severity = severity,
+            .inCurrentMode = true,
+        });
     }
+    _rebuild(checks);
     emit updated();
 }
 #endif
@@ -118,7 +180,7 @@ int HealthAndArmingCheckReport::_countProblems(const QString& severity) const
     int count = 0;
     for (int i = 0; i < _problemsForCurrentMode->count(); i++) {
         const auto* const problem = _problemsForCurrentMode->value<const HealthAndArmingCheckProblem*>(i);
-        if (problem && (problem->severity() == severity)) {
+        if (problem && (problem->severity() == severity) && !problem->acknowledged()) {
             count++;
         }
     }

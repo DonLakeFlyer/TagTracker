@@ -47,7 +47,7 @@ void CustomStateMachineTest::_flightModeChangeWhileRunningCancels()
     machine->setInitialState(initialState);
 
     machine->start();
-    QTRY_VERIFY_WITH_TIMEOUT(machine->isRunning(), 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(machine->inProgress(), 5000);
 
     emit _vehicle->flightModeChanged(QStringLiteral("Return"));
 
@@ -68,7 +68,7 @@ void CustomStateMachineTest::_allowedFlightModeDoesNotCancel()
     machine->setInitialState(initialState);
 
     machine->start();
-    QTRY_VERIFY_WITH_TIMEOUT(machine->isRunning(), 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(machine->inProgress(), 5000);
 
     emit _vehicle->flightModeChanged(QStringLiteral("Orbit"));
     QVERIFY(!stopHandlerRan);
@@ -86,7 +86,7 @@ void CustomStateMachineTest::_errorAfterCancelIsIgnored()
     machine->setInitialState(initialState);
 
     machine->start();
-    QTRY_VERIFY_WITH_TIMEOUT(machine->isRunning(), 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(machine->inProgress(), 5000);
 
     emit _vehicle->flightModeChanged(QStringLiteral("Return"));
 
@@ -108,8 +108,9 @@ void CustomStateMachineTest::_headingTargetWrapsAtNorth()
     machine->setInitialState(waitState);
 
     QSignalSpy finishedSpy(machine.data(), &QStateMachine::finished);
+    QSignalSpy enteredSpy(waitState, &QState::entered);
     machine->start();
-    QTRY_VERIFY_WITH_TIMEOUT(machine->isRunning(), 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(!enteredSpy.isEmpty(), 5000);
 
     heading.setRawValue(359.6);
     QTRY_VERIFY_WITH_TIMEOUT(!finishedSpy.isEmpty(), 1000);

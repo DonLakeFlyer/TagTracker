@@ -84,7 +84,7 @@ void CustomStateMachine::_vehicleRemoved(Vehicle* vehicle)
     _vehicleLost = true;
     disconnect(vehicle, &Vehicle::flightModeChanged, this, &CustomStateMachine::_flightModeChanged);
 
-    if (!isRunning()) {
+    if (!inProgress()) {
         return;
     }
     qCWarning(CustomPluginLog) << "Vehicle removed while running, cancelling machine:" << objectName();
