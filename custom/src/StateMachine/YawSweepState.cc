@@ -178,7 +178,7 @@ bool YawSweepState::_checkOrbitMode()
     return true;
 }
 
-void YawSweepState::_mavCommandResult(int vehicleId, int targetComponent, int command, int ackResult, int failureCode)
+void YawSweepState::_mavCommandResult(quint32 vehicleId, int targetComponent, int command, int ackResult, int failureCode)
 {
     Q_UNUSED(vehicleId);
     Q_UNUSED(targetComponent);
