@@ -31,7 +31,7 @@ struct CommandLineParseResult
     QStringList unknownOptions;
 
     // --- Core options ---
-    std::optional<quint8> systemId;
+    std::optional<quint32> systemId;
     bool clearSettingsOptions = false;
     bool clearCache = false;
     std::optional<QString> loggingOptions;
@@ -88,6 +88,10 @@ enum class AppMode {
 /// @param args Parsed command line arguments
 /// @return The mode the application should run in
 AppMode determineAppMode(const CommandLineParseResult& args);
+
+/// @brief Validate a --system-id value
+/// @return The MAVLink system id (1-4294967295), or std::nullopt if the value is invalid
+std::optional<quint32> parseSystemId(const QString& value);
 
 #ifdef QGC_UNITTEST_BUILD
 QStringList normalizeArgs(const QStringList &args);
