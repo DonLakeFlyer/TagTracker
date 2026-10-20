@@ -42,7 +42,10 @@ APMSensorsComponentController::~APMSensorsComponentController()
 
 void APMSensorsComponentController::_appendStatusLog(const QString &text)
 {
-    Q_ASSERT(_statusLog);
+    if (!_statusLog) {
+        qCWarning(APMSensorsComponentControllerLog) << "Status log is not available";
+        return;
+    }
 
     const QString varText = text;
     (void) QMetaObject::invokeMethod(_statusLog, "append", varText);
@@ -173,7 +176,8 @@ void APMSensorsComponentController::_stopCalibration(APMSensorsComponentControll
     emit calibrationActiveChanged();
 }
 
-void APMSensorsComponentController::_mavCommandResult(int vehicleId, int component, int command, int result, int failureCode)
+void APMSensorsComponentController::_mavCommandResult(quint32 vehicleId, int component, int command, int result,
+                                                      int failureCode)
 {
     Q_UNUSED(component); Q_UNUSED(failureCode);
 
@@ -382,7 +386,8 @@ void APMSensorsComponentController::calibrateGyro()
     _vehicle->startCalibration(_calTypeInProgress);
 }
 
-void APMSensorsComponentController::_handleTextMessage(int sysid, int componentid, int severity, const QString &text, const QString &description)
+void APMSensorsComponentController::_handleTextMessage(quint32 sysid, int componentid, int severity,
+                                                       const QString& text, const QString& description)
 {
     Q_UNUSED(componentid); Q_UNUSED(severity); Q_UNUSED(description);
 

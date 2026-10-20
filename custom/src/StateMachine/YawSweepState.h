@@ -30,7 +30,7 @@ private:
     void _sendHeading(double headingDeg);
     void _sendOrbit();
     bool _checkOrbitMode();
-    void _mavCommandResult(int vehicleId, int targetComponent, int command, int ackResult, int failureCode);
+    void _mavCommandResult(quint32 vehicleId, int targetComponent, int command, int ackResult, int failureCode);
     static CustomPlugin* _customPlugin();
     QString _progressMessage() const;
 

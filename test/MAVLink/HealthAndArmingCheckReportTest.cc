@@ -15,10 +15,11 @@ namespace {
 EventHandler makeStubEventHandler()
 {
     return EventHandler(
-        /*parent*/ nullptr,
+        /*parent*/
+        nullptr,
         /*profile*/ QString(),
         /*handleEventCB*/ [](auto) {},
-        /*sendRequestCB*/ [](auto&) {},
+        /*sendRequestCB*/ [](auto&, uint32_t) {},
         /*ourSystemId*/ 1, /*ourComponentId*/ 1,
         /*systemId*/ 1, /*componentId*/ 1);
 }
@@ -78,7 +79,7 @@ void HealthAndArmingCheckReportTest::_testFirstReportInUnmappedMode()
     QVERIFY(!metadataFile.isEmpty());
 
     EventHandler handler(
-        nullptr, QStringLiteral("dev"), [](auto) {}, [](auto&) {}, 255, MAV_COMP_ID_MISSIONPLANNER, 1,
+        nullptr, QStringLiteral("dev"), [](auto) {}, [](auto&, uint32_t) {}, 255, MAV_COMP_ID_MISSIONPLANNER, 1,
         MAV_COMP_ID_AUTOPILOT1);
     handler.setMetadata(metadataFile);
     EventStream eventStream(1);
@@ -139,7 +140,7 @@ void HealthAndArmingCheckReportTest::_testUpdateFromHealthReport()
     QVERIFY(!metadataFile.isEmpty());
 
     EventHandler handler(
-        nullptr, QStringLiteral("dev"), [](auto) {}, [](auto&) {}, 255, MAV_COMP_ID_MISSIONPLANNER, 1,
+        nullptr, QStringLiteral("dev"), [](auto) {}, [](auto&, uint32_t) {}, 255, MAV_COMP_ID_MISSIONPLANNER, 1,
         MAV_COMP_ID_AUTOPILOT1);
     handler.setMetadata(metadataFile);
     QVERIFY(handler.healthAndArmingChecksSupported());
@@ -177,7 +178,7 @@ void HealthAndArmingCheckReportTest::_testUnmappedModeKeepsResultsFresh()
     QVERIFY(!metadataFile.isEmpty());
 
     EventHandler handler(
-        nullptr, QStringLiteral("dev"), [](auto) {}, [](auto&) {}, 255, MAV_COMP_ID_MISSIONPLANNER, 1,
+        nullptr, QStringLiteral("dev"), [](auto) {}, [](auto&, uint32_t) {}, 255, MAV_COMP_ID_MISSIONPLANNER, 1,
         MAV_COMP_ID_AUTOPILOT1);
     handler.setMetadata(metadataFile);
     EventStream eventStream(1);

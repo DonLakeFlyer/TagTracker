@@ -1042,25 +1042,23 @@ bool CustomPlugin::_sendTunnelFrame(Vehicle* vehicle, const void* payload, size_
 
     MAVLinkProtocol*        mavlink     = MAVLinkProtocol::instance();
     mavlink_message_t       msg;
-    mavlink_tunnel_t        tunnel;
+    uint8_t                 tunnelPayload[sizeof(mavlink_tunnel_t::payload)] = {};
 
-    memset(&tunnel, 0, sizeof(tunnel));
-    memcpy(tunnel.payload, payload, size);
+    memcpy(tunnelPayload, payload, size);
 
-    tunnel.target_system    = vehicle->id();
-    tunnel.target_component = MAV_COMP_ID_ONBOARD_COMPUTER;
-    tunnel.payload_type     = MAV_TUNNEL_PAYLOAD_TYPE_UNKNOWN;
-    tunnel.payload_length   = static_cast<uint8_t>(size);
-
-    mavlink_msg_tunnel_encode_chan(
-                static_cast<uint8_t>(mavlink->getSystemId()),
+    mavlink_msg_tunnel_pack_chan(
+                mavlink->getSystemId(),
                 static_cast<uint8_t>(mavlink->getComponentId()),
                 sharedLink->mavlinkChannel(),
                 &msg,
-                &tunnel);
+                vehicle->id(),
+                MAV_COMP_ID_ONBOARD_COMPUTER,
+                MAV_TUNNEL_PAYLOAD_TYPE_UNKNOWN,
+                static_cast<uint8_t>(size),
+                tunnelPayload);
 
     qCDebug(CustomPluginLog).noquote() << TunnelProtocolText::formatMessage(
-        TunnelProtocolText::Direction::Sent, tunnel.payload, tunnel.payload_length);
+        TunnelProtocolText::Direction::Sent, tunnelPayload, size);
 
     vehicle->sendMessageOnLinkThreadSafe(sharedLink.get(), msg);
     return true;

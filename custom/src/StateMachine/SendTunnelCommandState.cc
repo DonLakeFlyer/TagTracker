@@ -160,25 +160,22 @@ void SendTunnelCommandState::_sendTunnelCommand()
         SharedLinkInterfacePtr  sharedLink  = weakPrimaryLink.lock();
         MAVLinkProtocol*        mavlink     = MAVLinkProtocol::instance();
         mavlink_message_t       msg;
-        mavlink_tunnel_t        tunnel;
-
-        memset(&tunnel, 0, sizeof(tunnel));
+        uint8_t                 tunnelPayload[sizeof(mavlink_tunnel_t::payload)] = {};
 
         _ackResponseTimer.start();
 
-        memcpy(tunnel.payload, _payload, _payloadSize);
+        memcpy(tunnelPayload, _payload, _payloadSize);
 
-        tunnel.target_system    = _vehicle->id();
-        tunnel.target_component = MAV_COMP_ID_ONBOARD_COMPUTER;
-        tunnel.payload_type     = MAV_TUNNEL_PAYLOAD_TYPE_UNKNOWN;
-        tunnel.payload_length   = _payloadSize;
-
-        mavlink_msg_tunnel_encode_chan(
-                    static_cast<uint8_t>(mavlink->getSystemId()),
+        mavlink_msg_tunnel_pack_chan(
+                    mavlink->getSystemId(),
                     static_cast<uint8_t>(mavlink->getComponentId()),
                     sharedLink->mavlinkChannel(),
                     &msg,
-                    &tunnel);
+                    _vehicle->id(),
+                    MAV_COMP_ID_ONBOARD_COMPUTER,
+                    MAV_TUNNEL_PAYLOAD_TYPE_UNKNOWN,
+                    static_cast<uint8_t>(_payloadSize),
+                    tunnelPayload);
 
         qCDebug(CustomPluginLog).noquote()
             << TunnelProtocolText::formatMessage(TunnelProtocolText::Direction::Sent, _payload, _payloadSize)
