@@ -138,8 +138,11 @@ qt_add_qml_module(QGroundControlControlsModule
         PreFlightCheckGroup.qml
         PreFlightCheckModel.qml
         QGCButton.qml
+        QGCCaptionCell.qml
+        QGCCaptionLabel.qml
         QGCCheckBox.qml
         QGCCheckBoxSlider.qml
+        QGCChip.qml
         QGCColoredImage.qml
         QGCColumnButton.qml
         QGCComboBox.qml
@@ -165,6 +168,7 @@ qt_add_qml_module(QGroundControlControlsModule
         QGCPopupDialog.qml
         QGCPopupDialogFactory.qml
         QGCRadioButton.qml
+        QGCRadioButtonBar.qml
         QGCRoundButton.qml
         QGCSimpleMessageDialog.qml
         QGCSlider.qml

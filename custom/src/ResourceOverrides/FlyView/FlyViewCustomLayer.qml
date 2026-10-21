@@ -102,7 +102,7 @@ Item {
                     id:                     operationBar
                     Layout.fillWidth:       true
                     Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 0.75
-                    color:                  qgcPal.windowShade
+                    color:                  qgcPal.borderSubtle
                     radius:                 height / 4
                     clip:                   true
 
@@ -223,7 +223,7 @@ Item {
                         QGCLabel {
                             text:               object.rateLabel !== "" ? object.rateLabel : object.tagLabel[0]
                             visible:            !object.lastPulseNoPulse && !object.waitingForFirstPulse
-                            color:              qgcPal.text
+                            color:              qgcPal.textPrimary
                             verticalAlignment:  Text.AlignVCenter
                         }
                     }
