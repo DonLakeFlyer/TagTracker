@@ -11,13 +11,19 @@ It is only shown for PX4 builds that have serial port functions, so it does not 
 Each row shows:
 
 - **Port** — the port name used by the flight controller, such as _TELEM 1_ or _GPS 1_.
+  Below the name are the parameters that put a function on the port, for example `GPS_1_CONFIG = 201`.
+  The dot next to the name is green when a function is on the port, and orange when the port needs a reboot or has a conflict.
 - **Function** — what runs on the port. The functions normally used on that kind of port are listed first.
   Any function can run on any serial port, so the list also includes the others.
 - **Baud** — the port's baud rate (`SER_<port>_BAUD`). Ethernet has no baud rate.
-- **Options** — extra settings for the selected function: mode, rate, forwarding and flow control for MAVLink, and protocol for GPS.
+- **Options** — extra settings for the selected function: mode, send rate, forwarding and flow control for MAVLink, and protocol for GPS.
+  A send rate (`MAV_<n>_RATE`) of `0` makes PX4 use half the link's bandwidth: baud rate / 20 bytes/s, or 100000 bytes/s over Ethernet.
 
 Selecting a function for a serial port removes any other function from that port.
-Several functions can use Ethernet at the same time, so the Ethernet row shows a checkbox for each one instead.
+Several functions can use Ethernet at the same time, so the Ethernet row shows a switch for each one instead.
+
+The page opens on **In Use** when any port has a function, showing only the ports that have a function or a change waiting for a reboot.
+Select **All Ports** to show every port.
 
 _Loading..._ is shown while QGroundControl reads a setting that the vehicle did not send in its parameter list.
 PX4 only sends a port's baud rate and options once a function is using them.
