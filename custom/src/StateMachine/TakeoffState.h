@@ -27,6 +27,8 @@ private:
     static constexpr double _minAltToleranceMeters = 1.0;
     static constexpr double _altToleranceFraction = 0.05;
 
+    void        _enableRTLOnError();
+
     Vehicle*    _vehicle;
     double      _takeoffAltRel;
     QTimer      _timeoutTimer;

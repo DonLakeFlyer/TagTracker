@@ -1,5 +1,6 @@
 #include "TakeoffState.h"
 #include "CustomPlugin.h"
+#include "CustomStateMachine.h"
 #include "CustomLoggingCategory.h"
 
 #include "FactMetaData.h"
@@ -64,6 +65,7 @@ void TakeoffState::_flightModeChanged(const QString& flightMode)
 void TakeoffState::_takeoffTimeout()
 {
     QString flightMode = _takeoffDetected ? _guidedFlightMode : _takeoffFlightMode;
+    _enableRTLOnError();
     setError(QStringLiteral("Vehicle failed to enter %1 flight mode").arg(flightMode));
     _disconnectAll();
 }
@@ -82,11 +84,20 @@ void TakeoffState::_settleTimeout()
         qCDebug(CustomPluginLog) << "Takeoff completed";
         emit takeoffComplete();
     } else {
+        _enableRTLOnError();
         const QString units = FactMetaData::appSettingsVerticalDistanceUnitsString();
         setError(QStringLiteral("Vehicle failed to reach takeoff altitude. Altitude %1 %4, expected %2 %4 within %3 %4.")
                      .arg(FactMetaData::metersToAppSettingsVerticalDistanceUnits(altitudeRel).toDouble(), 0, 'f', 0)
                      .arg(FactMetaData::metersToAppSettingsVerticalDistanceUnits(_takeoffAltRel).toDouble(), 0, 'f', 0)
                      .arg(FactMetaData::metersToAppSettingsVerticalDistanceUnits(tolerance).toDouble(), 0, 'f', 0)
                      .arg(units));
+    }
+}
+
+void TakeoffState::_enableRTLOnError()
+{
+    // setError only RTLs when airborne, so this is a no-op if the vehicle never lifted off
+    if (CustomStateMachine* machine = customMachine()) {
+        machine->setEventMode(CustomStateMachine::CancelOnFlightModeChange | CustomStateMachine::RTLOnError);
     }
 }
