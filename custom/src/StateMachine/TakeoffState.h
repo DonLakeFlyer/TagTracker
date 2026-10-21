@@ -24,6 +24,9 @@ private slots:
     void _disconnectAll();
 
 private:
+    static constexpr double _minAltToleranceMeters = 1.0;
+    static constexpr double _altToleranceFraction = 0.05;
+
     Vehicle*    _vehicle;
     double      _takeoffAltRel;
     QTimer      _timeoutTimer;

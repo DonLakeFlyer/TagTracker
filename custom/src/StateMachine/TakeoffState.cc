@@ -2,6 +2,7 @@
 #include "CustomPlugin.h"
 #include "CustomLoggingCategory.h"
 
+#include "FactMetaData.h"
 #include "MultiVehicleManager.h"
 #include "Vehicle.h"
 #include "FirmwarePlugin.h"
@@ -70,12 +71,22 @@ void TakeoffState::_takeoffTimeout()
 void TakeoffState::_settleTimeout()
 {
     _disconnectAll();
-    qCDebug(CustomPluginLog) << "altitudeRelative:" << _vehicle->altitudeRelative()->rawValue().toDouble()
-                             << "takeoffAltRel:" << _takeoffAltRel;
-    if (qAbs(_vehicle->altitudeRelative()->rawValue().toDouble() - _takeoffAltRel) <= 1.0) {
+
+    // Baro drift and firmware takeoff acceptance radius grow with altitude, so scale the tolerance
+    const double altitudeRel = _vehicle->altitudeRelative()->rawValue().toDouble();
+    const double tolerance = qMax(_minAltToleranceMeters, _takeoffAltRel * _altToleranceFraction);
+    qCDebug(CustomPluginLog) << "altitudeRelative:" << altitudeRel
+                             << "takeoffAltRel:" << _takeoffAltRel
+                             << "tolerance:" << tolerance;
+    if (qAbs(altitudeRel - _takeoffAltRel) <= tolerance) {
         qCDebug(CustomPluginLog) << "Takeoff completed";
         emit takeoffComplete();
     } else {
-        setError("Vehicle failed to reach takeoff altitude");
+        const QString units = FactMetaData::appSettingsVerticalDistanceUnitsString();
+        setError(QStringLiteral("Vehicle failed to reach takeoff altitude. Altitude %1 %4, expected %2 %4 within %3 %4.")
+                     .arg(FactMetaData::metersToAppSettingsVerticalDistanceUnits(altitudeRel).toDouble(), 0, 'f', 0)
+                     .arg(FactMetaData::metersToAppSettingsVerticalDistanceUnits(_takeoffAltRel).toDouble(), 0, 'f', 0)
+                     .arg(FactMetaData::metersToAppSettingsVerticalDistanceUnits(tolerance).toDouble(), 0, 'f', 0)
+                     .arg(units));
     }
 }
