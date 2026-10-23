@@ -43,6 +43,7 @@ set(CUSTOM_QML_OVERRIDES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ResourceOverrides/FlyView/FlyViewCustomLayer.qml"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ResourceOverrides/FlyView/FlyViewToolStrip.qml"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ResourceOverrides/FlyView/MultiRotorChecklist.qml"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ResourceOverrides/FlyView/PreVehicleChecks.qml"
 )
 foreach(_override IN LISTS CUSTOM_QML_OVERRIDES)
     get_filename_component(_override_name "${_override}" NAME)
