@@ -23,37 +23,7 @@ Item {
         id: listModel
 
         PreFlightCheckGroup {
-            name: qsTr("Hardware")
-
-            PreFlightCheckButton {
-                name:           qsTr("Landing pad")
-                manualText:     qsTr("Landing pad placed on firm, level ground?")
-            }
-
-            PreFlightCheckButton {
-                name:           qsTr("Hardware")
-                manualText:     qsTr("Arms unfolded and latched?")
-            }
-
-            PreFlightCheckButton {
-                name:           qsTr("Props")
-                manualText:     qsTr("Props unfolded?")
-            }
-
-            PreFlightCheckButton {
-                name:           qsTr("Vehicle position")
-                manualText:     qsTr("Vehicle on the landing pad with the green arms facing away?")
-            }
-
-            PreFlightCheckButton {
-                name:           qsTr("Antenna")
-                manualText:     qsTr("Antenna firmly clipped to the landing legs?")
-            }
-
-            PreFlightCheckButton {
-                name:           qsTr("USB cable")
-                manualText:     qsTr("USB cable firmly connected to the antenna BNC?")
-            }
+            name: qsTr("Power")
 
             PreFlightBatteryCheck {
                 manualText:                     qsTr("Both batteries fully inserted and connected?")
@@ -86,10 +56,6 @@ Item {
                 manualText:     qsTr("OK for your platform?")
             }
 
-            PreFlightCheckButton {
-                name:           qsTr("Flight area")
-                manualText:     qsTr("Launch area and path free of obstacles/people?")
-            }
         }
     }
 }
