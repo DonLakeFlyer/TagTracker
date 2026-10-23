@@ -27,10 +27,16 @@ target_sources(${CMAKE_PROJECT_NAME}
         PX4AirframeLoader.h
         PX4AutoPilotPlugin.cc
         PX4AutoPilotPlugin.h
+        PX4BatteryComponent.cc
+        PX4BatteryComponent.h
+        PX4BatteryController.cc
+        PX4BatteryController.h
         PX4FailsafesComponent.cc
         PX4FailsafesComponent.h
         PX4FlightBehavior.cc
         PX4FlightBehavior.h
+        PX4FlightModesController.cc
+        PX4FlightModesController.h
         PX4RadioComponent.cc
         PX4RadioComponent.h
         PX4SerialPortConfig.cc
@@ -39,8 +45,6 @@ target_sources(${CMAKE_PROJECT_NAME}
         PX4SerialPortsComponent.h
         PX4SerialPortsController.cc
         PX4SerialPortsController.h
-        PX4SimpleFlightModesController.cc
-        PX4SimpleFlightModesController.h
         PX4TuningComponent.cc
         PX4TuningComponent.h
         SafetyComponent.cc
@@ -120,16 +124,29 @@ qt_add_qml_module(AutoPilotPluginsPX4Module
         AirframeComponent.qml
         AirframeComponentSummary.qml
         BatteryParams.qml
+        BatteryThresholdBar.qml
         CalcAmpsPerVoltDialog.qml
         CalcVoltageDividerDialog.qml
+        ConfigChoiceComboBox.qml
+        ConfigGroupHeader.qml
+        ConfigNote.qml
+        ConfigParamCell.qml
+        ConfigRow.qml
+        ConfigRowGroups.qml
+        ConfigRowsFilterBar.qml
+        ConfigRowsPanel.qml
         ESCCalibrationDialog.qml
         FailureInjectionComponent.qml
         FailureInjectionInstances.js
         FlightModesComponentSummary.qml
         PowerComponentSummary.qml
+        PX4BatteryComponent.qml
+        PX4BatteryRows.js
+        PX4ConfigRows.js
         PX4FailsafeRows.js
         PX4FailsafesComponent.qml
         PX4FlightBehaviorCopter.qml
+        PX4FlightModeRows.js
         PX4FlightModes.qml
         PX4RadioComponentSummary.qml
         PX4SerialPortsComponent.qml
