@@ -87,9 +87,14 @@ void TunnelProtocolTextTest::_unknownCommandAndValues()
     heartbeat.protocol_version = TUNNEL_PROTOCOL_VERSION;
     heartbeat.system_id        = 77;
     heartbeat.status           = 88;
+    heartbeat.cpu_throttle_flags = CPU_THROTTLE_FLAG_THERMAL | CPU_THROTTLE_FLAG_UNDERVOLTAGE;
     const QString text = format(Direction::Received, heartbeat);
     QVERIFY2(text.contains(QStringLiteral("HEARTBEAT_SYSTEM_ID_UNKNOWN(77)")), qPrintable(text));
     QVERIFY2(text.contains(QStringLiteral("HEARTBEAT_STATUS_UNKNOWN(88)")), qPrintable(text));
+    QVERIFY2(text.contains(QStringLiteral("cpu_throttle_flags: CPU_THROTTLE_FLAG_THERMAL|CPU_THROTTLE_FLAG_UNDERVOLTAGE")),
+             qPrintable(text));
+    heartbeat.cpu_throttle_flags = 0;
+    QVERIFY(format(Direction::Received, heartbeat).contains(QStringLiteral("cpu_throttle_flags: NONE")));
 }
 
 void TunnelProtocolTextTest::_unterminatedTextIsBounded()

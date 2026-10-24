@@ -48,7 +48,8 @@ public:
 
     Q_PROPERTY(bool                 controllerLostHeartbeat MEMBER  _controllerLostHeartbeat    NOTIFY controllerLostHeartbeatChanged)
     Q_PROPERTY(int                  controllerStatus        MEMBER  _controllerStatus           NOTIFY controllerStatusChanged)
-    Q_PROPERTY(float                controllerCPUTemp       MEMBER  _controllerCPUTemp          NOTIFY controllerCPUTempChanged)
+    Q_PROPERTY(bool                 controllerCpuThermalThrottled MEMBER _controllerCpuThermalThrottled NOTIFY controllerCpuThrottleChanged)
+    Q_PROPERTY(bool                 controllerCpuUndervoltage MEMBER _controllerCpuUndervoltage NOTIFY controllerCpuThrottleChanged)
     Q_PROPERTY(uint                 controllerProtocolVersion READ controllerProtocolVersion    NOTIFY protocolCompatibilityChanged)
     Q_PROPERTY(bool                 protocolCompatible      READ protocolCompatible             NOTIFY protocolCompatibilityChanged)
     Q_PROPERTY(QmlObjectListModel*  detectorList            READ    detectorList                CONSTANT)
@@ -119,7 +120,7 @@ public:
 signals:
     void controllerLostHeartbeatChanged ();
     void controllerStatusChanged        ();
-    void controllerCPUTempChanged       ();
+    void controllerCpuThrottleChanged   ();
     void protocolCompatibilityChanged   ();
     void maxSNRChanged                  (double maxSNR);
     void minSNRChanged                  (double minSNR);
@@ -131,6 +132,7 @@ signals:
 
 private slots:
     void _controllerHeartbeatFailed(void);
+    void _setControllerCpuThrottle(bool thermal, bool undervoltage);
     void _stopDetectionOnDisarmed(bool armed);
     bool _validateAtLeastOneTagSelected();
     bool _validatePythonCollectionAllowed();
@@ -165,7 +167,8 @@ private:
     CollectionStatus_t      _lastCollectionStatus {};
     uint32_t                _lastBearingCollectionId = 0;
     int                     _controllerStatus   = ControllerStatusIdle;
-    float                   _controllerCPUTemp  = 0.0;
+    bool                    _controllerCpuThermalThrottled = false;
+    bool                    _controllerCpuUndervoltage = false;
     uint32_t                _controllerProtocolVersion = 0;
     bool                    _protocolMismatchReported = false;
     bool                    _uavrtWrongModeReported = false;

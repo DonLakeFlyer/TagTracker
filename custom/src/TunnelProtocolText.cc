@@ -2,6 +2,8 @@
 
 #include <cstring>
 
+#include <QStringList>
+
 #include "TunnelProtocol.h"
 
 using namespace TunnelProtocol;
@@ -96,6 +98,18 @@ QString _heartbeatStatusName(uint32_t status)
         TUNNEL_NAME_CASE(HEARTBEAT_STATUS_RECORDING);
     }
     return _unknownName("HEARTBEAT_STATUS_", status);
+}
+
+QString _cpuThrottleFlagsName(uint8_t flags)
+{
+    QStringList names;
+    if (flags & CPU_THROTTLE_FLAG_THERMAL) {
+        names << QStringLiteral("CPU_THROTTLE_FLAG_THERMAL");
+    }
+    if (flags & CPU_THROTTLE_FLAG_UNDERVOLTAGE) {
+        names << QStringLiteral("CPU_THROTTLE_FLAG_UNDERVOLTAGE");
+    }
+    return names.isEmpty() ? QStringLiteral("NONE") : names.join(QLatin1Char('|'));
 }
 
 QString _detectionStatusName(uint8_t status)
@@ -377,7 +391,7 @@ QString formatMessage(Direction direction, const uint8_t* payload, size_t length
             writer.add("protocol_version", m.protocol_version)
                 .add("system_id", _heartbeatSystemIdName(m.system_id))
                 .add("status", _heartbeatStatusName(m.status))
-                .add("cpu_temp_c", m.cpu_temp_c);
+                .add("cpu_throttle_flags", _cpuThrottleFlagsName(m.cpu_throttle_flags));
             break;
         }
         case COMMAND_ID_START_COLLECTION: {
