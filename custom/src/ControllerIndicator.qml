@@ -23,8 +23,12 @@ Item {
 
     property bool showIndicator: true
 
+    QGCPalette { id: qgcPal }
+
     property var    activeVehicle:              QGroundControl.multiVehicleManager.activeVehicle
     property bool   controllerHeartbeatLost:    QGroundControl.corePlugin.controllerLostHeartbeat
+    property bool   cpuThermalThrottled:        QGroundControl.corePlugin.controllerCpuThermalThrottled
+    property bool   cpuUndervoltage:            QGroundControl.corePlugin.controllerCpuUndervoltage
     property var    tagDatabase:                QGroundControl.corePlugin.tagDatabase
     property var    customSettings:             QGroundControl.settingsManager.customSettings
 
@@ -49,7 +53,7 @@ Item {
         Rectangle {
             height:     parent.height
             width:      ScreenTools.defaultFontPixelWidth * 15
-            color:      controllerHeartbeatLost ? "red" : "green"
+            color:      controllerHeartbeatLost ? "red" : (cpuThermalThrottled || cpuUndervoltage ? qgcPal.colorOrange : "green")
 
             QGCLabel {
                 id:                     tagNameLabel
@@ -85,7 +89,19 @@ Item {
         id: indicatorContentComponent
 
         ColumnLayout {
-            spacing: ScreenTools.defaultFontPixelHeight
+            spacing: 0
+
+            QGCLabel {
+                text:       qsTr("CPU thermal throttling: check enclosure cooling")
+                color:      qgcPal.colorOrange
+                visible:    cpuThermalThrottled
+            }
+
+            QGCLabel {
+                text:       qsTr("CPU under-voltage: check controller power supply")
+                color:      qgcPal.colorOrange
+                visible:    cpuUndervoltage
+            }
 
             QGCLabel {
                 text:       qsTr("No Tags Specified")

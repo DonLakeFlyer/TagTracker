@@ -361,10 +361,8 @@ void CustomPlugin::_handleTunnelHeartbeat(const mavlink_tunnel_t& tunnel)
         stop.header.request_id = SendTunnelCommandState::nextRequestId();
         _sendTunnelFrame(&stop, sizeof(stop));
     }
-    if (_controllerCPUTemp != heartbeat.cpu_temp_c) {
-        _controllerCPUTemp = heartbeat.cpu_temp_c;
-        emit controllerCPUTempChanged();
-    }
+    _setControllerCpuThrottle(heartbeat.cpu_throttle_flags & CPU_THROTTLE_FLAG_THERMAL,
+                              heartbeat.cpu_throttle_flags & CPU_THROTTLE_FLAG_UNDERVOLTAGE);
 }
 
 void CustomPlugin::_handleUavrtPulse(Vehicle* vehicle, const mavlink_tunnel_t& tunnel)
@@ -936,8 +934,28 @@ void CustomPlugin::_controllerHeartbeatFailed()
 {
     _controllerLostHeartbeat = true;
     _operationProgress.reset();
+    _setControllerCpuThrottle(false, false);
     emit controllerLostHeartbeatChanged();
     emit protocolCompatibilityChanged();
+}
+
+void CustomPlugin::_setControllerCpuThrottle(bool thermal, bool undervoltage)
+{
+    if (thermal == _controllerCpuThermalThrottled && undervoltage == _controllerCpuUndervoltage) {
+        return;
+    }
+
+    // No popups; the controller indicator shows the state
+    if (thermal && !_controllerCpuThermalThrottled) {
+        qCWarning(CustomPluginLog) << "Controller CPU is thermally throttled";
+    }
+    if (undervoltage && !_controllerCpuUndervoltage) {
+        qCWarning(CustomPluginLog) << "Controller CPU reports under-voltage";
+    }
+
+    _controllerCpuThermalThrottled = thermal;
+    _controllerCpuUndervoltage     = undervoltage;
+    emit controllerCpuThrottleChanged();
 }
 
 bool CustomPlugin::protocolCompatible() const
