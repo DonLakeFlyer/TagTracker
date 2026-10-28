@@ -13,6 +13,7 @@
 
 #include <QElapsedTimer>
 #include <QGeoCoordinate>
+#include <QPointer>
 #include <QTimer>
 #include <QFile>
 #include <QtQml/QQmlAbstractUrlInterceptor>
@@ -92,6 +93,8 @@ public:
 
     Q_INVOKABLE void autoDetection      ();
     Q_INVOKABLE void startRotation      (void);
+    /// Cancels a running rotation without RTL and holds the vehicle where it is.
+    Q_INVOKABLE void pauseRotation      (void);
     Q_INVOKABLE void calibrationSweep   (void);
     Q_INVOKABLE void startDetection     (void);
     Q_INVOKABLE void stopDetection      (void);
@@ -163,6 +166,7 @@ private:
 
     bool                    _activeRotation     = false;
     bool                    _rotationInProgress = false;
+    QPointer<CustomStateMachine> _rotationMachine;
     uint32_t                _activeCollectionId = 0;
     CollectionStatus_t      _lastCollectionStatus {};
     uint32_t                _lastBearingCollectionId = 0;

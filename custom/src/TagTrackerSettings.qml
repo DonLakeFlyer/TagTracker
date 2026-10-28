@@ -115,6 +115,13 @@ SettingsPage {
             fact:               _customSettings.detectionFlightMode
         }
 
+        FactCheckBoxSlider {
+            Layout.fillWidth:   true
+            text:               fact.shortDescription
+            fact:               _customSettings.simpleRotationScreen
+            visible:            _customSettings.detectionFlightMode.rawValue === CustomSettings.Auto
+        }
+
         LabelledFactTextField {
             Layout.fillWidth:   true
             label:              fact.shortDescription

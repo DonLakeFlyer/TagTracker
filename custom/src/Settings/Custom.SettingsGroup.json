@@ -61,6 +61,14 @@
     "default":      0
 },
 {
+    "name":         "simpleRotationScreen",
+    "shortDesc":    "Simple Auto Rotation Screen",
+    "longDesc":     "Covers the Fly View with a Start button and the rotation compass rose. Only applies to the Auto Rotation flight mode.",
+    "label":        "Simple Auto Rotation Screen",
+    "type":         "bool",
+    "default":      false
+},
+{
     "name":         "useSNRForPulseStrength",
     "shortDesc":    "Pulse Strength Value",
     "label":        "Pulse Strength Value",

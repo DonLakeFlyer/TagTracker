@@ -19,6 +19,8 @@ public:
     void registerStopHandler(std::function<void()> handler) { _stopHandler = handler; }
     /// A mode the machine itself puts the vehicle in, so entering it is not a user cancel.
     void setAllowedFlightMode(const QString& flightMode) { _allowedFlightMode = flightMode; }
+    /// Stops a running machine as a user cancel: no RTL, the vehicle is left as it is.
+    void cancel();
 
     enum {
         CancelOnFlightModeChange = 0x01,
@@ -34,6 +36,7 @@ private slots:
     void _vehicleRemoved(Vehicle* vehicle);
 
 private:
+    void _cancelForUser();
     void _runStopHandler();
 
     QString                 _errorString;

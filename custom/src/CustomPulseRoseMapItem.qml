@@ -14,6 +14,7 @@ import QtPositioning
 import QtLocation
 import QGroundControl
 import QGroundControl.Controls
+import QGroundControl.CustomControls
 
 MapQuickItem {
     coordinate:     customMapObject.rotationCenter
@@ -28,226 +29,18 @@ MapQuickItem {
     property var    _vhfSettings:       QGroundControl.settingsManager.customSettings
     property int    _rotationIndex:     customMapObject.rotationIndex
     property var    _rotationInfo:      _corePlugin.rotationInfoList.get(_rotationIndex)
-    property int    _sliceCount:        _rotationInfo.slices.count
     property bool   _isLastRotation:    _rotationIndex == _corePlugin.rotationInfoList.count - 1
-    property real   _sliceSize:         360.0 / _sliceCount
     property real   _ratio:             _isLastRotation ? _largeRatio : _smallRatio
 
     readonly property real _largeRatio: 0.5
     readonly property real _smallRatio: 0.3
 
-    sourceItem: Rectangle {
+    sourceItem: RotationRose {
         id:             mapRect
         width:          _flightMap.height * _ratio
-        height:         width
-        radius:         width / 2
-        color:          "transparent"
-        border.color:   mapPal.text
-        border.width:   1
-
-        Repeater {
-            model: _sliceCount
-
-            Canvas {
-                id:             arcCanvas
-                anchors.fill:   parent
-                visible:        !isNaN(strengthRatio)
-
-                property real centerX:          width / 2
-                property real centerY:          height / 2
-                property real arcRadians:       (Math.PI * 2) / _sliceCount
-                property var  sliceInfo:        _rotationInfo.slices.get(index)
-                property bool noDetection:      isNaN(sliceInfo.displaySNR)
-                property real rawStrengthRatio: _rotationInfo.maxSNR > 0 ? sliceInfo.displaySNR / _rotationInfo.maxSNR : 0
-                property bool lowConfidenceOnly: sliceInfo.lowConfidenceOnly
-                // Weak (<= 0 dB) Python detections still get a visible stub so they read as "signal, faint"
-                property real strengthRatio:    noDetection ? 1 : Math.max(0.1, Math.min(1, rawStrengthRatio))
-
-                onPaint: {
-                    var ctx = getContext("2d");
-                    ctx.reset();
-
-                    var hasDetection = !noDetection;
-                    var sliceColor = noDetection ? "white" : (lowConfidenceOnly ? "orange" : "green");
-
-                    ctx.beginPath();
-                    ctx.globalAlpha = 0.75;
-                    ctx.fillStyle = sliceColor;
-                    ctx.strokeStyle = "white";
-                    ctx.lineWidth = 1;
-                    ctx.moveTo(centerX, centerY);
-                    ctx.arc(centerX, centerY, (width / 2) * arcCanvas.strengthRatio, 0, arcRadians, false);
-                    ctx.lineTo(centerX, centerY);
-
-                    if (hasDetection) {
-                        ctx.fill();
-                    }
-                    ctx.stroke();
-                }
-
-                transform: Rotation {
-                    origin.x:   arcCanvas.centerX
-                    origin.y:   arcCanvas.centerY
-                    angle:      -90 - (360 / _sliceCount / 2) + ((360 / _sliceCount) * index)
-                }
-
-                Connections {
-                    target: arcCanvas.sliceInfo
-
-                    function onMaxSNRChanged(maxSNR) { arcCanvas.requestPaint() }
-                    function onDisplaySNRChanged(displaySNR) { arcCanvas.requestPaint() }
-                    function onDisplaySourceChanged(displaySource) { arcCanvas.requestPaint() }
-                    function onLowConfidenceOnlyChanged(lowConfidenceOnly) { arcCanvas.requestPaint() }
-                }
-                Connections {
-                    target: _rotationInfo
-
-                    function onMaxSNRChanged(maxSNR) { arcCanvas.requestPaint() }
-                }
-            }
-        }
-
-        Repeater {
-            model: _sliceCount
-
-            Text {
-                property var  sliceInfo:        _rotationInfo.slices.get(index)
-                property bool noDetection:      isNaN(sliceInfo.displaySNR)
-                property bool lowConfidenceOnly: sliceInfo.lowConfidenceOnly
-                property string displaySource:  sliceInfo.displaySource
-                property real sliceAngleDeg:    -90 + (360 / _sliceCount) * index
-                property real sliceAngleRad:    sliceAngleDeg * Math.PI / 180
-                property real outerRadius:      mapRect.width / 2
-
-                x:              mapRect.width / 2 + outerRadius * Math.cos(sliceAngleRad) - width / 2
-                y:              mapRect.height / 2 + outerRadius * Math.sin(sliceAngleRad) - height / 2
-                visible:        !noDetection && sliceInfo.displaySNR > 0
-                text:           sliceInfo.displaySNR.toFixed(1) + " " + displaySource
-                font.pointSize: ScreenTools.largeFontPointSize
-                font.bold:      true
-                color:          lowConfidenceOnly ? "orange" : "white"
-                style:          Text.Outline
-                styleColor:     "black"
-            }
-        }
-
-        // Sector highlight: the rose slice the fitted bearing falls in.
-        // Sector-level ("drive that way") is the operator's deliverable.
-        Canvas {
-            id:             sectorCanvas
-            anchors.fill:   parent
-            visible:        _rotationInfo.bearingSector >= 0
-
-            property real centerX:      width / 2
-            property real centerY:      height / 2
-            property int  sector:       _rotationInfo.bearingSector
-            property bool confirmed:    _rotationInfo.bearingConfirmed
-
-            onPaint: {
-                var ctx = getContext("2d");
-                ctx.reset();
-                var sliceRad = (Math.PI * 2) / _sliceCount;
-                var startRad = (-90 - _sliceSize / 2 + _sliceSize * sector) * Math.PI / 180;
-                ctx.beginPath();
-                ctx.globalAlpha = 1.0;
-                // Context2D has no setLineDash; unconfirmed is thinner and grey instead
-                ctx.strokeStyle = confirmed ? "#00e000" : "#c0c0c0";
-                ctx.lineWidth = confirmed ? 4 : 2;
-                ctx.moveTo(centerX, centerY);
-                ctx.arc(centerX, centerY, width / 2, startRad, startRad + sliceRad, false);
-                ctx.lineTo(centerX, centerY);
-                ctx.stroke();
-            }
-
-            Connections {
-                target: _rotationInfo
-                function onBearingChanged() { sectorCanvas.requestPaint() }
-            }
-        }
-
-        // Bearing arrow overlay
-        Canvas {
-            id:             bearingArrowCanvas
-            anchors.fill:   parent
-            visible:        _rotationInfo.bearingValid
-
-            property real centerX:      width / 2
-            property real centerY:      height / 2
-            property real arrowRadius:  width / 2
-            property real bearingDeg:   _rotationInfo.bearingDeg
-            property real rSquared:     _rotationInfo.bearingRSquared
-            property bool confirmed:    _rotationInfo.bearingConfirmed
-
-            // Unconfirmed: grey whatever the fit quality, so a one-heading lock never reads as a result
-            property color arrowColor:  !confirmed ? "#c0c0c0" : (rSquared > 0.85 ? "#00e000" : (rSquared > 0.6 ? "#ffcc00" : "#ff3333"))
-
-            onPaint: {
-                var ctx = getContext("2d");
-                ctx.reset();
-
-                // Convert bearing to canvas angle (0° = north = up, clockwise positive)
-                var bearingRad = (bearingDeg - 90) * Math.PI / 180;
-
-                // Draw bearing arrow line
-                var tipX = centerX + arrowRadius * Math.cos(bearingRad);
-                var tipY = centerY + arrowRadius * Math.sin(bearingRad);
-
-                ctx.beginPath();
-                ctx.globalAlpha = 1.0;
-                ctx.strokeStyle = arrowColor;
-                ctx.lineWidth = 3;
-                ctx.moveTo(centerX, centerY);
-                ctx.lineTo(tipX, tipY);
-                ctx.stroke();
-
-                // Draw arrowhead
-                var headLen = arrowRadius * 0.12;
-                var headAngle = 0.4;
-                ctx.beginPath();
-                ctx.fillStyle = arrowColor;
-                ctx.moveTo(tipX, tipY);
-                ctx.lineTo(tipX - headLen * Math.cos(bearingRad - headAngle),
-                           tipY - headLen * Math.sin(bearingRad - headAngle));
-                ctx.lineTo(tipX - headLen * Math.cos(bearingRad + headAngle),
-                           tipY - headLen * Math.sin(bearingRad + headAngle));
-                ctx.closePath();
-                ctx.fill();
-            }
-
-            Connections {
-                target: _rotationInfo
-                function onBearingChanged() { bearingArrowCanvas.requestPaint() }
-            }
-        }
-
-        // Bearing text label: sector, bearing, fit quality and outcome state.
-        // Shown once a BEARING_RESULT has arrived, including "nothing heard"
-        // and "heard, no bearing".
-        Text {
-            anchors.horizontalCenter:   parent.horizontalCenter
-            anchors.bottom:             parent.bottom
-            anchors.bottomMargin:       -ScreenTools.defaultFontPixelHeight * 2
-            visible:                    _rotationInfo.bearingReceived
-            text: {
-                if (!_rotationInfo.bearingValid) {
-                    return _rotationInfo.bearingHeard ? qsTr("Heard, no bearing") : qsTr("Nothing heard");
-                }
-                let label = qsTr("Sector %1").arg(_rotationInfo.bearingSector + 1);
-                label += "  BRG " + _rotationInfo.bearingDeg.toFixed(0) + "°";
-                label += "  R² " + _rotationInfo.bearingRSquared.toFixed(2);
-                label += "  " + _rotationInfo.bearingStateText;
-                return label;
-            }
-            font.pointSize: ScreenTools.largeFontPointSize
-            font.bold:      true
-            color:          !_rotationInfo.bearingValid ? "white"
-                            : !_rotationInfo.bearingConfirmed ? "#c0c0c0"
-                            : _rotationInfo.bearingRSquared > 0.85 ? "#00e000" : (_rotationInfo.bearingRSquared > 0.6 ? "#ffcc00" : "#ff3333")
-            style:          Text.Outline
-            styleColor:     "black"
-        }
+        rotationInfo:   _rotationInfo
+        borderColor:    mapPal.text
     }
-
 
     QGCMapPalette { id: mapPal; lightColors: _flightMap.isSatelliteMap }
 }

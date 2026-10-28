@@ -126,6 +126,8 @@ qgc_set_qt_resource_alias(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomGuidedActionAutoDetection.qml
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomGuidedActionStartRotation.qml
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomGuidedActionStartStopDetection.qml
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/RotationRose.qml
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/SimpleRotationView.qml
     ${CMAKE_CURRENT_SOURCE_DIR}/src/TagInfoDialog.qml
     ${CMAKE_CURRENT_SOURCE_DIR}/src/TagManufacturersDialog.qml
 )
@@ -138,6 +140,8 @@ qt_add_qml_module(CustomControlsModule
         ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomGuidedActionAutoDetection.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomGuidedActionStartRotation.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomGuidedActionStartStopDetection.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/RotationRose.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/SimpleRotationView.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/src/TagInfoDialog.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/src/TagManufacturersDialog.qml
     NO_PLUGIN

@@ -62,17 +62,30 @@ void CustomStateMachine::displayError()
     _errorString.clear();
 }
 
+void CustomStateMachine::cancel()
+{
+    if (_stopping || !inProgress()) {
+        return;
+    }
+    _cancelForUser();
+}
+
+void CustomStateMachine::_cancelForUser()
+{
+    _stopping = true;
+    disconnect(vehicle(), &Vehicle::flightModeChanged, this, &CustomStateMachine::_flightModeChanged);
+    AudioOutput::instance()->say(QStringLiteral("%1 cancelled. User is in control of vehicle.").arg(objectName()));
+    _runStopHandler();
+    stopMachine();
+}
+
 void CustomStateMachine::_flightModeChanged(const QString& flightMode)
 {
     const QString holdFlightMode = CustomPlugin::holdFlightMode(vehicle());
 
     if (_eventMode & CancelOnFlightModeChange && flightMode != holdFlightMode
         && (_allowedFlightMode.isEmpty() || flightMode != _allowedFlightMode)) {
-        _stopping = true;
-        disconnect(vehicle(), &Vehicle::flightModeChanged, this, &CustomStateMachine::_flightModeChanged);
-        AudioOutput::instance()->say(QStringLiteral("%1 cancelled. User is in control of vehicle.").arg(objectName()));
-        _runStopHandler();
-        stopMachine();
+        _cancelForUser();
     }
 }
 
