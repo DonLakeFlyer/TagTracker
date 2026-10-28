@@ -21,6 +21,7 @@ import QGroundControl
 import QGroundControl.Controls
 import QGroundControl.FlyView
 import QGroundControl.FlightMap
+import QGroundControl.CustomControls
 // To implement a custom overlay copy this code to your own control in your custom code source. Then override the
 // FlyViewCustomLayer.qml resource with your own qml. See the custom example and documentation for details.
 Item {
@@ -57,6 +58,15 @@ Item {
 
     function _occluderRect(item, offsetX, offsetY) {
         return item.visible ? Qt.rect(offsetX + item.x, offsetY + item.y, item.width, item.height) : Qt.rect(0, 0, 0, 0)
+    }
+
+    // Declared before rightColumn so the progress cards draw over it
+    SimpleRotationView {
+        anchors.fill:       parent
+        // Also covers FlyView's widget margin so no map shows around the edge
+        anchors.margins:    -ScreenTools.defaultFontPixelWidth * 0.75
+        guidedController:   _guidedController
+        visible:            _customSettings.simpleRotationScreen.rawValue && _customSettings.detectionFlightMode.rawValue === CustomSettings.Auto
     }
 
     ColumnLayout {

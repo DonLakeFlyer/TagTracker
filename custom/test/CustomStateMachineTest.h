@@ -11,5 +11,6 @@ private slots:
     void _flightModeChangeWhileRunningCancels();
     void _allowedFlightModeDoesNotCancel();
     void _errorAfterCancelIsIgnored();
+    void _cancelWhileRunningStopsWithoutRTL();
     void _headingTargetWrapsAtNorth();
 };

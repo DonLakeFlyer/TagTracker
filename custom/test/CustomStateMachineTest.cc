@@ -96,6 +96,38 @@ void CustomStateMachineTest::_errorAfterCancelIsIgnored()
     QCOMPARE(_vehicle->flightMode(), flightMode);
 }
 
+void CustomStateMachineTest::_cancelWhileRunningStopsWithoutRTL()
+{
+    // QPointer, not QScopedPointer: a cancelled machine deletes itself
+    QPointer<CustomStateMachine> machine = new CustomStateMachine(QStringLiteral("Test"), nullptr);
+    machine->setEventMode(CustomStateMachine::CancelOnFlightModeChange | CustomStateMachine::RTLOnError);
+
+    int stopHandlerCount = 0;
+    machine->registerStopHandler([&stopHandlerCount]() { stopHandlerCount++; });
+
+    auto initialState = new QState(machine.data());
+    machine->setInitialState(initialState);
+
+    // inProgress() is set before Qt processes the start, so wait for the state itself
+    QSignalSpy enteredSpy(initialState, &QState::entered);
+    machine->start();
+    QTRY_VERIFY_WITH_TIMEOUT(!enteredSpy.isEmpty(), 5000);
+
+    const QString flightMode = _vehicle->flightMode();
+    machine->cancel();
+    machine->cancel();
+    QCOMPARE(stopHandlerCount, 1);
+
+    // A state timer firing before the async stop lands: no RTL
+    machine->setError(QStringLiteral("late error"));
+    QCOMPARE(_vehicle->flightMode(), flightMode);
+
+    // The vehicle's mode change from the pause must not cancel a second time
+    emit _vehicle->flightModeChanged(QStringLiteral("Hold"));
+    QCOMPARE(stopHandlerCount, 1);
+    QTRY_VERIFY_WITH_TIMEOUT(machine.isNull(), 5000);
+}
+
 void CustomStateMachineTest::_headingTargetWrapsAtNorth()
 {
     Fact heading(0, QStringLiteral("heading"), FactMetaData::valueTypeDouble);

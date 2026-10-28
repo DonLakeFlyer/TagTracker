@@ -33,6 +33,7 @@ public:
     DEFINE_SETTINGFACT(falseAlarmProbability)
     DEFINE_SETTINGFACT(gain)
     DEFINE_SETTINGFACT(detectionFlightMode)
+    DEFINE_SETTINGFACT(simpleRotationScreen)
     DEFINE_SETTINGFACT(antennaOffset)
     DEFINE_SETTINGFACT(calibrationYawRate)
     DEFINE_SETTINGFACT(antennaType)

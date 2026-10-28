@@ -588,6 +588,19 @@ void CustomPlugin::startRotation(void)
     _startRotationMachine(stateMachine);
 }
 
+void CustomPlugin::pauseRotation(void)
+{
+    if (!_validateVehicleAvailable()) {
+        return;
+    }
+
+    // Cancel first so the machine can't treat the Hold as takeoff complete or RTL on its own
+    if (_rotationMachine) {
+        _rotationMachine->cancel();
+    }
+    MultiVehicleManager::instance()->activeVehicle()->pauseVehicle();
+}
+
 void CustomPlugin::calibrationSweep(void)
 {
     qCDebug(CustomPluginLog) << "Calibration sweep requested";
@@ -724,6 +737,7 @@ void CustomPlugin::reportCalibrationSweepProgress(uint32_t state, uint32_t progr
 
 void CustomPlugin::_startRotationMachine(CustomStateMachine* stateMachine)
 {
+    _rotationMachine = stateMachine;
     // Reserve the rotation before start() so a second request during async setup is rejected
     _setRotationInProgress(true);
     connect(stateMachine, &QStateMachine::finished, this, [this]() { _setRotationInProgress(false); });
