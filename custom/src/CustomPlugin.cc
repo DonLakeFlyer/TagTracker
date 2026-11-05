@@ -964,7 +964,7 @@ void CustomPlugin::_setControllerCpuThrottle(bool thermal, bool undervoltage)
         qCWarning(CustomPluginLog) << "Controller CPU is thermally throttled";
     }
     if (undervoltage && !_controllerCpuUndervoltage) {
-        qCWarning(CustomPluginLog) << "Controller CPU reports under-voltage";
+        qCWarning(CustomPluginLog) << "Controller CPU reports under-voltage (CPU is throttled)";
     }
 
     _controllerCpuThermalThrottled = thermal;
