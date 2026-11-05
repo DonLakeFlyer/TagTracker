@@ -98,7 +98,7 @@ Item {
             }
 
             QGCLabel {
-                text:       qsTr("CPU under-voltage: check controller power supply")
+                text:       qsTr("CPU under-voltage: CPU is throttled, check controller power supply")
                 color:      qgcPal.colorOrange
                 visible:    cpuUndervoltage
             }

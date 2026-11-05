@@ -22,7 +22,8 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # ubuntu-latest (26.04) lacks libgstreamer-plugins-good1.0-dev; unpin after the next upstream sync
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
 
     defaults:
