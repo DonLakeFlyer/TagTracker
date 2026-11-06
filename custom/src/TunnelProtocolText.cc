@@ -315,7 +315,10 @@ QString formatMessage(Direction direction, const uint8_t* payload, size_t length
                 .add("ip1_mu", m.ip1_mu)
                 .add("ip1_sigma", m.ip1_sigma)
                 .add("ip2_mu", m.ip2_mu)
-                .add("ip2_sigma", m.ip2_sigma);
+                .add("ip2_sigma", m.ip2_sigma)
+                .addText("name", m.name, sizeof(m.name))
+                .addText("rate1_name", m.rate1_name, sizeof(m.rate1_name))
+                .addText("rate2_name", m.rate2_name, sizeof(m.rate2_name));
             break;
         }
         case COMMAND_ID_START_DETECTION: {
@@ -544,6 +547,23 @@ QString formatMessage(Direction direction, const uint8_t* payload, size_t length
     }
 
     return writer.text();
+}
+
+void copyClipped(char* dst, size_t size, const QString& text)
+{
+    if (size == 0) {
+        return;
+    }
+
+    const QByteArray utf8 = text.toUtf8();
+    qsizetype len = qMin(static_cast<qsizetype>(size - 1), utf8.size());
+    if (len < utf8.size()) {
+        while (len > 0 && (static_cast<unsigned char>(utf8[len]) & 0xC0) == 0x80) {
+            len--;
+        }
+    }
+    memcpy(dst, utf8.constData(), static_cast<size_t>(len));
+    dst[len] = '\0';
 }
 
 }  // namespace TunnelProtocolText

@@ -3,6 +3,7 @@
 #include "SendTunnelCommandState.h"
 #include "TagDatabase.h"
 #include "TunnelProtocol.h"
+#include "TunnelProtocolText.h"
 #include "CustomPlugin.h"
 #include "DetectorList.h"
 #include "CustomStateMachine.h"
@@ -12,6 +13,7 @@
 #include <QFinalState>
 
 using namespace TunnelProtocol;
+using TunnelProtocolText::copyClipped;
 
 SendTagsState::SendTagsState(QState* parent)
     : CustomState("SendTagsState", parent)
@@ -156,6 +158,9 @@ SendTunnelCommandState* SendTagsState::_sendTagState(int tagIndex, uint32_t uplo
     tunnelTagInfo.ip1_sigma                                 = qQNaN();
     tunnelTagInfo.ip2_mu                                    = qQNaN();
     tunnelTagInfo.ip2_sigma                                 = qQNaN();
+    copyClipped(tunnelTagInfo.name,       tagInfo->name()->rawValue().toString());
+    copyClipped(tunnelTagInfo.rate1_name, tagManufacturer->ip_msecs_1_id()->rawValue().toString());
+    copyClipped(tunnelTagInfo.rate2_name, tagManufacturer->ip_msecs_2_id()->rawValue().toString());
 
     return new SendTunnelCommandState("TagInfoCommand", parent, (uint8_t*)&tunnelTagInfo, sizeof(tunnelTagInfo));
 }

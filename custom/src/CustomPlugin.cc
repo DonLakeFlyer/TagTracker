@@ -724,13 +724,12 @@ void CustomPlugin::reportCalibrationSweepProgress(uint32_t state, uint32_t progr
                                 && _operationProgress.title() == title;
     if (!cardShowsSweep) {
         frame.state = OPERATION_STATE_RUNNING;
-        strncpy(frame.message, title.toUtf8().constData(), sizeof(frame.message) - 1);
+        TunnelProtocolText::copyClipped(frame.message, title);
         _operationProgress.handleFrame(frame);
     }
 
     frame.state = state;
-    memset(frame.message, 0, sizeof(frame.message));
-    strncpy(frame.message, message.toUtf8().constData(), sizeof(frame.message) - 1);
+    TunnelProtocolText::copyClipped(frame.message, message);
 
     _operationProgress.handleFrame(frame);
 }
