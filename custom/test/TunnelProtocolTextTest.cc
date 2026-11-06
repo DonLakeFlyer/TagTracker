@@ -1,5 +1,6 @@
 #include "TunnelProtocolTextTest.h"
 
+#include <cstdio>
 #include <cstring>
 
 #include <QtTest/QTest>
@@ -28,7 +29,7 @@ void TunnelProtocolTextTest::_formatsAck()
     ack.command           = COMMAND_ID_START_COLLECTION;
     ack.request_id        = 42;
     ack.result            = COMMAND_RESULT_FAILURE;
-    strncpy(ack.message, "no detectors", sizeof(ack.message) - 1);
+    snprintf(ack.message, sizeof(ack.message), "%s", "no detectors");
 
     QCOMPARE(format(Direction::Received, ack),
              QStringLiteral("ACK received: command: START_COLLECTION request_id: 42 result: COMMAND_RESULT_FAILURE message: \"no detectors\""));
@@ -50,6 +51,53 @@ void TunnelProtocolTextTest::_formatsStartIqRecording()
     const QString text = format(Direction::Sent, start);
     QVERIFY2(text.startsWith(QStringLiteral("START_IQ_RECORDING sent:")), qPrintable(text));
     QVERIFY2(text.contains(QStringLiteral("radio_center_frequency_hz: 147970000")), qPrintable(text));
+}
+
+void TunnelProtocolTextTest::_formatsTagNames()
+{
+    TagInfo_t tag{};
+    tag.header.command = COMMAND_ID_TAG;
+    tag.id             = 2;
+    snprintf(tag.name, sizeof(tag.name), "%s", "Tag Two");
+    snprintf(tag.rate1_name, sizeof(tag.rate1_name), "%s", "Moving");
+
+    const QString text = format(Direction::Sent, tag);
+    QVERIFY2(text.contains(QStringLiteral("name: \"Tag Two\"")), qPrintable(text));
+    QVERIFY2(text.contains(QStringLiteral("rate1_name: \"Moving\"")), qPrintable(text));
+    QVERIFY2(!text.contains(QStringLiteral("rate2_name")), qPrintable(text));   // empty text is omitted
+
+    snprintf(tag.rate2_name, sizeof(tag.rate2_name), "%s", "Still");
+    const QString withRate2 = format(Direction::Sent, tag);
+    QVERIFY2(withRate2.contains(QStringLiteral("rate2_name: \"Still\"")), qPrintable(withRate2));
+}
+
+void TunnelProtocolTextTest::_copyClipped_data()
+{
+    QTest::addColumn<QString>("text");
+    QTest::addColumn<QByteArray>("expected");
+
+    // Destination holds 5 bytes plus the terminator
+    QTest::newRow("fits")                  << QStringLiteral("abc")                 << QByteArray("abc");
+    QTest::newRow("exactly full")          << QStringLiteral("abcde")               << QByteArray("abcde");
+    QTest::newRow("ascii one over")        << QStringLiteral("abcdef")              << QByteArray("abcde");
+    QTest::newRow("2-byte straddles")      << QStringLiteral("abcd\u00e9")          << QByteArray("abcd");
+    QTest::newRow("2-byte ends at limit")  << QStringLiteral("abc\u00e9x")         << QByteArray("abc\xc3\xa9");
+    QTest::newRow("3-byte straddles")      << QStringLiteral("abc\u20ac")           << QByteArray("abc");
+    QTest::newRow("4-byte straddles")      << QString::fromUtf8("ab\xf0\x9f\x98\x80") << QByteArray("ab");
+    QTest::newRow("empty")                 << QString()                            << QByteArray();
+}
+
+void TunnelProtocolTextTest::_copyClipped()
+{
+    QFETCH(QString, text);
+    QFETCH(QByteArray, expected);
+
+    char dst[6];
+    memset(dst, 'z', sizeof(dst));
+    TunnelProtocolText::copyClipped(dst, text);
+
+    QCOMPARE(QByteArray(dst, static_cast<qsizetype>(strnlen(dst, sizeof(dst)))), expected);
+    QVERIFY(strnlen(dst, sizeof(dst)) < sizeof(dst));
 }
 
 void TunnelProtocolTextTest::_payloadShorterThanHeader()
