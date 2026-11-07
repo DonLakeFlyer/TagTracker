@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QHash>
 #include <QObject>
 #include <QString>
 
@@ -69,6 +70,12 @@ public:
 
     void pulseReceived(const TunnelProtocol::PythonPulseInfo_t& pulseInfo);
     void setBearingResult(float bearingDeg, float rSquared, uint32_t nValidSlices, float bestSNR, bool confirmed);
+    /// The rose slice a collection slice_id is flown at (aircraft yaw, as in pulse yaw_deg)
+    void setSliceHeading(uint32_t sliceId, double headingDeg);
+    /// COLLECTION_STATUS for this rotation's collection
+    void sliceStatus(uint32_t sliceId, uint32_t status);
+    /// A slice still collecting when the rotation stops was not captured by that slice
+    void rotationEnded();
 
     /// Slice strength: signal_psd as dB above the reported noise floor. NaN when noise_psd is invalid
     /// (not a measurement); 0 when the noise-subtracted power is <= 0 (still a locked measurement).
@@ -89,6 +96,7 @@ private:
     int _cSlices = 0;
     QmlObjectListModel _slices;
     QList<int> _pulseRateCounts;
+    QHash<uint32_t, int> _sliceIndexById;
     double _maxSNR = qQNaN();
 
     double _bearingDeg = qQNaN();

@@ -98,6 +98,9 @@ void TunnelProtocolTextTest::_copyClipped()
 
     QCOMPARE(QByteArray(dst, static_cast<qsizetype>(strnlen(dst, sizeof(dst)))), expected);
     QVERIFY(strnlen(dst, sizeof(dst)) < sizeof(dst));
+    for (size_t i = static_cast<size_t>(expected.size()); i < sizeof(dst); i++) {
+        QCOMPARE(dst[i], '\0');
+    }
 }
 
 void TunnelProtocolTextTest::_payloadShorterThanHeader()
@@ -136,13 +139,17 @@ void TunnelProtocolTextTest::_unknownCommandAndValues()
     heartbeat.system_id        = 77;
     heartbeat.status           = 88;
     heartbeat.cpu_throttle_flags = CPU_THROTTLE_FLAG_THERMAL | CPU_THROTTLE_FLAG_UNDERVOLTAGE;
+    heartbeat.cpu_throttle_since_boot_flags = CPU_THROTTLE_FLAG_UNDERVOLTAGE;
     const QString text = format(Direction::Received, heartbeat);
     QVERIFY2(text.contains(QStringLiteral("HEARTBEAT_SYSTEM_ID_UNKNOWN(77)")), qPrintable(text));
     QVERIFY2(text.contains(QStringLiteral("HEARTBEAT_STATUS_UNKNOWN(88)")), qPrintable(text));
     QVERIFY2(text.contains(QStringLiteral("cpu_throttle_flags: CPU_THROTTLE_FLAG_THERMAL|CPU_THROTTLE_FLAG_UNDERVOLTAGE")),
              qPrintable(text));
+    QVERIFY2(text.contains(QStringLiteral("cpu_throttle_since_boot_flags: CPU_THROTTLE_FLAG_UNDERVOLTAGE")), qPrintable(text));
     heartbeat.cpu_throttle_flags = 0;
     QVERIFY(format(Direction::Received, heartbeat).contains(QStringLiteral("cpu_throttle_flags: NONE")));
+    heartbeat.cpu_throttle_since_boot_flags = 0;
+    QVERIFY(format(Direction::Received, heartbeat).contains(QStringLiteral("cpu_throttle_since_boot_flags: NONE")));
 }
 
 void TunnelProtocolTextTest::_unterminatedTextIsBounded()

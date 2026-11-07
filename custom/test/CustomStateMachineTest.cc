@@ -1,14 +1,23 @@
 #include "CustomStateMachineTest.h"
 
+#include <cstring>
+
 #include <QtCore/QPointer>
+#include <QtCore/QScopeGuard>
 #include <QtCore/QScopedPointer>
 #include <QtStateMachine/QFinalState>
 #include <QtStateMachine/QState>
 #include <QtTest/QSignalSpy>
 
+#include "CustomLoggingCategory.h"
+#include "CustomPlugin.h"
 #include "CustomStateMachine.h"
 #include "Fact.h"
 #include "FactWaitForValueTarget.h"
+#include "HeadingSettleState.h"
+#include "OperationProgress.h"
+#include "PythonWaitForDetectionResultState.h"
+#include "TunnelProtocol.h"
 #include "Vehicle.h"
 
 void CustomStateMachineTest::_flightModeChangeAfterFinishDoesNotCancel()
@@ -128,6 +137,62 @@ void CustomStateMachineTest::_cancelWhileRunningStopsWithoutRTL()
     QTRY_VERIFY_WITH_TIMEOUT(machine.isNull(), 5000);
 }
 
+void CustomStateMachineTest::_stallAfterTakeoffReturns()
+{
+    // An Auto Detection rotation that stalls mid-slice after takeoff must return
+    // Going airborne samples the GCS pressure sensor, which test hosts do not have
+    ignoreLogMessage("Utilities.QGCSensors", QtWarningMsg, QRegularExpression(QStringLiteral("[Pp]ressure")));
+    _vehicle->sendMavCommand(_vehicle->defaultComponentId(), MAV_CMD_NAV_TAKEOFF, true, 0, 0, 0, 0, 0, 0,
+                             50.0f /* altitude */);
+    QTRY_VERIFY_WITH_TIMEOUT(_vehicle->airborne(), 10000);
+
+    auto* plugin = qobject_cast<CustomPlugin*>(CustomPlugin::instance());
+    QVERIFY(plugin);
+    OperationProgress* progress = plugin->operationProgress();
+    progress->setTimeoutsForTest(5000, 5000, 300);
+    OperationProgress_t frame{};
+    frame.header.command = COMMAND_ID_OPERATION_PROGRESS;
+    frame.command = COMMAND_ID_START_COLLECTION;
+    frame.request_id = 3;
+    frame.state = OPERATION_STATE_RUNNING;
+    frame.step = 5;
+    frame.step_count = 40;
+    strncpy(frame.message, "collecting 6/8", sizeof(frame.message) - 1);
+    progress->handleFrame(frame);
+    // The plugin outlives this test, so restore it even when a check returns early
+    const auto restoreProgress = qScopeGuard([progress, &frame]() {
+        frame.state = OPERATION_STATE_FAILED;
+        progress->handleFrame(frame);
+        progress->reset();
+        progress->setTimeoutsForTest(5000, 30000, OperationProgress::kDefaultStallMSecs);
+    });
+
+    // QPointer, not QScopedPointer: a failed machine deletes itself
+    QPointer<CustomStateMachine> machine = new CustomStateMachine(QStringLiteral("Auto Detection"), nullptr);
+    // As set by Auto Detection once takeoff completes
+    machine->setEventMode(CustomStateMachine::CancelOnFlightModeChange | CustomStateMachine::RTLOnError);
+    int stopHandlerCount = 0;
+    machine->registerStopHandler([&stopHandlerCount]() { stopHandlerCount++; });
+    machine->setInitialState(new PythonWaitForDetectionResultState(machine.data(), 1, 6));
+
+    expectLogMessage(CustomPluginLog().categoryName(), QtWarningMsg,
+                     QRegularExpression(QStringLiteral("^OperationProgress stalled")));
+    expectLogMessage(CustomPluginLog().categoryName(), QtWarningMsg,
+                     QRegularExpression(QStringLiteral("^machine:.*error:.*Rotation stalled at slice 6")));
+    expectLogMessage(CustomPluginLog().categoryName(), QtWarningMsg,
+                     QRegularExpression(QStringLiteral("^error:.*Rotation stalled at slice 6")));
+    expectAppMessage(QRegularExpression(QStringLiteral("Rotation stalled at slice 6")));
+    machine->start();
+
+    QTRY_COMPARE_WITH_TIMEOUT(_vehicle->flightMode(), _vehicle->rtlFlightMode(), 10000);
+    verifyExpectedLogMessage();
+    verifyExpectedLogMessage();
+    verifyExpectedLogMessage();
+    verifyExpectedLogMessage();
+    QCOMPARE(stopHandlerCount, 1);
+    QTRY_VERIFY_WITH_TIMEOUT(machine.isNull(), 5000);
+}
+
 void CustomStateMachineTest::_headingTargetWrapsAtNorth()
 {
     Fact heading(0, QStringLiteral("heading"), FactMetaData::valueTypeDouble);
@@ -146,6 +211,57 @@ void CustomStateMachineTest::_headingTargetWrapsAtNorth()
 
     heading.setRawValue(359.6);
     QTRY_VERIFY_WITH_TIMEOUT(!finishedSpy.isEmpty(), 1000);
+}
+
+void CustomStateMachineTest::_headingSettleWaitsOutOvershoot()
+{
+    Fact heading(0, QStringLiteral("heading"), FactMetaData::valueTypeDouble);
+    heading.setRawValue(359.5);
+
+    QScopedPointer<CustomStateMachine> machine(new CustomStateMachine(QStringLiteral("Test"), nullptr));
+    auto settleState = new HeadingSettleState(machine.data(), &heading, 0.0, 3.0, 1000 /* hold */, 5000 /* max wait */);
+    auto finalState = new QFinalState(machine.data());
+    settleState->addTransition(settleState, &HeadingSettleState::settled, finalState);
+    machine->setInitialState(settleState);
+
+    QSignalSpy settledSpy(settleState, &HeadingSettleState::settled);
+    QSignalSpy enteredSpy(settleState, &QState::entered);
+    machine->start();
+    QTRY_VERIFY_WITH_TIMEOUT(!enteredSpy.isEmpty(), 5000);
+
+    // Overshoot out of the band restarts the hold
+    QVERIFY(!settledSpy.wait(400));
+    heading.setRawValue(7.0);
+    QVERIFY(!settledSpy.wait(400));
+    // An invalid heading is not in band, however long it lasts
+    heading.setRawValue(qQNaN());
+    QVERIFY(!settledSpy.wait(1200));
+    heading.setRawValue(2.0);
+    QVERIFY(!settledSpy.wait(400));
+    QTRY_COMPARE_WITH_TIMEOUT(settledSpy.count(), 1, 1500);
+}
+
+void CustomStateMachineTest::_headingSettleGivesUpInGusts()
+{
+    Fact heading(0, QStringLiteral("heading"), FactMetaData::valueTypeDouble);
+    heading.setRawValue(5.0);
+
+    QScopedPointer<CustomStateMachine> machine(new CustomStateMachine(QStringLiteral("Test"), nullptr));
+    bool stopHandlerRan = false;
+    machine->registerStopHandler([&stopHandlerRan]() { stopHandlerRan = true; });
+    auto settleState = new HeadingSettleState(machine.data(), &heading, 0.0, 3.0, 300 /* hold */, 600 /* max wait */);
+    auto finalState = new QFinalState(machine.data());
+    settleState->addTransition(settleState, &HeadingSettleState::settled, finalState);
+    machine->setInitialState(settleState);
+
+    // Never settling still starts the slice; it must not fail the rotation
+    QSignalSpy finishedSpy(machine.data(), &QStateMachine::finished);
+    expectLogMessage(CustomPluginLog().categoryName(), QtWarningMsg,
+                     QRegularExpression(QStringLiteral("^Heading did not settle")));
+    machine->start();
+    QTRY_VERIFY_WITH_TIMEOUT(!finishedSpy.isEmpty(), 5000);
+    verifyExpectedLogMessage();
+    QVERIFY(!stopHandlerRan);
 }
 
 UT_REGISTER_TEST(CustomStateMachineTest, TestLabel::Unit)

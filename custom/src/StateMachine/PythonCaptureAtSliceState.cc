@@ -2,6 +2,7 @@
 #include "SendMavlinkCommandState.h"
 #include "SendTunnelCommandState.h"
 #include "FactWaitForValueTarget.h"
+#include "HeadingSettleState.h"
 #include "PythonWaitForDetectionResultState.h"
 #include "SayState.h"
 #include "CustomPlugin.h"
@@ -62,8 +63,9 @@ PythonCaptureAtSliceState::PythonCaptureAtSliceState(
 
 void PythonCaptureAtSliceState::_buildStates(uint32_t collectionId, uint32_t sliceId)
 {
-    connect(this, &QState::entered, this, [this] () {
+    connect(this, &QState::entered, this, [this, sliceId] () {
         qCDebug(CustomPluginLog) << "Rotating to heading_deg:" << _sliceHeadingDegrees;
+        _customPlugin->rotationSliceHeading(sliceId, _sliceHeadingDegrees);
     });
 
     StartCollectionSlice_t startSlice {};
@@ -76,6 +78,8 @@ void PythonCaptureAtSliceState::_buildStates(uint32_t collectionId, uint32_t sli
     auto announceRotateState        = new SayState("Announce Rotate", this, QStringLiteral("Searching at %1 degrees").arg(_sliceHeadingDegrees));
     auto rotateCommandState         = _rotateMavlinkCommandState(this);
     auto waitForHeadingState        = new FactWaitForValueTarget(this, _vehicle->heading(), _sliceHeadingDegrees, 1.0, 20 * 1000, true /* angleDegrees */);
+    // The first arrival is mid-turn; yaw overshoots by up to ~8 deg for ~2 s
+    auto settleHeadingState         = new HeadingSettleState(this, _vehicle->heading(), _sliceHeadingDegrees);
     auto startSliceState            = new SendTunnelCommandState("Python StartCollectionSlice", this, reinterpret_cast<uint8_t*>(&startSlice), sizeof(startSlice));
     auto waitForDetectionResultState= new PythonWaitForDetectionResultState(this, collectionId, startSlice.slice_id);
     auto finalState                 = new QFinalState(this);
@@ -83,7 +87,8 @@ void PythonCaptureAtSliceState::_buildStates(uint32_t collectionId, uint32_t sli
     // Transitions
     announceRotateState->addTransition      (announceRotateState,           &SayState::advance,               rotateCommandState);
     rotateCommandState->addTransition       (rotateCommandState,            &SendMavlinkCommandState::success,          waitForHeadingState);
-    waitForHeadingState->addTransition      (waitForHeadingState,           &FactWaitForValueTarget::success,           startSliceState);
+    waitForHeadingState->addTransition      (waitForHeadingState,           &FactWaitForValueTarget::success,           settleHeadingState);
+    settleHeadingState->addTransition       (settleHeadingState,            &HeadingSettleState::settled,               startSliceState);
     startSliceState->addTransition          (startSliceState,               &SendTunnelCommandState::commandSucceeded,  waitForDetectionResultState);
     waitForDetectionResultState->addTransition(waitForDetectionResultState, &QState::finished,                          finalState);
 
