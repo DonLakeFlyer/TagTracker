@@ -21,6 +21,7 @@
 
 class CustomState;
 class CustomStateMachine;
+class RotationInfo;
 class QState;
 class QQmlApplicationEngine;
 
@@ -51,6 +52,8 @@ public:
     Q_PROPERTY(int                  controllerStatus        MEMBER  _controllerStatus           NOTIFY controllerStatusChanged)
     Q_PROPERTY(bool                 controllerCpuThermalThrottled MEMBER _controllerCpuThermalThrottled NOTIFY controllerCpuThrottleChanged)
     Q_PROPERTY(bool                 controllerCpuUndervoltage MEMBER _controllerCpuUndervoltage NOTIFY controllerCpuThrottleChanged)
+    Q_PROPERTY(bool                 controllerCpuThermalSinceBoot MEMBER _controllerCpuThermalSinceBoot NOTIFY controllerCpuThrottleChanged)
+    Q_PROPERTY(bool                 controllerCpuUndervoltageSinceBoot MEMBER _controllerCpuUndervoltageSinceBoot NOTIFY controllerCpuThrottleChanged)
     Q_PROPERTY(uint                 controllerProtocolVersion READ controllerProtocolVersion    NOTIFY protocolCompatibilityChanged)
     Q_PROPERTY(bool                 protocolCompatible      READ protocolCompatible             NOTIFY protocolCompatibilityChanged)
     Q_PROPERTY(QmlObjectListModel*  detectorList            READ    detectorList                CONSTANT)
@@ -81,6 +84,7 @@ public:
 
     CSVLogManager&          csvLogManager() { return _csvLogManager; }
     void                    rotationIsStarting(uint32_t collectionId = 0);
+    void                    rotationSliceHeading(uint32_t sliceId, double headingDeg);
     void                    rotationIsEnding();
     QmlObjectListModel*     rotationInfoList() { return &_rotationInfoList; }
 
@@ -135,7 +139,7 @@ signals:
 
 private slots:
     void _controllerHeartbeatFailed(void);
-    void _setControllerCpuThrottle(bool thermal, bool undervoltage);
+    void _setControllerCpuThrottle(uint8_t flags, uint8_t sinceBootFlags);
     void _stopDetectionOnDisarmed(bool armed);
     bool _validateAtLeastOneTagSelected();
     bool _validatePythonCollectionAllowed();
@@ -155,6 +159,8 @@ private:
     bool    _useSNRForPulseStrength     (void) { return _customSettings->useSNRForPulseStrength()->rawValue().toBool(); }
     void    _captureScreen              (void);
     void    _setActiveRotation          (bool active);
+    /// Latest rotation's info, or nullptr before the first rotation.
+    RotationInfo* _currentRotationInfo  (void) const;
     void    _startRotationMachine       (CustomStateMachine* stateMachine);
     void    _setRotationInProgress      (bool inProgress);
     void    _sendStopDetectionDirect    (void);
@@ -173,6 +179,8 @@ private:
     int                     _controllerStatus   = ControllerStatusIdle;
     bool                    _controllerCpuThermalThrottled = false;
     bool                    _controllerCpuUndervoltage = false;
+    bool                    _controllerCpuThermalSinceBoot = false;
+    bool                    _controllerCpuUndervoltageSinceBoot = false;
     uint32_t                _controllerProtocolVersion = 0;
     bool                    _protocolMismatchReported = false;
     bool                    _uavrtWrongModeReported = false;

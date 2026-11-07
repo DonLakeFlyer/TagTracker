@@ -17,6 +17,10 @@ public:
     Q_PROPERTY(double displaySNR    READ displaySNR     NOTIFY displaySNRChanged)
     Q_PROPERTY(QString displaySource READ displaySource  NOTIFY displaySourceChanged)
     Q_PROPERTY(bool   lowConfidenceOnly READ lowConfidenceOnly NOTIFY lowConfidenceOnlyChanged)
+    Q_PROPERTY(bool   collecting    READ collecting     NOTIFY captureStateChanged)
+    Q_PROPERTY(bool   captured      READ captured       NOTIFY captureStateChanged)
+
+    enum CaptureState { NotFlown, Collecting, Captured };
 
     double centerHeading(void) const { return _centerHeading; }
     double sliceDegrees(void) const { return _sliceDegrees; }
@@ -24,6 +28,13 @@ public:
     double displaySNR(void) const;
     QString displaySource(void) const;
     bool lowConfidenceOnly(void) const;
+    bool collecting(void) const { return _captureState == Collecting; }
+    // IQ for this heading is in; analysis or a later lock may still add a value
+    bool captured(void) const { return _captureState == Captured; }
+    CaptureState captureState(void) const { return _captureState; }
+    void setCaptureState(CaptureState captureState);
+    /// Collection stopped mid-slice: back to captured if an earlier slice covered this heading
+    void abandonCollecting();
     void updateMaxSNR(uint32_t tagId, double snr, bool confirmedPulse, const QString& sourceRateLabel);
     void clearTag(uint32_t tagId);
 
@@ -32,6 +43,7 @@ signals:
     void displaySNRChanged(double displaySNR);
     void displaySourceChanged(const QString& displaySource);
     void lowConfidenceOnlyChanged(bool lowConfidenceOnly);
+    void captureStateChanged();
 
 private:
     struct TagValue {
@@ -58,6 +70,8 @@ private:
     double  _maxLowConfidenceSNR = qQNaN();
     QString _maxSNRSourceRateLabel;
     QString _maxLowConfidenceSourceRateLabel;
+    CaptureState _captureState = NotFlown;
+    bool         _capturedOnce = false;
     // Latest confirmed value per tag; _maxSNR is the max across tags
     QHash<uint32_t, TagValue> _confirmedByTag;
     // Highest low-confidence value per tag; _maxLowConfidenceSNR is the max across tags

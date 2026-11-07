@@ -12,5 +12,8 @@ private slots:
     void _allowedFlightModeDoesNotCancel();
     void _errorAfterCancelIsIgnored();
     void _cancelWhileRunningStopsWithoutRTL();
+    void _stallAfterTakeoffReturns();
     void _headingTargetWrapsAtNorth();
+    void _headingSettleWaitsOutOvershoot();
+    void _headingSettleGivesUpInGusts();
 };

@@ -394,7 +394,8 @@ QString formatMessage(Direction direction, const uint8_t* payload, size_t length
             writer.add("protocol_version", m.protocol_version)
                 .add("system_id", _heartbeatSystemIdName(m.system_id))
                 .add("status", _heartbeatStatusName(m.status))
-                .add("cpu_throttle_flags", _cpuThrottleFlagsName(m.cpu_throttle_flags));
+                .add("cpu_throttle_flags", _cpuThrottleFlagsName(m.cpu_throttle_flags))
+                .add("cpu_throttle_since_boot_flags", _cpuThrottleFlagsName(m.cpu_throttle_since_boot_flags));
             break;
         }
         case COMMAND_ID_START_COLLECTION: {
@@ -562,8 +563,8 @@ void copyClipped(char* dst, size_t size, const QString& text)
             len--;
         }
     }
+    memset(dst, 0, size);
     memcpy(dst, utf8.constData(), static_cast<size_t>(len));
-    dst[len] = '\0';
 }
 
 }  // namespace TunnelProtocolText

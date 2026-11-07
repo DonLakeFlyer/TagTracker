@@ -29,6 +29,8 @@ Item {
     property bool   controllerHeartbeatLost:    QGroundControl.corePlugin.controllerLostHeartbeat
     property bool   cpuThermalThrottled:        QGroundControl.corePlugin.controllerCpuThermalThrottled
     property bool   cpuUndervoltage:            QGroundControl.corePlugin.controllerCpuUndervoltage
+    property bool   cpuThermalSinceBoot:        QGroundControl.corePlugin.controllerCpuThermalSinceBoot
+    property bool   cpuUndervoltageSinceBoot:   QGroundControl.corePlugin.controllerCpuUndervoltageSinceBoot
     property var    tagDatabase:                QGroundControl.corePlugin.tagDatabase
     property var    customSettings:             QGroundControl.settingsManager.customSettings
 
@@ -53,7 +55,9 @@ Item {
         Rectangle {
             height:     parent.height
             width:      ScreenTools.defaultFontPixelWidth * 15
-            color:      controllerHeartbeatLost ? "red" : (cpuThermalThrottled || cpuUndervoltage ? qgcPal.colorOrange : "green")
+            color:      controllerHeartbeatLost ? "red"
+                        : (cpuThermalThrottled || cpuUndervoltage ? qgcPal.colorOrange
+                        : (cpuThermalSinceBoot || cpuUndervoltageSinceBoot ? qgcPal.colorYellow : "green"))
 
             QGCLabel {
                 id:                     tagNameLabel
@@ -101,6 +105,18 @@ Item {
                 text:       qsTr("CPU under-voltage: CPU is throttled, check controller power supply")
                 color:      qgcPal.colorOrange
                 visible:    cpuUndervoltage
+            }
+
+            QGCLabel {
+                text:       qsTr("CPU was thermally throttled since controller boot: check enclosure cooling")
+                color:      qgcPal.colorYellow
+                visible:    cpuThermalSinceBoot && !cpuThermalThrottled
+            }
+
+            QGCLabel {
+                text:       qsTr("CPU under-voltage since controller boot: check controller power supply")
+                color:      qgcPal.colorYellow
+                visible:    cpuUndervoltageSinceBoot && !cpuUndervoltage
             }
 
             QGCLabel {

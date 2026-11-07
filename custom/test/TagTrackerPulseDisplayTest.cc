@@ -181,6 +181,40 @@ void TagTrackerPulseDisplayTest::_noDetectionPulseClearsRotationSlice()
     QCOMPARE(rotationInfo.maxSNR(), 20.0);
 }
 
+void TagTrackerPulseDisplayTest::_sliceCaptureState()
+{
+    RotationInfo rotationInfo(8);
+    SliceInfo* eastSlice = rotationInfo.slices()->value<SliceInfo*>(2);
+    QSignalSpy stateSpy(eastSlice, &SliceInfo::captureStateChanged);
+
+    rotationInfo.setSliceHeading(3, 88.0);
+    // Status for a slice_id with no heading, or that is neither armed nor complete, is ignored
+    rotationInfo.sliceStatus(9, COLLECTION_STATUS_SLICE_ARMED);
+    rotationInfo.sliceStatus(3, COLLECTION_STATUS_STOPPED);
+    QCOMPARE(eastSlice->captureState(), SliceInfo::NotFlown);
+
+    rotationInfo.sliceStatus(3, COLLECTION_STATUS_SLICE_ARMED);
+    QVERIFY(eastSlice->collecting());
+    rotationInfo.sliceStatus(3, COLLECTION_STATUS_SLICE_COMPLETE);
+    QVERIFY(eastSlice->captured());
+    QVERIFY(qIsNaN(eastSlice->displaySNR()));
+    QCOMPARE(stateSpy.count(), 2);
+
+    // A revisit at the same heading collects again; stopping it mid-slice keeps the first pass
+    rotationInfo.setSliceHeading(9, 92.0);
+    rotationInfo.sliceStatus(9, COLLECTION_STATUS_SLICE_ARMED);
+    QVERIFY(eastSlice->collecting());
+    rotationInfo.rotationEnded();
+    QVERIFY(eastSlice->captured());
+
+    // Stopping during a heading's first slice leaves it not flown
+    SliceInfo* southSlice = rotationInfo.slices()->value<SliceInfo*>(4);
+    rotationInfo.setSliceHeading(4, 180.0);
+    rotationInfo.sliceStatus(4, COLLECTION_STATUS_SLICE_ARMED);
+    rotationInfo.rotationEnded();
+    QCOMPARE(southSlice->captureState(), SliceInfo::NotFlown);
+}
+
 void TagTrackerPulseDisplayTest::_startupWaitIsNotHeartbeatFailure()
 {
     PythonDetectorInfo detectorInfo(2, QStringLiteral("Test tag"), 1333, 20);
