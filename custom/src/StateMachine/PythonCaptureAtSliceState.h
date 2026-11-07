@@ -8,8 +8,8 @@ class CustomSettings;
 class SendMavlinkCommandState;
 
 // Per-slice state for Python detection mode within a persistent collection.
-// Flow: announce → rotate command → wait for heading → START_COLLECTION_SLICE →
-//       wait for COLLECTION_STATUS_SLICE_COMPLETE.
+// Flow: announce → rotate command → wait for heading → wait for heading to settle →
+//       START_COLLECTION_SLICE → wait for COLLECTION_STATUS_SLICE_COMPLETE.
 class PythonCaptureAtSliceState : public CustomState
 {
     Q_OBJECT

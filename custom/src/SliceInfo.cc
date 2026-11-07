@@ -34,6 +34,22 @@ bool SliceInfo::lowConfidenceOnly(void) const
     return qIsNaN(_maxSNR) && !qIsNaN(_maxLowConfidenceSNR);
 }
 
+void SliceInfo::setCaptureState(CaptureState captureState)
+{
+    _capturedOnce |= captureState == Captured;
+    if (_captureState != captureState) {
+        _captureState = captureState;
+        emit captureStateChanged();
+    }
+}
+
+void SliceInfo::abandonCollecting()
+{
+    if (_captureState == Collecting) {
+        setCaptureState(_capturedOnce ? Captured : NotFlown);
+    }
+}
+
 void SliceInfo::updateMaxSNR(uint32_t tagId, double snr, bool confirmedPulse, const QString& sourceRateLabel)
 {
     qCDebug(CustomPluginLog) << "sliceIndex:" << _sliceIndex

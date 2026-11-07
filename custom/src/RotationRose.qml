@@ -32,6 +32,8 @@ Rectangle {
             property bool noDetection:      isNaN(sliceInfo.displaySNR)
             property real rawStrengthRatio: rose.rotationInfo.maxSNR > 0 ? sliceInfo.displaySNR / rose.rotationInfo.maxSNR : 0
             property bool lowConfidenceOnly: sliceInfo.lowConfidenceOnly
+            property bool collecting:       sliceInfo.collecting
+            property bool captured:         sliceInfo.captured
             // Weak (<= 0 dB) Python detections still get a visible stub so they read as "signal, faint"
             property real strengthRatio:    noDetection ? 1 : Math.max(0.1, Math.min(1, rawStrengthRatio))
 
@@ -53,8 +55,25 @@ Rectangle {
 
                 if (hasDetection) {
                     ctx.fill();
+                } else if (captured) {
+                    // Flown with nothing to show (yet): distinct from a heading not flown
+                    ctx.globalAlpha = 0.3;
+                    ctx.fillStyle = "grey";
+                    ctx.fill();
+                    ctx.globalAlpha = 0.75;
                 }
                 ctx.stroke();
+
+                if (collecting) {
+                    ctx.beginPath();
+                    ctx.globalAlpha = 1.0;
+                    ctx.strokeStyle = "yellow";
+                    ctx.lineWidth = 3;
+                    ctx.moveTo(centerX, centerY);
+                    ctx.arc(centerX, centerY, width / 2 - ctx.lineWidth, 0, arcRadians, false);
+                    ctx.lineTo(centerX, centerY);
+                    ctx.stroke();
+                }
             }
 
             transform: Rotation {
@@ -70,6 +89,7 @@ Rectangle {
                 function onDisplaySNRChanged(displaySNR) { arcCanvas.requestPaint() }
                 function onDisplaySourceChanged(displaySource) { arcCanvas.requestPaint() }
                 function onLowConfidenceOnlyChanged(lowConfidenceOnly) { arcCanvas.requestPaint() }
+                function onCaptureStateChanged() { arcCanvas.requestPaint() }
             }
             Connections {
                 target: rose.rotationInfo
@@ -93,11 +113,12 @@ Rectangle {
 
             x:              rose.width / 2 + outerRadius * Math.cos(sliceAngleRad) - width / 2
             y:              rose.height / 2 + outerRadius * Math.sin(sliceAngleRad) - height / 2
-            visible:        !noDetection && sliceInfo.displaySNR > 0
-            text:           sliceInfo.displaySNR.toFixed(1) + " " + displaySource
+            // A dash on a flown heading with no value, so a finished slice is visibly finished
+            visible:        noDetection ? sliceInfo.captured : sliceInfo.displaySNR > 0
+            text:           noDetection ? "\u2013" : sliceInfo.displaySNR.toFixed(1) + " " + displaySource
             font.pointSize: ScreenTools.largeFontPointSize
             font.bold:      true
-            color:          lowConfidenceOnly ? "orange" : "white"
+            color:          noDetection ? "#c0c0c0" : (lowConfidenceOnly ? "orange" : "white")
             style:          Text.Outline
             styleColor:     "black"
         }
