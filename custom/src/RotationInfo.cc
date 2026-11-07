@@ -36,6 +36,38 @@ void RotationInfo::pulseReceived(const PythonPulseInfo_t& pulseInfo)
     _applyPulseToSlice(pulseInfo, sliceIndex);
 }
 
+void RotationInfo::setSliceHeading(uint32_t sliceId, double headingDeg)
+{
+    const int sliceIndex = _sliceIndexForHeading(CustomPlugin::normalizeHeading(headingDeg));
+    if (sliceIndex >= 0) {
+        _sliceIndexById.insert(sliceId, sliceIndex);
+    }
+}
+
+void RotationInfo::sliceStatus(uint32_t sliceId, uint32_t status)
+{
+    const auto it = _sliceIndexById.constFind(sliceId);
+    if (it == _sliceIndexById.constEnd()) {
+        return;
+    }
+    SliceInfo* slice = _slices.value<SliceInfo*>(*it);
+    if (status == COLLECTION_STATUS_SLICE_ARMED) {
+        slice->setCaptureState(SliceInfo::Collecting);
+    } else if (status == COLLECTION_STATUS_SLICE_COMPLETE) {
+        slice->setCaptureState(SliceInfo::Captured);
+    }
+}
+
+void RotationInfo::rotationEnded()
+{
+    for (int i = 0; i < _cSlices; ++i) {
+        SliceInfo* slice = _slices.value<SliceInfo*>(i);
+        if (slice) {
+            slice->abandonCollecting();
+        }
+    }
+}
+
 int RotationInfo::_sliceIndexForHeading(double normalizedHeading)
 {
     for (int i = 0; i < _cSlices; ++i) {

@@ -361,8 +361,7 @@ void CustomPlugin::_handleTunnelHeartbeat(const mavlink_tunnel_t& tunnel)
         stop.header.request_id = SendTunnelCommandState::nextRequestId();
         _sendTunnelFrame(&stop, sizeof(stop));
     }
-    _setControllerCpuThrottle(heartbeat.cpu_throttle_flags & CPU_THROTTLE_FLAG_THERMAL,
-                              heartbeat.cpu_throttle_flags & CPU_THROTTLE_FLAG_UNDERVOLTAGE);
+    _setControllerCpuThrottle(heartbeat.cpu_throttle_flags, heartbeat.cpu_throttle_since_boot_flags);
 }
 
 void CustomPlugin::_handleUavrtPulse(Vehicle* vehicle, const mavlink_tunnel_t& tunnel)
@@ -454,8 +453,7 @@ void CustomPlugin::_handlePythonPulse(const mavlink_tunnel_t& tunnel)
 
     if (_activeRotation) {
         // Low-confidence reports paint orange; no-detections clear the tag's value on that heading
-        auto rotationInfo = _rotationInfoList.value<RotationInfo*>(_rotationInfoList.count() - 1);
-        if (rotationInfo) {
+        if (auto* rotationInfo = _currentRotationInfo()) {
             rotationInfo->pulseReceived(pulseInfo);
         } else {
             qCWarning(CustomPluginLog) << "No rotation info available";
@@ -947,14 +945,19 @@ void CustomPlugin::_controllerHeartbeatFailed()
 {
     _controllerLostHeartbeat = true;
     _operationProgress.reset();
-    _setControllerCpuThrottle(false, false);
+    _setControllerCpuThrottle(0, 0);
     emit controllerLostHeartbeatChanged();
     emit protocolCompatibilityChanged();
 }
 
-void CustomPlugin::_setControllerCpuThrottle(bool thermal, bool undervoltage)
+void CustomPlugin::_setControllerCpuThrottle(uint8_t flags, uint8_t sinceBootFlags)
 {
-    if (thermal == _controllerCpuThermalThrottled && undervoltage == _controllerCpuUndervoltage) {
+    const bool thermal               = flags & CPU_THROTTLE_FLAG_THERMAL;
+    const bool undervoltage          = flags & CPU_THROTTLE_FLAG_UNDERVOLTAGE;
+    const bool thermalSinceBoot      = sinceBootFlags & CPU_THROTTLE_FLAG_THERMAL;
+    const bool undervoltageSinceBoot = sinceBootFlags & CPU_THROTTLE_FLAG_UNDERVOLTAGE;
+    if (thermal == _controllerCpuThermalThrottled && undervoltage == _controllerCpuUndervoltage
+        && thermalSinceBoot == _controllerCpuThermalSinceBoot && undervoltageSinceBoot == _controllerCpuUndervoltageSinceBoot) {
         return;
     }
 
@@ -965,9 +968,17 @@ void CustomPlugin::_setControllerCpuThrottle(bool thermal, bool undervoltage)
     if (undervoltage && !_controllerCpuUndervoltage) {
         qCWarning(CustomPluginLog) << "Controller CPU reports under-voltage (CPU is throttled)";
     }
+    if (thermalSinceBoot && !_controllerCpuThermalSinceBoot) {
+        qCWarning(CustomPluginLog) << "Controller CPU has been thermally throttled since boot";
+    }
+    if (undervoltageSinceBoot && !_controllerCpuUndervoltageSinceBoot) {
+        qCWarning(CustomPluginLog) << "Controller CPU has seen under-voltage since boot";
+    }
 
-    _controllerCpuThermalThrottled = thermal;
-    _controllerCpuUndervoltage     = undervoltage;
+    _controllerCpuThermalThrottled      = thermal;
+    _controllerCpuUndervoltage          = undervoltage;
+    _controllerCpuThermalSinceBoot      = thermalSinceBoot;
+    _controllerCpuUndervoltageSinceBoot = undervoltageSinceBoot;
     emit controllerCpuThrottleChanged();
 }
 
@@ -1149,6 +1160,18 @@ bool CustomPlugin::_validateVehicleAvailable()
     return true;
 }
 
+RotationInfo* CustomPlugin::_currentRotationInfo() const
+{
+    return _rotationInfoList.count() > 0 ? _rotationInfoList.value<RotationInfo*>(_rotationInfoList.count() - 1) : nullptr;
+}
+
+void CustomPlugin::rotationSliceHeading(uint32_t sliceId, double headingDeg)
+{
+    if (auto* rotationInfo = _currentRotationInfo(); _activeRotation && rotationInfo) {
+        rotationInfo->setSliceHeading(sliceId, headingDeg);
+    }
+}
+
 void CustomPlugin::rotationIsStarting(uint32_t collectionId)
 {
     _activeCollectionId = collectionId;
@@ -1174,6 +1197,9 @@ void CustomPlugin::rotationIsStarting(uint32_t collectionId)
 void CustomPlugin::rotationIsEnding()
 {
     if (_activeRotation) {
+        if (auto* rotationInfo = _currentRotationInfo()) {
+            rotationInfo->rotationEnded();
+        }
         _setActiveRotation(false);
         _activeCollectionId = 0;
         DetectorList::instance()->stopHeartbeatWatchdogs();
@@ -1200,13 +1226,10 @@ void CustomPlugin::_handleBearingResult(const mavlink_tunnel_t& tunnel)
         return;
     }
 
-    if (_rotationInfoList.count() > 0) {
-        auto* rotationInfo = _rotationInfoList.value<RotationInfo*>(_rotationInfoList.count() - 1);
-        if (rotationInfo) {
-            rotationInfo->setBearingResult(bearingResult.bearing_deg, bearingResult.r_squared,
-                                           bearingResult.n_valid_slices, bearingResult.best_snr,
-                                           bearingResult.confirmed != 0);
-        }
+    if (auto* rotationInfo = _currentRotationInfo()) {
+        rotationInfo->setBearingResult(bearingResult.bearing_deg, bearingResult.r_squared,
+                                       bearingResult.n_valid_slices, bearingResult.best_snr,
+                                       bearingResult.confirmed != 0);
     }
     // Any finite estimate beats blind slice order for the next rotation; the
     // controller already folds detection count into r_squared confidence.
@@ -1230,6 +1253,9 @@ void CustomPlugin::_handleCollectionStatus(const mavlink_tunnel_t& tunnel)
     // Kept so a listener that connects after the message arrived can replay it
     if (status.collection_id == _activeCollectionId) {
         _lastCollectionStatus = status;
+        if (auto* rotationInfo = _currentRotationInfo(); _activeRotation && rotationInfo) {
+            rotationInfo->sliceStatus(status.slice_id, status.status);
+        }
     }
     emit collectionStatusReceived(
         status.collection_id, status.slice_id, status.status, status.error_code);

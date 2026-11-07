@@ -21,7 +21,7 @@ QString collectionErrorName(uint32_t errorCode);
 /// Decodes a complete tunnel payload into "COMMAND_NAME received: field: value ..." form.
 QString formatMessage(Direction direction, const uint8_t* payload, size_t length);
 
-/// Copies at most size-1 UTF-8 bytes without splitting a character; always null-terminates.
+/// Copies at most size-1 UTF-8 bytes without splitting a character; zero-fills the rest, so always null-terminated.
 void copyClipped(char* dst, size_t size, const QString& text);
 
 template <size_t N>

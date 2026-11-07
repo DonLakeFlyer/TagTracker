@@ -19,6 +19,7 @@ private slots:
     void _noDetectionClearsOnlyThatTag();
     void _noDetectionClearsLowConfidence();
     void _noDetectionPulseClearsRotationSlice();
+    void _sliceCaptureState();
     void _startupWaitIsNotHeartbeatFailure();
     void _heartbeatWatchdogArmsOnlyWhenStarted();
     void _stopHeartbeatWatchdogsClearsLoss();
