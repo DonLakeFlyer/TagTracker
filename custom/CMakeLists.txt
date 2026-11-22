@@ -152,6 +152,8 @@ qt_add_qml_module(CustomControlsModule
 # ============================================================================
 
 set(CUSTOM_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/AutoGrid/GridGenerator.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/AutoGrid/GridGenerator.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CompanionLogDownloader.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CompanionLogDownloader.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CSVLogManager.cc
@@ -223,6 +225,8 @@ if(QGC_BUILD_TESTING)
     list(APPEND CUSTOM_SOURCES
         ${CMAKE_CURRENT_SOURCE_DIR}/test/CustomStateMachineTest.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/test/CustomStateMachineTest.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/GridGeneratorTest.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/GridGeneratorTest.h
         ${CMAKE_CURRENT_SOURCE_DIR}/test/OperationProgressTest.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/test/OperationProgressTest.h
         ${CMAKE_CURRENT_SOURCE_DIR}/test/TagTrackerPulseDisplayTest.cc
@@ -231,8 +235,17 @@ if(QGC_BUILD_TESTING)
         ${CMAKE_CURRENT_SOURCE_DIR}/test/TunnelProtocolTextTest.h
     )
 
+    # Reference outputs from the Auto Grid Python prototype, read by GridGeneratorTest as :/unittest/grid_ref/*.json
+    file(GLOB CUSTOM_GRID_REF_FILES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/test/data/grid_ref/*.json")
+    qt_add_resources(${CMAKE_PROJECT_NAME} custom_grid_ref
+        PREFIX "/unittest/grid_ref"
+        BASE "${CMAKE_CURRENT_SOURCE_DIR}/test/data/grid_ref"
+        FILES ${CUSTOM_GRID_REF_FILES}
+    )
+
     include(QGCTest)
     add_qgc_test(CustomStateMachineTest LABELS Unit)
+    add_qgc_test(GridGeneratorTest LABELS Unit)
     add_qgc_test(OperationProgressTest LABELS Unit)
     add_qgc_test(TagTrackerPulseDisplayTest LABELS Unit)
     add_qgc_test(TunnelProtocolTextTest LABELS Unit)
@@ -263,6 +276,7 @@ set(CUSTOM_LIBRARIES
 
 set(CUSTOM_INCLUDE_DIRECTORIES
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/AutoGrid
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Settings
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine
     ${TunnelProtocol_SOURCE_DIR}
