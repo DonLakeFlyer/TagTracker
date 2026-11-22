@@ -125,6 +125,7 @@ qgc_configure_target(CustomControlsModule)
 qgc_set_qt_resource_alias(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomGuidedActionAutoDetection.qml
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomGuidedActionStartRotation.qml
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomGuidedActionStartGrid.qml
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomGuidedActionStartStopDetection.qml
     ${CMAKE_CURRENT_SOURCE_DIR}/src/RotationRose.qml
     ${CMAKE_CURRENT_SOURCE_DIR}/src/SimpleRotationView.qml
@@ -139,6 +140,7 @@ qt_add_qml_module(CustomControlsModule
     QML_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomGuidedActionAutoDetection.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomGuidedActionStartRotation.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomGuidedActionStartGrid.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomGuidedActionStartStopDetection.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/src/RotationRose.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/src/SimpleRotationView.qml
@@ -152,6 +154,10 @@ qt_add_qml_module(CustomControlsModule
 # ============================================================================
 
 set(CUSTOM_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/AutoGrid/AutoGridPreview.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/AutoGrid/AutoGridPreview.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/AutoGrid/GridGenerator.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/AutoGrid/GridGenerator.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CompanionLogDownloader.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CompanionLogDownloader.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CSVLogManager.cc
@@ -184,6 +190,8 @@ set(CUSTOM_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/TunnelProtocolText.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/UavrtDetectorInfo.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/UavrtDetectorInfo.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/AutoGridStateMachine.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/AutoGridStateMachine.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/CustomState.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/CustomState.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/CustomStateMachine.cc
@@ -215,14 +223,24 @@ set(CUSTOM_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/StopDetectionState.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/TakeoffState.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/TakeoffState.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/UploadMissionState.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/UploadMissionState.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/YawSweepState.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/YawSweepState.h
 )
 
 if(QGC_BUILD_TESTING)
     list(APPEND CUSTOM_SOURCES
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/AutoGridEditorUITest.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/AutoGridEditorUITest.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/AutoGridPreviewTest.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/AutoGridPreviewTest.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/AutoGridTest.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/AutoGridTest.h
         ${CMAKE_CURRENT_SOURCE_DIR}/test/CustomStateMachineTest.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/test/CustomStateMachineTest.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/GridGeneratorTest.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/GridGeneratorTest.h
         ${CMAKE_CURRENT_SOURCE_DIR}/test/OperationProgressTest.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/test/OperationProgressTest.h
         ${CMAKE_CURRENT_SOURCE_DIR}/test/TagTrackerPulseDisplayTest.cc
@@ -231,8 +249,20 @@ if(QGC_BUILD_TESTING)
         ${CMAKE_CURRENT_SOURCE_DIR}/test/TunnelProtocolTextTest.h
     )
 
+    # Reference outputs from the Auto Grid Python prototype, read by GridGeneratorTest as :/unittest/grid_ref/*.json
+    file(GLOB CUSTOM_GRID_REF_FILES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/test/data/grid_ref/*.json")
+    qt_add_resources(${CMAKE_PROJECT_NAME} custom_grid_ref
+        PREFIX "/unittest/grid_ref"
+        BASE "${CMAKE_CURRENT_SOURCE_DIR}/test/data/grid_ref"
+        FILES ${CUSTOM_GRID_REF_FILES}
+    )
+
     include(QGCTest)
+    add_qgc_test(AutoGridEditorUITest LABELS Integration NoSanitizer TIMEOUT 180)
+    add_qgc_test(AutoGridPreviewTest LABELS Unit)
+    add_qgc_test(AutoGridTest LABELS Unit TIMEOUT 180)
     add_qgc_test(CustomStateMachineTest LABELS Unit)
+    add_qgc_test(GridGeneratorTest LABELS Unit)
     add_qgc_test(OperationProgressTest LABELS Unit)
     add_qgc_test(TagTrackerPulseDisplayTest LABELS Unit)
     add_qgc_test(TunnelProtocolTextTest LABELS Unit)
@@ -263,6 +293,7 @@ set(CUSTOM_LIBRARIES
 
 set(CUSTOM_INCLUDE_DIRECTORIES
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/AutoGrid
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Settings
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine
     ${TunnelProtocol_SOURCE_DIR}

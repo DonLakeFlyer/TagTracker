@@ -208,6 +208,112 @@
     "min":              0,
     "max":              50,
     "default":          5.0
+},
+{
+    "name":             "gridWidth",
+    "shortDesc":        "Cell Width",
+    "longDesc":         "Total width of the Auto Grid search cell, centred on the vehicle at confirm.",
+    "label":            "Cell Width",
+    "type":             "double",
+    "units":            "m",
+    "decimalPlaces":    0,
+    "min":              10,
+    "max":              500,
+    "default":          100
+},
+{
+    "name":             "gridDepth",
+    "shortDesc":        "Cell Depth",
+    "longDesc":         "Depth of the Auto Grid search cell, forward of the vehicle along its heading at confirm.",
+    "label":            "Cell Depth",
+    "type":             "double",
+    "units":            "m",
+    "decimalPlaces":    0,
+    "min":              10,
+    "max":              500,
+    "default":          100
+},
+{
+    "name":             "gridLaneSpacing",
+    "shortDesc":        "Lane Spacing",
+    "longDesc":         "Distance between Auto Grid lanes. The U-turn radius is half of this.",
+    "label":            "Lane Spacing",
+    "type":             "double",
+    "units":            "m",
+    "decimalPlaces":    1,
+    "min":              2,
+    "max":              100,
+    "default":          20
+},
+{
+    "name":             "gridCruiseSpeed",
+    "shortDesc":        "Lane Speed",
+    "longDesc":         "Ground speed along the Auto Grid lanes.",
+    "label":            "Lane Speed",
+    "type":             "double",
+    "units":            "m/s",
+    "decimalPlaces":    1,
+    "min":              1,
+    "max":              12,
+    "default":          6
+},
+{
+    "name":             "gridTurnSpeed",
+    "shortDesc":        "Turn Speed",
+    "longDesc":         "Ground speed through the Auto Grid U-turns. 0 leaves the turn speed to PX4.",
+    "label":            "Turn Speed",
+    "type":             "double",
+    "units":            "m/s",
+    "decimalPlaces":    1,
+    "min":              0,
+    "max":              12,
+    "default":          3
+},
+{
+    "name":             "gridStartSide",
+    "shortDesc":        "Start Side",
+    "longDesc":         "Which way the first half lane of the Auto Grid goes from the vehicle.",
+    "label":            "Start Side",
+    "type":             "uint32",
+    "enumStrings":      "Left,Right",
+    "enumValues":       "0,1",
+    "default":          0
+},
+{
+    "name":             "gridArcStep",
+    "shortDesc":        "Turn Arc Step",
+    "longDesc":         "Angle between the waypoints that make up each Auto Grid U-turn.",
+    "label":            "Turn Arc Step",
+    "type":             "double",
+    "units":            "deg",
+    "decimalPlaces":    0,
+    "min":              10,
+    "max":              90,
+    "default":          45
+},
+{
+    "name":             "gridEndLoiter",
+    "shortDesc":        "End Loiter",
+    "longDesc":         "Time the vehicle loiters at the end of the Auto Grid before it returns to launch.",
+    "label":            "End Loiter",
+    "type":             "double",
+    "units":            "s",
+    "decimalPlaces":    0,
+    "min":              0,
+    "max":              120,
+    "default":          10
+},
+{
+    "name":             "gridAcceptanceRadius",
+    "shortDesc":        "Waypoint Acceptance Radius",
+    "longDesc":         "Acceptance radius sent on every Auto Grid waypoint. 0 uses the vehicle's NAV_ACC_RAD.",
+    "label":            "Waypoint Acceptance Radius",
+    "type":             "double",
+    "units":            "m",
+    "decimalPlaces":    1,
+    "min":              0,
+    "max":              20,
+    "default":          3
 }
 ]
 }

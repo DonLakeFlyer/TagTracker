@@ -19,8 +19,16 @@ public:
     void registerStopHandler(std::function<void()> handler) { _stopHandler = handler; }
     /// A mode the machine itself puts the vehicle in, so entering it is not a user cancel.
     void setAllowedFlightMode(const QString& flightMode) { _allowedFlightMode = flightMode; }
+    /// Replaces the Hold/allowed-mode rule while CancelOnFlightModeChange is set: the handler sees every mode change
+    /// and decides itself whether to cancel().
+    void setFlightModeChangeHandler(std::function<void(const QString&)> handler)
+    {
+        _flightModeChangeHandler = std::move(handler);
+    }
     /// Stops a running machine as a user cancel: no RTL, the vehicle is left as it is.
     void cancel();
+    /// Cancelled or failed. stop() is asynchronous, so a state timer can still fire after this; it must send nothing.
+    bool stopping() const { return _stopping; }
 
     enum {
         CancelOnFlightModeChange = 0x01,
@@ -45,4 +53,5 @@ private:
     bool                    _vehicleLost = false;
     bool                    _stopping = false;  // cancelled or failed; later errors are ignored
     std::function<void()>   _stopHandler;
+    std::function<void(const QString&)> _flightModeChangeHandler;
 };

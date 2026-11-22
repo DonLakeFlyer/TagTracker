@@ -35,13 +35,27 @@ Item {
         _occluderRect(controllerOperationCard, rightColumn.x, rightColumn.y),
         _occluderRect(wifiDownloadCard, rightColumn.x, rightColumn.y),
         _occluderRect(pulseOverlayBackground, rightColumn.x, rightColumn.y),
-        _occluderRect(snrGradient, rightColumn.x, rightColumn.y)
+        _occluderRect(snrGradient, rightColumn.x, rightColumn.y),
+        _occluderRect(gridPreviewPanel, 0, 0)
     ]
 
     property var _customPlugin:     QGroundControl.corePlugin
     property var _customSettings:   QGroundControl.settingsManager.customSettings
     property var _guidedController: globals.guidedControllerFlyView
     property bool _surveyDetection: _customSettings.detectionFlightMode.rawValue === CustomSettings.SurveyDetection
+
+    // Auto Grid preview: drawn from the Grid tap through the editor and the confirm slider, and after confirm until
+    // QGC draws the uploaded mission
+    property var    _gridPreview:               _customPlugin.gridPreview
+    property var    _confirmDialog:             _guidedController ? _guidedController.confirmDialog : null
+    property var    _gridPreviewMapItems:       null
+    // Translucent glowing green reads as "proposed" on satellite and street maps, differs from QGC's orange mission
+    // path and red flight trail, and lets the cyan cell outline show through. No dark halos (Michael's call).
+    readonly property color _gridPathGlowColor: Qt.rgba(0.13, 0.95, 0.3, 0.28)
+    readonly property color _gridPathCoreColor: Qt.rgba(0.0, 0.8, 0.2, 0.75)
+    readonly property color _gridOutlineColor:  "#00e5ff"
+    readonly property color _gridStartColor:    "white"
+    readonly property color _gridStartBorder:   "#202020"
 
     QGCPalette { id: qgcPal; colorGroupEnabled: true }
 
@@ -59,6 +73,30 @@ Item {
     function _occluderRect(item, offsetX, offsetY) {
         return item.visible ? Qt.rect(offsetX + item.x, offsetY + item.y, item.width, item.height) : Qt.rect(0, 0, 0, 0)
     }
+
+    // Only the QtLocation map engine takes map item groups
+    function _addGridPreviewMapItems() {
+        if (_gridPreviewMapItems || !mapControl || typeof mapControl.addMapItemGroup !== "function") {
+            return
+        }
+        _gridPreviewMapItems = gridPreviewMapItemsComponent.createObject(mapControl)
+        mapControl.addMapItemGroup(_gridPreviewMapItems)
+    }
+
+    // Confirm hides the slider before running the action, which hands the preview over, so check once that is done
+    function _clearGridPreviewIfSliderClosed() {
+        if (_gridPreview.confirming && !(_confirmDialog && _confirmDialog.visible)) {
+            _gridPreview.clear()
+        }
+    }
+
+    function _startGrid() {
+        if (_gridPreview.requestConfirm()) {
+            _guidedController.confirmAction(_guidedController._customController.actionStartGrid)
+        }
+    }
+
+    onMapControlChanged: _addGridPreviewMapItems()
 
     // Declared before rightColumn so the progress cards draw over it
     SimpleRotationView {
@@ -284,6 +322,205 @@ Item {
         Item {
             Layout.fillHeight:  true
             visible:            !snrGradient.visible
+        }
+    }
+
+    Rectangle {
+        id:         gridPreviewPanel
+        objectName: "autoGridEditorPanel"
+        x:          occluders.toolStrip.x + occluders.toolStrip.width + ScreenTools.defaultFontPixelWidth
+        y:          occluders.toolStrip.y
+        width:      ScreenTools.defaultFontPixelWidth * 40
+        height:     gridPreviewColumn.height + ScreenTools.defaultFontPixelWidth * 2
+        color:      Qt.rgba(qgcPal.window.r, qgcPal.window.g, qgcPal.window.b, 0.85)
+        radius:     ScreenTools.defaultFontPixelWidth / 2
+        visible:    _gridPreview.editing
+
+        component GridValueRow: RowLayout {
+            Layout.fillWidth:   true
+            spacing:            ScreenTools.defaultFontPixelWidth
+
+            property string label
+            property string buttonPrefix  // objectName prefix for the − and + buttons and the value
+            property real   value
+            property string valueText:    qsTr("%1 m").arg(value)
+            property real   minValue
+            property real   maxValue
+
+            signal step(int steps)
+
+            QGCLabel {
+                Layout.fillWidth:   true
+                text:               label
+            }
+            QGCButton {
+                objectName: buttonPrefix + "Minus"
+                text:       "\u2212"
+                enabled:    value > minValue
+                onClicked:  step(-1)
+            }
+            QGCLabel {
+                objectName:             buttonPrefix + "Value"
+                Layout.minimumWidth:    ScreenTools.defaultFontPixelWidth * 7
+                horizontalAlignment:    Text.AlignHCenter
+                text:                   valueText
+            }
+            QGCButton {
+                objectName: buttonPrefix + "Plus"
+                text:       "+"
+                enabled:    value < maxValue
+                onClicked:  step(1)
+            }
+        }
+
+        ColumnLayout {
+            id:                 gridPreviewColumn
+            anchors.left:       parent.left
+            anchors.right:      parent.right
+            anchors.top:        parent.top
+            anchors.margins:    ScreenTools.defaultFontPixelWidth
+            spacing:            ScreenTools.defaultFontPixelHeight / 4
+
+            QGCLabel {
+                text:       qsTr("Grid (this grid only)")
+                font.bold:  true
+            }
+
+            GridValueRow {
+                label:          qsTr("Width")
+                buttonPrefix:   "autoGridWidth"
+                value:      _gridPreview.width
+                minValue:   _gridPreview.widthMin
+                maxValue:   _gridPreview.widthMax
+                onStep:     (steps) => _gridPreview.adjustWidth(steps)
+            }
+
+            GridValueRow {
+                label:          qsTr("Depth")
+                buttonPrefix:   "autoGridDepth"
+                valueText:      qsTr("%1 m (%2 lanes)").arg(_gridPreview.depth).arg(_gridPreview.laneCount)
+                value:      _gridPreview.depth
+                minValue:   _gridPreview.depthMin
+                maxValue:   _gridPreview.depthMax
+                onStep:     (steps) => _gridPreview.adjustDepth(steps)
+            }
+
+            GridValueRow {
+                label:          qsTr("Lane spacing")
+                buttonPrefix:   "autoGridSpacing"
+                value:      _gridPreview.spacing
+                minValue:   _gridPreview.spacingMin
+                maxValue:   _gridPreview.spacingMax
+                onStep:     (steps) => _gridPreview.adjustSpacing(steps)
+            }
+
+            QGCLabel {
+                objectName:         "autoGridSummaryLabel"
+                Layout.fillWidth:   true
+                text:               _gridPreview.confirmMessage
+                color:              _gridPreview.valid ? qgcPal.textPrimary : qgcPal.colorRed
+                wrapMode:           Text.WordWrap
+                font.pointSize:     ScreenTools.smallFontPointSize
+            }
+
+            RowLayout {
+                Layout.fillWidth:   true
+                spacing:            ScreenTools.defaultFontPixelWidth
+
+                QGCButton {
+                    objectName:         "autoGridStartButton"
+                    Layout.fillWidth:   true
+                    text:               qsTr("Start grid")
+                    primary:            true
+                    enabled:            _gridPreview.valid
+                    onClicked:          _startGrid()
+                }
+                QGCButton {
+                    objectName:         "autoGridCancelButton"
+                    Layout.fillWidth:   true
+                    text:               qsTr("Cancel")
+                    onClicked:          _gridPreview.clear()
+                }
+            }
+        }
+    }
+
+    Component {
+        id: gridPreviewMapItemsComponent
+
+        MapItemGroup {
+            z: QGroundControl.zOrderTrajectoryLines
+
+            // Outline under the path; the path is translucent, so the outline shows through it
+            MapPolyline {
+                line.width: 3
+                line.color: _root._gridOutlineColor
+                path:       _root._gridPreview.outline
+                visible:    _root._gridPreview.active
+                z:          0
+            }
+            MapPolyline {
+                line.width: 10
+                line.color: _root._gridPathGlowColor
+                path:       _root._gridPreview.path
+                visible:    _root._gridPreview.active
+                z:          1
+            }
+            MapPolyline {
+                line.width: 3
+                line.color: _root._gridPathCoreColor
+                path:       _root._gridPreview.path
+                visible:    _root._gridPreview.active
+                z:          2
+            }
+
+            // Below the vehicle icon, which sits on the origin at tap
+            MapQuickItem {
+                coordinate:     _root._gridPreview.origin
+                anchorPoint.x:  sourceItem.width / 2
+                anchorPoint.y:  -ScreenTools.defaultFontPixelHeight * 1.5
+                visible:        _root._gridPreview.active
+                z:              QGroundControl.zOrderMapItems
+
+                sourceItem: Rectangle {
+                    width:          startLabel.contentWidth + ScreenTools.defaultFontPixelWidth
+                    height:         startLabel.contentHeight + ScreenTools.defaultFontPixelWidth / 2
+                    radius:         height / 2
+                    color:          _root._gridStartColor
+                    border.color:   _root._gridStartBorder
+                    border.width:   1
+
+                    QGCLabel {
+                        id:                 startLabel
+                        anchors.centerIn:   parent
+                        text:               qsTr("START")
+                        color:              "black"
+                        font.bold:          true
+                    }
+                }
+            }
+        }
+    }
+
+    Connections {
+        target: _confirmDialog
+        function onVisibleChanged() {
+            // Another action's slider replaces the Grid editor
+            if (_confirmDialog.visible && _confirmDialog.action !== _guidedController._customController.actionStartGrid
+                    && _gridPreview.editing) {
+                _gridPreview.clear()
+            }
+            Qt.callLater(_clearGridPreviewIfSliderClosed)
+        }
+    }
+
+    Component.onCompleted: _addGridPreviewMapItems()
+
+    Component.onDestruction: {
+        if (_gridPreviewMapItems && mapControl) {
+            // A map item group must leave the map before it is destroyed
+            mapControl.removeMapItemGroup(_gridPreviewMapItems)
+            _gridPreviewMapItems.destroy()
         }
     }
 }

@@ -84,6 +84,7 @@ Item {
             title:      _customController.calibrationSweepTitle,
             visible:    _customSettings.detectionFlightMode.rawValue !== CustomSettings.SurveyDetection,
             enabled:    _controllerAvailable && !_controllerBusy && _activeVehicle.airborne && !QGroundControl.corePlugin.rotationInProgress
+                        && !QGroundControl.corePlugin.gridInProgress
                         && (_controllerStatus == CustomPlugin.ControllerStatusHasTags || _controllerStatus == CustomPlugin.ControllerStatusIdle),
             action:     _customController.actionCalibrationSweep,
         },
