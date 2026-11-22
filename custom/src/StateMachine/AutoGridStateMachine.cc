@@ -9,6 +9,7 @@
 #include "CustomLoggingCategory.h"
 #include "CustomPlugin.h"
 #include "CustomSettings.h"
+#include "DelayState.h"
 #include "Fact.h"
 #include "FunctionState.h"
 #include "MissionManager.h"
@@ -121,7 +122,7 @@ QString AutoGridStateMachine::logLine(const GridGenerator::Params& params, const
 }
 
 AutoGridStateMachine::AutoGridStateMachine(const GridGenerator::Params& params, const GridGenerator::Result& result,
-                                           QObject* parent)
+                                           QObject* parent, std::function<void(const QString&)> modeRequest)
     : CustomStateMachine(QStringLiteral("Grid"), parent)
     , _params(params)
     , _result(result)
@@ -138,6 +139,7 @@ AutoGridStateMachine::AutoGridStateMachine(const GridGenerator::Params& params, 
     });
 
     Vehicle* const gridVehicle = vehicle();
+    _lastFlightMode = gridVehicle->flightMode();
     // A disarm leaves the mode as it was, so it would otherwise never end the grid
     connect(gridVehicle, &Vehicle::armedChanged, this, [this](bool armed) {
         if (!armed && !_completing) {
@@ -146,10 +148,18 @@ AutoGridStateMachine::AutoGridStateMachine(const GridGenerator::Params& params, 
     });
 
     auto uploadState = new UploadMissionState(this, gridVehicle, GridGenerator::planManagerItems(_params, _result));
-    // 1 is wire item 0 on PX4: Vehicle subtracts the home item
-    auto setCurrentState = new FunctionState(QStringLiteral("SetCurrentMissionItem"), this,
-                                             [gridVehicle]() { gridVehicle->setCurrentMissionSequence(1); });
+    auto settleState = new DelayState(this, kPostUploadSettleMsecs);
+    // 1 is wire item 0 on PX4: Vehicle subtracts the home item. A cancel during the settle must send nothing.
+    auto setCurrentState = new FunctionState(QStringLiteral("SetCurrentMissionItem"), this, [this, gridVehicle]() {
+        if (!stopping()) {
+            gridVehicle->setCurrentMissionSequence(1);
+        }
+    });
     auto missionModeState = new SetFlightModeState(this, gridVehicle->missionFlightMode());
+    missionModeState->setRetry(kMissionSwitchRetryMsecs, kMissionSwitchAttempts);
+    if (modeRequest) {
+        missionModeState->setModeRequest(std::move(modeRequest));
+    }
     auto missionStartedState =
         new SayState(QStringLiteral("AnnounceGridStarted"), this, QStringLiteral("Grid started"));
     // From here the machine only watches. Return counts as complete only once gridComplete has a state to leave.
@@ -160,7 +170,8 @@ AutoGridStateMachine::AutoGridStateMachine(const GridGenerator::Params& params, 
         new SayState(QStringLiteral("AnnounceGridComplete"), this, QStringLiteral("Grid complete, returning"));
     auto finalState = new QFinalState(this);
 
-    uploadState->addTransition(uploadState, &UploadMissionState::uploadComplete, setCurrentState);
+    uploadState->addTransition(uploadState, &UploadMissionState::uploadComplete, settleState);
+    settleState->addTransition(settleState, &DelayState::delayComplete, setCurrentState);
     setCurrentState->addTransition(setCurrentState, &FunctionState::advance, missionModeState);
     missionModeState->addTransition(missionModeState, &SetFlightModeState::flightModeChanged, missionStartedState);
     missionStartedState->addTransition(missionStartedState, &SayState::advance, monitorState);
@@ -175,6 +186,13 @@ void AutoGridStateMachine::_handleFlightModeChange(const QString& flightMode)
     if (_completing) {
         return;
     }
+    // Vehicle re-emits the unchanged mode when its mode list updates (seen during the post-upload settle). Only a
+    // real change is the pilot's, GCS's or a failsafe's.
+    if (flightMode == _lastFlightMode) {
+        qCDebug(CustomPluginLog) << "Grid flight mode unchanged:" << flightMode;
+        return;
+    }
+    _lastFlightMode = flightMode;
     _endHoldTimer.stop();
 
     Vehicle* const gridVehicle = vehicle();

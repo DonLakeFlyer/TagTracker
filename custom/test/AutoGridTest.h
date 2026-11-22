@@ -26,6 +26,8 @@ private slots:
     void _confirmFliesLatchedPreview();
     void _movedGuardRefusesAndClears();
     void _cancelClearsPreview();
+    void _missionSwitchRetried();
+    void _pilotCancelStopsMissionRetries();
 
 private:
     void _takeoff();

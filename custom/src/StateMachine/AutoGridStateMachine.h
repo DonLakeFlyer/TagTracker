@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+
 #include <QtCore/QString>
 #include <QtCore/QTimer>
 
@@ -48,9 +50,10 @@ public:
     /// The single log line written for each grid.
     [[nodiscard]] static QString logLine(const GridGenerator::Params& params, const GridGenerator::Result& result);
 
-    /// params and result must be valid (GridGenerator::generate succeeded).
+    /// params and result must be valid (GridGenerator::generate succeeded). modeRequest replaces
+    /// Vehicle::setFlightMode for the Mission request (tests stand in for a vehicle that ignores it).
     AutoGridStateMachine(const GridGenerator::Params& params, const GridGenerator::Result& result,
-                         QObject* parent = nullptr);
+                         QObject* parent = nullptr, std::function<void(const QString&)> modeRequest = {});
 
     const GridGenerator::Params& params() const { return _params; }
 
@@ -58,6 +61,12 @@ public:
 
     /// A Hold at the grid's end that lasts this long without Return ends the grid as cancelled.
     static constexpr int kEndHoldGraceMsecs = 15000;
+    /// Wait after the upload before set-current and Mission: PX4 rejects Mission until commander has seen the new
+    /// mission as valid (~20 ms after the upload in the phase 5 ULog)
+    static constexpr int kPostUploadSettleMsecs = 1000;
+    /// Mission requests before giving up (with SetFlightModeState's timeout), kMissionSwitchRetryMsecs apart
+    static constexpr int kMissionSwitchAttempts = 3;
+    static constexpr int kMissionSwitchRetryMsecs = 2000;
 
 signals:
     void gridComplete();
@@ -69,5 +78,6 @@ private:
     GridGenerator::Result _result;
     bool _missionStarted = false;
     bool _completing = false;
+    QString _lastFlightMode;
     QTimer _endHoldTimer;
 };

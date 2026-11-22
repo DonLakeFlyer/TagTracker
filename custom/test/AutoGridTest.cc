@@ -2,6 +2,7 @@
 
 #include <cmath>
 
+#include <QtCore/QElapsedTimer>
 #include <QtCore/QPointer>
 #include <QtCore/QScopeGuard>
 #include <QtTest/QSignalSpy>
@@ -619,6 +620,66 @@ void AutoGridTest::_cancelClearsPreview()
     verifyExpectedLogMessage();
     QVERIFY(!plugin->gridInProgress());
     QCOMPARE(_mockLink->receivedMavlinkMessageCount(MAVLINK_MSG_ID_MISSION_COUNT), 0);
+    QCOMPARE(setModeRequestCount(_mockLink), 0);
+}
+
+void AutoGridTest::_missionSwitchRetried()
+{
+    _mockLink->clearReceivedMavlinkMessageCounts();
+    _mockLink->clearReceivedMavCommandCounts();
+    const GridGenerator::Params params = testGridParams(_vehicle->coordinate());
+    const GridGenerator::Result result = GridGenerator::generate(params);
+    QVERIFY(result.isValid());
+
+    QElapsedTimer sinceUpload;
+    QList<qint64> requestMsecs;
+    // The first request is lost, as when PX4 rejects Mission before commander has seen the new mission as valid
+    auto modeRequest = [this, &sinceUpload, &requestMsecs](const QString& flightMode) {
+        requestMsecs.append(sinceUpload.elapsed());
+        if (requestMsecs.count() > 1) {
+            _vehicle->setFlightMode(flightMode);
+        }
+    };
+    QPointer<AutoGridStateMachine> machine = new AutoGridStateMachine(params, result, nullptr, modeRequest);
+    const auto cleanupMachine = qScopeGuard([&machine]() { delete machine.data(); });
+    connect(_vehicle->missionManager(), &MissionManager::sendComplete, machine.data(),
+            [&sinceUpload]() { sinceUpload.start(); });
+    machine->start();
+
+    QTRY_VERIFY_WITH_TIMEOUT(machine && machine->currentStateName() == QStringLiteral("MonitorGrid"), 20000);
+    QCOMPARE(requestMsecs.count(), 2);
+    QCOMPARE(_vehicle->flightMode(), _vehicle->missionFlightMode());
+    QCOMPARE(setModeRequestCount(_mockLink), 1);
+    // Qt's default coarse timers may fire up to 5% early
+    QVERIFY2(requestMsecs[0] >= AutoGridStateMachine::kPostUploadSettleMsecs * 0.95,
+             qPrintable(QString::number(requestMsecs[0])));
+    QVERIFY2(requestMsecs[1] - requestMsecs[0] >= AutoGridStateMachine::kMissionSwitchRetryMsecs * 0.95,
+             qPrintable(QString::number(requestMsecs[1] - requestMsecs[0])));
+}
+
+void AutoGridTest::_pilotCancelStopsMissionRetries()
+{
+    _mockLink->clearReceivedMavlinkMessageCounts();
+    _mockLink->clearReceivedMavCommandCounts();
+    const GridGenerator::Params params = testGridParams(_vehicle->coordinate());
+    const GridGenerator::Result result = GridGenerator::generate(params);
+    QVERIFY(result.isValid());
+
+    // Every request is lost, so the machine would retry
+    int requests = 0;
+    QPointer<AutoGridStateMachine> machine =
+        new AutoGridStateMachine(params, result, nullptr, [&requests](const QString&) { requests++; });
+    const auto cleanupMachine = qScopeGuard([&machine]() { delete machine.data(); });
+    machine->start();
+    QTRY_COMPARE_WITH_TIMEOUT(requests, 1, 20000);
+
+    emit _vehicle->flightModeChanged(QStringLiteral("Position"));
+    // A cancelled machine deletes itself
+    QTRY_VERIFY_WITH_TIMEOUT(!machine || !machine->inProgress(), 5000);
+    // Past the remaining retries: none is sent
+    QVERIFY(!QTest::qWaitFor([&requests]() { return requests > 1; }, AutoGridStateMachine::kMissionSwitchRetryMsecs *
+                                                                         AutoGridStateMachine::kMissionSwitchAttempts));
+    QCOMPARE(requests, 1);
     QCOMPARE(setModeRequestCount(_mockLink), 0);
 }
 
