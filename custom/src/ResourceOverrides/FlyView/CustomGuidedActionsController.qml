@@ -38,6 +38,17 @@ QtObject {
     readonly property string clearMapMessage:               qsTr("Clear pulse map items.")
     readonly property string calibrationSweepMessage:       qsTr("Record IQ while turning 360 degrees clockwise, then 360 degrees counter-clockwise. PX4 flies a slow 3 m radius circle, up to 6 m from the current position: keep that area clear.")
 
+    // GuidedActionConfirm calls actionCancelled() when its slider is cancelled or another action replaces it.
+    // closeAll() leaves this attached, so it only acts on the slider stage, never on a newer Grid editor.
+    readonly property QtObject gridPreviewIndicator: QtObject {
+        function actionConfirmed() { }
+        function actionCancelled() {
+            if (QGroundControl.corePlugin.gridPreview.confirming) {
+                QGroundControl.corePlugin.gridPreview.clear()
+            }
+        }
+    }
+
     function customConfirmAction(actionCode, actionData, mapIndicator, confirmDialog) {
         switch (actionCode) {
         case actionAutoDetection:
@@ -93,8 +104,10 @@ QtObject {
         case actionStartGrid:
             confirmDialog.hideTrigger = true
             confirmDialog.title = startGridTitle
-            // Built now from the live pose and settings
-            confirmDialog.message = QGroundControl.corePlugin.autoGridConfirmMessage()
+            // Opened by the Grid editor's Start grid, with the pose latched at tap and the edited values
+            confirmDialog.message = Qt.binding(function() { return QGroundControl.corePlugin.gridPreview.confirmMessage })
+            // After hideTrigger, whose cancel clears mapIndicator
+            confirmDialog.mapIndicator = gridPreviewIndicator
             break
         default:
             return false;

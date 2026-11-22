@@ -27,6 +27,8 @@ public:
     }
     /// Stops a running machine as a user cancel: no RTL, the vehicle is left as it is.
     void cancel();
+    /// Cancelled or failed. stop() is asynchronous, so a state timer can still fire after this; it must send nothing.
+    bool stopping() const { return _stopping; }
 
     enum {
         CancelOnFlightModeChange = 0x01,

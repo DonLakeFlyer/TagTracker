@@ -154,6 +154,8 @@ qt_add_qml_module(CustomControlsModule
 # ============================================================================
 
 set(CUSTOM_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/AutoGrid/AutoGridPreview.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/AutoGrid/AutoGridPreview.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/AutoGrid/GridGenerator.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/AutoGrid/GridGenerator.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CompanionLogDownloader.cc
@@ -229,6 +231,10 @@ set(CUSTOM_SOURCES
 
 if(QGC_BUILD_TESTING)
     list(APPEND CUSTOM_SOURCES
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/AutoGridEditorUITest.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/AutoGridEditorUITest.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/AutoGridPreviewTest.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/AutoGridPreviewTest.h
         ${CMAKE_CURRENT_SOURCE_DIR}/test/AutoGridTest.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/test/AutoGridTest.h
         ${CMAKE_CURRENT_SOURCE_DIR}/test/CustomStateMachineTest.cc
@@ -252,7 +258,9 @@ if(QGC_BUILD_TESTING)
     )
 
     include(QGCTest)
-    add_qgc_test(AutoGridTest LABELS Unit)
+    add_qgc_test(AutoGridEditorUITest LABELS Integration NoSanitizer TIMEOUT 180)
+    add_qgc_test(AutoGridPreviewTest LABELS Unit)
+    add_qgc_test(AutoGridTest LABELS Unit TIMEOUT 180)
     add_qgc_test(CustomStateMachineTest LABELS Unit)
     add_qgc_test(GridGeneratorTest LABELS Unit)
     add_qgc_test(OperationProgressTest LABELS Unit)

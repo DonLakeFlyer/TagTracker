@@ -18,6 +18,7 @@
 #include "RotationInfo.h"
 #include "AutoGridStateMachine.h"
 #include "GridGenerator.h"
+#include "MissionManager.h"
 
 #include "Vehicle.h"
 #include "FirmwarePlugin.h"
@@ -91,6 +92,9 @@ CustomPlugin::CustomPlugin(QObject* parent)
     _controllerHeartbeatTimer.setInterval(6000);    // We should get heartbeats every 5 seconds
 
     connect(&_controllerHeartbeatTimer, &QTimer::timeout, this, &CustomPlugin::_controllerHeartbeatFailed);
+    connect(this, &CustomPlugin::controllerStatusChanged, this, [this]() {
+        _gridPreview.setDetectionRunning(_controllerStatus == ControllerStatusDetecting);
+    });
 }
 
 CustomPlugin::~CustomPlugin()
@@ -761,58 +765,84 @@ void CustomPlugin::_setRotationInProgress(bool inProgress)
     }
 }
 
-QString CustomPlugin::autoGridConfirmMessage(void)
+void CustomPlugin::startGridPreview(void)
 {
+    _gridPreview.setDetectionRunning(_controllerStatus == ControllerStatusDetecting);
+
     Vehicle* vehicle = MultiVehicleManager::instance()->activeVehicle();
-    QString error = AutoGridStateMachine::checkVehicle(vehicle);
-    GridGenerator::Result result;
-    if (error.isEmpty()) {
-        result = GridGenerator::generate(AutoGridStateMachine::latchParams(vehicle, _customSettings));
-        error = result.error;
-    }
-    if (!error.isEmpty()) {
-        // startAutoGrid() re-checks, so confirming anyway only shows this again
-        return tr("Can't start a grid: %1").arg(error);
+    if (const QString error = AutoGridStateMachine::checkVehicle(vehicle); !error.isEmpty()) {
+        _gridPreview.clear();
+        qgcApp()->showAppMessage(tr("Can't start a grid: %1").arg(error));
+        return;
     }
 
-    QString message = tr("%1. The cell and the return path must be clear.").arg(result.summary);
-    if (_controllerStatus != ControllerStatusDetecting) {
-        message += QStringLiteral("\n") + tr("Warning: detection is not running.");
-    }
-    return message;
+    const AutoGridPreview::Limits limits {
+        .widthMin   = _customSettings->gridWidth()->rawMin().toDouble(),
+        .widthMax   = _customSettings->gridWidth()->rawMax().toDouble(),
+        .depthMin   = _customSettings->gridDepth()->rawMin().toDouble(),
+        .depthMax   = _customSettings->gridDepth()->rawMax().toDouble(),
+        .spacingMin = _customSettings->gridLaneSpacing()->rawMin().toDouble(),
+        .spacingMax = _customSettings->gridLaneSpacing()->rawMax().toDouble(),
+    };
+    // Latched once, at tap: confirm flies exactly this pose (spec §6 step 3)
+    _gridPreview.start(AutoGridStateMachine::latchParams(vehicle, _customSettings), limits);
 }
 
 void CustomPlugin::startAutoGrid(void)
 {
     qCDebug(CustomPluginLog) << "Auto Grid requested";
 
+    // Every refusal ends the preview: the pilot taps Grid again
+    auto refuse = [this](const QString& message) {
+        qgcApp()->showAppMessage(message);
+        _gridPreview.clear();
+    };
+
     Vehicle* vehicle = MultiVehicleManager::instance()->activeVehicle();
     if (const QString error = AutoGridStateMachine::checkVehicle(vehicle); !error.isEmpty()) {
-        qgcApp()->showAppMessage(error);
+        refuse(error);
         return;
     }
     if (_rotationInProgress) {
-        qgcApp()->showAppMessage(tr("A rotation is in progress"));
+        refuse(tr("A rotation is in progress"));
         return;
     }
     if (_gridInProgress) {
-        qgcApp()->showAppMessage(tr("A grid is already in progress"));
+        refuse(tr("A grid is already in progress"));
+        return;
+    }
+    // Only the slider opened by the editor's Start grid confirms
+    if (!_gridPreview.confirming()) {
+        refuse(tr("No grid preview. Tap Grid again."));
+        return;
+    }
+    if (!_gridPreview.valid()) {
+        refuse(tr("Grid not started: %1").arg(_gridPreview.error()));
+        return;
+    }
+    if (_gridPreview.movedTooFar(vehicle->coordinate())) {
+        refuse(tr("Vehicle moved since the preview. Tap Grid again."));
         return;
     }
 
-    // Latched once: the mission is never regenerated after this (spec §9)
-    const GridGenerator::Params params = AutoGridStateMachine::latchParams(vehicle, _customSettings);
-    const GridGenerator::Result result = GridGenerator::generate(params);
-    if (!result.isValid()) {
-        qgcApp()->showAppMessage(tr("Grid not started: %1").arg(result.error));
-        return;
-    }
+    // The previewed plan, never regenerated after this (spec §9)
+    const GridGenerator::Params params = _gridPreview.params();
+    const GridGenerator::Result result = _gridPreview.result();
     qCDebug(CustomPluginLog).noquote() << AutoGridStateMachine::logLine(params, result);
 
     auto stateMachine = new AutoGridStateMachine(params, result, this);
     _setGridInProgress(true);
-    connect(stateMachine, &QStateMachine::finished, this, [this]() { _setGridInProgress(false); });
-    connect(stateMachine, &QStateMachine::stopped,  this, [this]() { _setGridInProgress(false); });
+    _gridPreview.setConfirmed();
+    connect(stateMachine, &QStateMachine::finished, this, [this]() { _setGridInProgress(false); _gridPreview.clear(); });
+    connect(stateMachine, &QStateMachine::stopped,  this, [this]() { _setGridInProgress(false); _gridPreview.clear(); });
+    // The Fly View redraws the vehicle's mission on send complete, so the preview hands over to it then
+    if (MissionManager* missionManager = vehicle->missionManager()) {
+        connect(missionManager, &MissionManager::sendComplete, stateMachine, [this, stateMachine]() {
+            if (stateMachine->inProgress() && !stateMachine->stopping()) {
+                _gridPreview.clear();
+            }
+        }, Qt::SingleShotConnection);
+    }
     stateMachine->start();
 }
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "GridGenerator.h"
 #include "VehicleTest.h"
 
 class AutoGridStateMachine;
@@ -21,10 +22,18 @@ private slots:
     void _endOfMission();
     void _cancelSendsNothingMore();
     void _gridAndRotationExclusive();
+    void _previewLatchesAtTap();
+    void _confirmFliesLatchedPreview();
+    void _movedGuardRefusesAndClears();
+    void _cancelClearsPreview();
 
 private:
     void _takeoff();
     /// Starts a grid machine at a fixed pose and waits until it monitors the flying mission.
     AutoGridStateMachine* _startMonitoringGrid();
     void _sendMissionCurrent(int wireSeq);
+    /// Waits for the grid's mission upload and checks it is exactly the previewed grid.
+    void _verifyUploadedGrid(const GridGenerator::Result& previewed);
+    /// Ends a running grid the way a pilot would.
+    void _endGridByPilot();
 };

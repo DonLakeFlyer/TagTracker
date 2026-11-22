@@ -10,6 +10,7 @@
 #include "CSVLogManager.h"
 #include "CompanionLogDownloader.h"
 #include "OperationProgress.h"
+#include "AutoGridPreview.h"
 
 #include <QElapsedTimer>
 #include <QGeoCoordinate>
@@ -60,6 +61,7 @@ public:
     Q_PROPERTY(TagDatabase*         tagDatabase             READ    tagDatabase                 CONSTANT)
     Q_PROPERTY(CompanionLogDownloader* companionLogDownloader READ companionLogDownloader       CONSTANT)
     Q_PROPERTY(OperationProgress*   operationProgress       READ    operationProgress           CONSTANT)
+    Q_PROPERTY(AutoGridPreview*     gridPreview             READ    gridPreview                 CONSTANT)
     Q_PROPERTY(double               maxSNR                  MEMBER  _maxSNR                     NOTIFY maxSNRChanged)
     Q_PROPERTY(double               minSNR                  MEMBER  _minSNR                     NOTIFY minSNRChanged)
     Q_PROPERTY(bool                 activeRotation          MEMBER  _activeRotation             NOTIFY activeRotationChanged)
@@ -94,6 +96,7 @@ public:
     TagDatabase* tagDatabase();
     CompanionLogDownloader* companionLogDownloader() { return &_companionLogDownloader; }
     OperationProgress*      operationProgress() { return &_operationProgress; }
+    AutoGridPreview*        gridPreview() { return &_gridPreview; }
     /// Shows calibration sweep progress (degrees turned across both turns, 0..kCalibrationSweepDegrees) on the progress card.
     void                    reportCalibrationSweepProgress(uint32_t state, uint32_t progressDeg, const QString& message);
     static constexpr uint32_t kCalibrationSweepDegrees = 720;
@@ -110,8 +113,9 @@ public:
     Q_INVOKABLE void saveLogs           (void);
     Q_INVOKABLE void cleanLogs          (void);
     Q_INVOKABLE void clearMap           (void);
-    /// Confirm text for the Grid action, built from the live pose and settings
-    Q_INVOKABLE QString autoGridConfirmMessage(void);
+    /// Grid tapped: latches the pose and the settings into gridPreview and opens its editor
+    Q_INVOKABLE void startGridPreview   (void);
+    /// Grid confirmed: flies the previewed grid, or refuses with an app message
     Q_INVOKABLE void startAutoGrid      (void);
 
     // Overrides from QGCCorePlugin
@@ -217,6 +221,7 @@ private:
     CSVLogManager           _csvLogManager;
     CompanionLogDownloader  _companionLogDownloader;
     OperationProgress       _operationProgress;
+    AutoGridPreview         _gridPreview;
 
     double                  _maxSNR = qQNaN();
     double                  _minSNR = qQNaN();

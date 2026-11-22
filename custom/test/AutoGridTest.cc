@@ -6,6 +6,7 @@
 #include <QtCore/QScopeGuard>
 #include <QtTest/QSignalSpy>
 
+#include "AutoGridPreview.h"
 #include "AutoGridStateMachine.h"
 #include "CustomLoggingCategory.h"
 #include "CustomPlugin.h"
@@ -14,6 +15,7 @@
 #include "GridGenerator.h"
 #include "MissionItem.h"
 #include "MissionManager.h"
+#include "MockLink.h"
 #include "Vehicle.h"
 
 namespace {
@@ -26,6 +28,34 @@ constexpr int kMidGridItem = 3;
 CustomPlugin* autoGridTestPlugin()
 {
     return qobject_cast<CustomPlugin*>(CustomPlugin::instance());
+}
+
+GridGenerator::Params testGridParams(const QGeoCoordinate& origin)
+{
+    GridGenerator::Params params;  // spec §3 defaults
+    params.origin = origin;
+    params.headingDeg = 37.5;
+    params.altitudeM = 30.0;
+    params.acceptanceRadiusM = 3.0;
+    return params;
+}
+
+int setModeRequestCount(MockLink* mockLink)
+{
+    return mockLink->receivedMavlinkMessageCount(MAVLINK_MSG_ID_SET_MODE) +
+           mockLink->receivedMavCommandCount(MAV_CMD_DO_SET_MODE);
+}
+
+AutoGridPreview::Limits gridSettingsLimits(CustomSettings* settings)
+{
+    return AutoGridPreview::Limits{
+        .widthMin = settings->gridWidth()->rawMin().toDouble(),
+        .widthMax = settings->gridWidth()->rawMax().toDouble(),
+        .depthMin = settings->gridDepth()->rawMin().toDouble(),
+        .depthMax = settings->gridDepth()->rawMax().toDouble(),
+        .spacingMin = settings->gridLaneSpacing()->rawMin().toDouble(),
+        .spacingMax = settings->gridLaneSpacing()->rawMax().toDouble(),
+    };
 }
 
 int gridItemSeq(const GridGenerator::Result& result, MAV_CMD command)
@@ -63,23 +93,24 @@ void AutoGridTest::_sendMissionCurrent(int wireSeq)
 
 AutoGridStateMachine* AutoGridTest::_startMonitoringGrid()
 {
-    GridGenerator::Params params;  // spec §3 defaults
-    params.origin = _vehicle->coordinate();
-    params.headingDeg = 37.5;
-    params.altitudeM = 30.0;
-    params.acceptanceRadiusM = 3.0;
+    const GridGenerator::Params params = testGridParams(_vehicle->coordinate());
     const GridGenerator::Result result = GridGenerator::generate(params);
     if (!result.isValid()) {
         return nullptr;
     }
 
-    auto machine = new AutoGridStateMachine(params, result, nullptr);
+    // A machine that stops early deletes itself, so it is only reached through the QPointer
+    QPointer<AutoGridStateMachine> machine = new AutoGridStateMachine(params, result, nullptr);
     machine->start();
-    if (!QTest::qWaitFor([machine]() { return machine->currentStateName() == QStringLiteral("MonitorGrid"); }, 20000)) {
-        machine->stopMachine();
+    if (!QTest::qWaitFor(
+            [&machine]() { return !machine || machine->currentStateName() == QStringLiteral("MonitorGrid"); }, 20000) ||
+        !machine) {
+        if (machine) {
+            machine->stopMachine();
+        }
         return nullptr;
     }
-    return machine;
+    return machine.data();
 }
 
 void AutoGridTest::_settingsDefaults()
@@ -370,6 +401,8 @@ void AutoGridTest::_gridAndRotationExclusive()
 
     // Grid first: every rotation entry point is refused
     QSignalSpy gridSpy(plugin, &CustomPlugin::gridInProgressChanged);
+    plugin->startGridPreview();
+    QVERIFY(plugin->gridPreview()->requestConfirm());
     plugin->startAutoGrid();
     QVERIFY(plugin->gridInProgress());
     QCOMPARE(gridSpy.count(), 1);
@@ -393,13 +426,200 @@ void AutoGridTest::_gridAndRotationExclusive()
     ignoreLogMessage(CustomPluginLog().categoryName(), QtWarningMsg, QRegularExpression(QStringLiteral("^No tags")));
     plugin->startRotation();
     QVERIFY(plugin->rotationInProgress());
+    plugin->startGridPreview();
+    QVERIFY(plugin->gridPreview()->requestConfirm());
     expectAppMessage(QRegularExpression(QStringLiteral("A rotation is in progress")));
     plugin->startAutoGrid();
     verifyExpectedLogMessage();
     QVERIFY(!plugin->gridInProgress());
+    QVERIFY(!plugin->gridPreview()->active());
 
     plugin->pauseRotation();
     QTRY_VERIFY_WITH_TIMEOUT(!plugin->rotationInProgress(), 5000);
+}
+
+void AutoGridTest::_verifyUploadedGrid(const GridGenerator::Result& previewed)
+{
+    // The preview hands over to QGC's own mission drawing once the upload completes
+    AutoGridPreview* preview = autoGridTestPlugin()->gridPreview();
+    QTRY_VERIFY_WITH_TIMEOUT(!preview->active(), 15000);
+
+    const QList<MissionItem*>& written = _vehicle->missionManager()->missionItems();
+    QCOMPARE(written.count(), previewed.items.count());
+    for (qsizetype i = 0; i < written.count(); i++) {
+        const GridGenerator::Item& expected = previewed.items[i];
+        QCOMPARE(written[i]->command(), expected.command);
+        QCOMPARE(written[i]->param1(), expected.param1);
+        QCOMPARE(written[i]->param4(), expected.param4);
+        QCOMPARE(written[i]->param5(), expected.param5);
+        QCOMPARE(written[i]->param6(), expected.param6);
+        QCOMPARE(written[i]->param7(), expected.param7);
+    }
+}
+
+void AutoGridTest::_endGridByPilot()
+{
+    emit _vehicle->flightModeChanged(QStringLiteral("Position"));
+    QTRY_VERIFY_WITH_TIMEOUT(!autoGridTestPlugin()->gridInProgress(), 5000);
+}
+
+void AutoGridTest::_previewLatchesAtTap()
+{
+    QVERIFY(waitForParametersReady());
+    CustomPlugin* plugin = autoGridTestPlugin();
+    CustomSettings* settings = plugin->customSettings();
+    AutoGridPreview* preview = plugin->gridPreview();
+    preview->clear();
+
+    // On the ground the tap gives the reason, and no editor opens
+    expectAppMessage(QRegularExpression(QStringLiteral("Can't start a grid: Vehicle must be flying")));
+    plugin->startGridPreview();
+    verifyExpectedLogMessage();
+    QVERIFY(!preview->active());
+
+    _takeoff();
+    plugin->startGridPreview();
+    const GridGenerator::Params expected = AutoGridStateMachine::latchParams(_vehicle, settings);
+    QVERIFY(preview->editing());
+    QVERIFY(preview->valid());
+    QCOMPARE(preview->params().origin, expected.origin);
+    QCOMPARE(preview->params().headingDeg, expected.headingDeg);
+    QCOMPARE(preview->params().altitudeM, expected.altitudeM);
+    QCOMPARE(preview->params().maxSpeedMS, 12.0);
+    QCOMPARE(preview->width(), settings->gridWidth()->rawValue().toDouble());
+    QCOMPARE(preview->depth(), settings->gridDepth()->rawValue().toDouble());
+    QCOMPARE(preview->spacing(), settings->gridLaneSpacing()->rawValue().toDouble());
+    QCOMPARE(preview->widthMax(), 500.0);
+    QCOMPARE(preview->spacingMin(), 2.0);
+    QVERIFY(preview->confirmMessage().startsWith(preview->summary() +
+                                                 QStringLiteral(". The cell and the return path must be clear.")));
+    // MockLink's controller isn't detecting
+    QVERIFY(preview->confirmMessage().endsWith(QStringLiteral("\nWarning: detection is not running.")));
+
+    // Edits are for this grid only: the settings keep their values, and the next tap starts from them again
+    const double width = settings->gridWidth()->rawValue().toDouble();
+    const double depth = settings->gridDepth()->rawValue().toDouble();
+    const double spacing = settings->gridLaneSpacing()->rawValue().toDouble();
+    preview->adjustWidth(2);
+    preview->adjustDepth(-1);
+    preview->adjustSpacing(1);
+    QCOMPARE(preview->width(), width + 20.0);
+    QCOMPARE(preview->depth(), depth - 10.0);
+    QCOMPARE(preview->spacing(), spacing + 5.0);
+    QCOMPARE(settings->gridWidth()->rawValue().toDouble(), width);
+    QCOMPARE(settings->gridDepth()->rawValue().toDouble(), depth);
+    QCOMPARE(settings->gridLaneSpacing()->rawValue().toDouble(), spacing);
+
+    plugin->startGridPreview();
+    QCOMPARE(preview->width(), width);
+    QCOMPARE(preview->depth(), depth);
+    QCOMPARE(preview->spacing(), spacing);
+    preview->clear();
+}
+
+void AutoGridTest::_confirmFliesLatchedPreview()
+{
+    QVERIFY(waitForParametersReady());
+    _takeoff();
+    CustomPlugin* plugin = autoGridTestPlugin();
+    AutoGridPreview* preview = plugin->gridPreview();
+
+    // Vehicle heading is truncated to whole degrees; bias by half a degree so float error can't drop it by one
+    _mockLink->setVehicleAttitudeOverrideDeg(0.0f, 0.0f, 90.5f);
+    const auto restoreAttitude = qScopeGuard([this]() { _mockLink->clearVehicleAttitudeOverride(); });
+    QTRY_COMPARE_WITH_TIMEOUT(_vehicle->heading()->rawValue().toDouble(), 90.0, 5000);
+
+    plugin->startGridPreview();
+    preview->adjustWidth(2);
+    QVERIFY(preview->valid());
+    QCOMPARE(preview->params().headingDeg, 90.0);
+    const GridGenerator::Result previewed = preview->result();
+    QVERIFY(preview->requestConfirm());
+
+    // The vehicle turns before confirm: heading isn't checked, and the grid keeps the heading latched at tap
+    _mockLink->setVehicleAttitudeOverrideDeg(0.0f, 0.0f, 180.5f);
+    QTRY_COMPARE_WITH_TIMEOUT(_vehicle->heading()->rawValue().toDouble(), 180.0, 5000);
+
+    plugin->startAutoGrid();
+    QVERIFY(plugin->gridInProgress());
+    QVERIFY(preview->confirmed());
+    _verifyUploadedGrid(previewed);
+    const int originSeq = gridItemSeq(previewed, MAV_CMD_NAV_WAYPOINT);
+    QCOMPARE(_vehicle->missionManager()->missionItems()[originSeq]->param4(), 90.0);
+    QTRY_COMPARE_WITH_TIMEOUT(_vehicle->flightMode(), _vehicle->missionFlightMode(), 15000);
+
+    _endGridByPilot();
+    QVERIFY(!preview->active());
+}
+
+void AutoGridTest::_movedGuardRefusesAndClears()
+{
+    QVERIFY(waitForParametersReady());
+    _takeoff();
+    CustomPlugin* plugin = autoGridTestPlugin();
+    AutoGridPreview* preview = plugin->gridPreview();
+    const AutoGridPreview::Limits limits = gridSettingsLimits(plugin->customSettings());
+
+    // MockLink's vehicle can't be moved, so the tap is latched away from it instead
+    plugin->startGridPreview();
+    GridGenerator::Params latched = preview->params();
+    latched.origin = _vehicle->coordinate().atDistanceAndAzimuth(20.0, 45.0);
+    preview->start(latched, limits);
+    QVERIFY(preview->requestConfirm());
+
+    _mockLink->clearReceivedMavlinkMessageCounts();
+    expectAppMessage(QRegularExpression(QStringLiteral("Vehicle moved since the preview. Tap Grid again.")));
+    plugin->startAutoGrid();
+    verifyExpectedLogMessage();
+    QVERIFY(!plugin->gridInProgress());
+    QVERIFY(!preview->active());
+    QCOMPARE(_mockLink->receivedMavlinkMessageCount(MAVLINK_MSG_ID_MISSION_COUNT), 0);
+
+    // Within 10 m the grid starts, and flies the latched origin rather than the vehicle's position
+    latched.origin = _vehicle->coordinate().atDistanceAndAzimuth(5.0, 45.0);
+    preview->start(latched, limits);
+    QVERIFY(preview->requestConfirm());
+    const GridGenerator::Result previewed = preview->result();
+    plugin->startAutoGrid();
+    QVERIFY(plugin->gridInProgress());
+    _verifyUploadedGrid(previewed);
+    const MissionItem* origin =
+        _vehicle->missionManager()->missionItems()[gridItemSeq(previewed, MAV_CMD_NAV_WAYPOINT)];
+    QCOMPARE(origin->param5(), latched.origin.latitude());
+    QCOMPARE(origin->param6(), latched.origin.longitude());
+    _endGridByPilot();
+}
+
+void AutoGridTest::_cancelClearsPreview()
+{
+    QVERIFY(waitForParametersReady());
+    _takeoff();
+    CustomPlugin* plugin = autoGridTestPlugin();
+    AutoGridPreview* preview = plugin->gridPreview();
+
+    // A confirm without Start grid (the editor still open) starts nothing
+    _mockLink->clearReceivedMavlinkMessageCounts();
+    plugin->startGridPreview();
+    QVERIFY(preview->editing());
+    expectAppMessage(QRegularExpression(QStringLiteral("No grid preview. Tap Grid again.")));
+    plugin->startAutoGrid();
+    verifyExpectedLogMessage();
+    QVERIFY(!preview->active());
+
+    // What the editor's Cancel, and a cancelled slider, do
+    plugin->startGridPreview();
+    QVERIFY(preview->requestConfirm());
+    preview->clear();
+    QVERIFY(!preview->active());
+    QVERIFY(preview->path().isEmpty());
+
+    // A confirm without a preview starts nothing
+    expectAppMessage(QRegularExpression(QStringLiteral("No grid preview. Tap Grid again.")));
+    plugin->startAutoGrid();
+    verifyExpectedLogMessage();
+    QVERIFY(!plugin->gridInProgress());
+    QCOMPARE(_mockLink->receivedMavlinkMessageCount(MAVLINK_MSG_ID_MISSION_COUNT), 0);
+    QCOMPARE(setModeRequestCount(_mockLink), 0);
 }
 
 UT_REGISTER_TEST(AutoGridTest, TestLabel::Unit)
