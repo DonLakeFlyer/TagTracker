@@ -49,11 +49,13 @@ Item {
     property var    _gridPreview:               _customPlugin.gridPreview
     property var    _confirmDialog:             _guidedController ? _guidedController.confirmDialog : null
     property var    _gridPreviewMapItems:       null
-    // Stand out on satellite imagery and differ from QGC's orange mission path and red flight trail
-    readonly property color _gridPathColor:     "#ff00ff"
-    readonly property color _gridOutlineColor:  "#00ffff"
-    readonly property color _gridStartColor:    "#00e676"
-    readonly property color _gridHaloColor:     "black"
+    // Translucent glowing green reads as "proposed" on satellite and street maps, differs from QGC's orange mission
+    // path and red flight trail, and lets the cyan cell outline show through. No dark halos (Michael's call).
+    readonly property color _gridPathGlowColor: Qt.rgba(0.13, 0.95, 0.3, 0.28)
+    readonly property color _gridPathCoreColor: Qt.rgba(0.0, 0.8, 0.2, 0.75)
+    readonly property color _gridOutlineColor:  "#00e5ff"
+    readonly property color _gridStartColor:    "white"
+    readonly property color _gridStartBorder:   "#202020"
 
     QGCPalette { id: qgcPal; colorGroupEnabled: true }
 
@@ -449,29 +451,27 @@ Item {
         MapItemGroup {
             z: QGroundControl.zOrderTrajectoryLines
 
+            // Outline under the path; the path is translucent, so the outline shows through it
             MapPolyline {
-                line.width: 5
-                line.color: _root._gridHaloColor
-                path:       _root._gridPreview.outline
-                visible:    _root._gridPreview.active
-            }
-            MapPolyline {
-                line.width: 2
+                line.width: 3
                 line.color: _root._gridOutlineColor
                 path:       _root._gridPreview.outline
                 visible:    _root._gridPreview.active
+                z:          0
             }
             MapPolyline {
-                line.width: 7
-                line.color: _root._gridHaloColor
+                line.width: 10
+                line.color: _root._gridPathGlowColor
                 path:       _root._gridPreview.path
                 visible:    _root._gridPreview.active
+                z:          1
             }
             MapPolyline {
-                line.width: 4
-                line.color: _root._gridPathColor
+                line.width: 3
+                line.color: _root._gridPathCoreColor
                 path:       _root._gridPreview.path
                 visible:    _root._gridPreview.active
+                z:          2
             }
 
             // Below the vehicle icon, which sits on the origin at tap
@@ -487,7 +487,7 @@ Item {
                     height:         startLabel.contentHeight + ScreenTools.defaultFontPixelWidth / 2
                     radius:         height / 2
                     color:          _root._gridStartColor
-                    border.color:   _root._gridHaloColor
+                    border.color:   _root._gridStartBorder
                     border.width:   1
 
                     QGCLabel {
