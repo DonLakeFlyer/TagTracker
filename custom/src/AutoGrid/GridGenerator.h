@@ -22,6 +22,10 @@ constexpr double LANE_EPS_M = 1e-6;
 constexpr double ARC_EPS_DEG = 1e-9;
 constexpr double MIN_ARC_STEP_DEG = 10.0;
 constexpr double MAX_ARC_STEP_DEG = 90.0;
+/// Lowest relative altitude a grid may be flown at
+constexpr double MIN_GRID_ALTITUDE_M = 10.0;
+/// Longest grid, flight plus end loiter. Also caps the mission size.
+constexpr double MAX_GRID_TIME_S = 20.0 * 60.0;
 
 enum class StartSide
 {

@@ -452,6 +452,8 @@ void GridGeneratorTest::_validate_data()
     row("heading negative", [](Params& p) { p.headingDeg = -1.0; }, false);
     row("heading NaN", [](Params& p) { p.headingDeg = NaN; }, false);
     row("altitude 0", [](Params& p) { p.altitudeM = 0.0; }, false);
+    row("altitude below 10 m", [](Params& p) { p.altitudeM = 9.9; }, false);
+    row("altitude 10 m", [](Params& p) { p.altitudeM = 10.0; }, true);
     row("width 0", [](Params& p) { p.widthM = 0.0; }, false);
     row("depth negative", [](Params& p) { p.depthM = -10.0; }, false);
     row("spacing 0", [](Params& p) { p.spacingM = 0.0; }, false);
@@ -467,6 +469,32 @@ void GridGeneratorTest::_validate_data()
     row("turn speed 0", [](Params& p) { p.turnSpeedMS = 0.0; }, true);
     row("loiter negative", [](Params& p) { p.endLoiterS = -1.0; }, false);
     row("acceptance radius negative", [](Params& p) { p.acceptanceRadiusM = -1.0; }, false);
+    row("acceptance radius above U-turn radius", [](Params& p) { p.acceptanceRadiusM = 10.1; }, false);
+    row("acceptance radius at U-turn radius", [](Params& p) { p.acceptanceRadiusM = 10.0; }, true);
+    row(
+        "acceptance radius above U-turn radius, 2 m lanes",
+        [](Params& p) {
+            p.spacingM = 2.0;
+            p.acceptanceRadiusM = 3.0;
+        },
+        false);
+    row(
+        "longer than 20 min",
+        [](Params& p) {
+            // ~74 min, 1755 items
+            p.depthM = 500.0;
+            p.spacingM = 2.0;
+        },
+        false);
+    row(
+        "large, under 20 min",
+        [](Params& p) {
+            // ~19.1 min
+            p.widthM = 500.0;
+            p.depthM = 500.0;
+            p.spacingM = 50.0;
+        },
+        true);
     row(
         "cruise above max speed",
         [](Params& p) {

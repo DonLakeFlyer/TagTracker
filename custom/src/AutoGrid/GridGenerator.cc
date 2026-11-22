@@ -176,8 +176,9 @@ QString validate(const Params& params)
     if ((params.headingDeg < 0.0) || (params.headingDeg >= 360.0)) {
         return QCoreApplication::translate("GridGenerator", "Heading must be from 0 up to 360 degrees.");
     }
-    if (params.altitudeM <= 0.0) {
-        return QCoreApplication::translate("GridGenerator", "Altitude must be above the launch point.");
+    if (params.altitudeM < MIN_GRID_ALTITUDE_M) {
+        return QCoreApplication::translate("GridGenerator", "Altitude must be at least %1 m to start a grid.")
+            .arg(MIN_GRID_ALTITUDE_M);
     }
     if ((params.widthM <= 0.0) || (params.depthM <= 0.0) || (params.spacingM <= 0.0)) {
         return QCoreApplication::translate("GridGenerator",
@@ -202,6 +203,14 @@ QString validate(const Params& params)
     if (params.acceptanceRadiusM < 0.0) {
         return QCoreApplication::translate("GridGenerator", "Acceptance radius must not be negative.");
     }
+    // A larger radius counts every arc point as reached at once (0 is PX4's own radius, not checked)
+    if (params.acceptanceRadiusM > params.spacingM / 2.0) {
+        return QCoreApplication::translate(
+                   "GridGenerator",
+                   "Acceptance radius %1 m must not be more than the U-turn radius (half the lane spacing, %2 m).")
+            .arg(params.acceptanceRadiusM)
+            .arg(params.spacingM / 2.0);
+    }
     if (std::isfinite(params.maxSpeedMS)) {
         if (params.cruiseSpeedMS > params.maxSpeedMS) {
             return QCoreApplication::translate("GridGenerator",
@@ -215,6 +224,14 @@ QString validate(const Params& params)
                 .arg(params.turnSpeedMS)
                 .arg(params.maxSpeedMS);
         }
+    }
+    const double totalTimeS = estimate(params, laneYs(params.depthM, params.spacingM)).totalTimeS;
+    if (totalTimeS > MAX_GRID_TIME_S) {
+        return QCoreApplication::translate(
+                   "GridGenerator",
+                   "Grid would take about %1 min (limit %2 min). Reduce the size or increase the lane spacing.")
+            .arg(std::ceil(totalTimeS / 60.0))
+            .arg(MAX_GRID_TIME_S / 60.0);
     }
     return QString();
 }
