@@ -328,7 +328,7 @@ Item {
         objectName: "autoGridEditorPanel"
         x:          occluders.toolStrip.x + occluders.toolStrip.width + ScreenTools.defaultFontPixelWidth
         y:          occluders.toolStrip.y
-        width:      ScreenTools.defaultFontPixelWidth * 36
+        width:      ScreenTools.defaultFontPixelWidth * 40
         height:     gridPreviewColumn.height + ScreenTools.defaultFontPixelWidth * 2
         color:      Qt.rgba(qgcPal.window.r, qgcPal.window.g, qgcPal.window.b, 0.85)
         radius:     ScreenTools.defaultFontPixelWidth / 2
@@ -339,8 +339,9 @@ Item {
             spacing:            ScreenTools.defaultFontPixelWidth
 
             property string label
-            property string buttonPrefix  // objectName prefix for the − and + buttons
+            property string buttonPrefix  // objectName prefix for the − and + buttons and the value
             property real   value
+            property string valueText:    qsTr("%1 m").arg(value)
             property real   minValue
             property real   maxValue
 
@@ -357,9 +358,10 @@ Item {
                 onClicked:  step(-1)
             }
             QGCLabel {
+                objectName:             buttonPrefix + "Value"
                 Layout.minimumWidth:    ScreenTools.defaultFontPixelWidth * 7
                 horizontalAlignment:    Text.AlignHCenter
-                text:                   qsTr("%1 m").arg(value)
+                text:                   valueText
             }
             QGCButton {
                 objectName: buttonPrefix + "Plus"
@@ -394,6 +396,7 @@ Item {
             GridValueRow {
                 label:          qsTr("Depth")
                 buttonPrefix:   "autoGridDepth"
+                valueText:      qsTr("%1 m (%2 lanes)").arg(_gridPreview.depth).arg(_gridPreview.laneCount)
                 value:      _gridPreview.depth
                 minValue:   _gridPreview.depthMin
                 maxValue:   _gridPreview.depthMax

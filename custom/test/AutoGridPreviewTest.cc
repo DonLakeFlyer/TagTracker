@@ -1,5 +1,7 @@
 #include "AutoGridPreviewTest.h"
 
+#include <cmath>
+
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 
@@ -61,6 +63,7 @@ void AutoGridPreviewTest::_startLatches()
     QCOMPARE(preview.width(), 100.0);
     QCOMPARE(preview.depth(), 100.0);
     QCOMPARE(preview.spacing(), 20.0);
+    QCOMPARE(preview.laneCount(), 6);
     QVERIFY(preview.error().isEmpty());
     comparePreviewToGenerator(preview, params);
     // The path starts at the origin, in the order flown
@@ -106,23 +109,29 @@ void AutoGridPreviewTest::_adjustRegenerates()
     QSignalSpy changedSpy(&preview, &AutoGridPreview::changed);
 
     preview.adjustWidth(1);
-    expected.widthM = 110.0;
-    QCOMPARE(preview.width(), 110.0);
+    expected.widthM = 120.0;
+    QCOMPARE(preview.width(), 120.0);
     comparePreviewToGenerator(preview, expected);
-    QVERIFY(preview.summary().startsWith(QStringLiteral("110×100 m, 20 m lanes")));
+    QVERIFY(preview.summary().startsWith(QStringLiteral("120×100 m, 20 m lanes")));
     QVERIFY(preview.summary() != startSummary);
     QVERIFY(preview.confirmMessage().startsWith(preview.summary()));
 
+    // Depth steps by one lane spacing
     preview.adjustDepth(-1);
-    expected.depthM = 90.0;
-    QCOMPARE(preview.depth(), 90.0);
+    expected.depthM = 80.0;
+    QCOMPARE(preview.depth(), 80.0);
+    QCOMPARE(preview.laneCount(), 5);
     comparePreviewToGenerator(preview, expected);
 
+    // A spacing change re-snaps the depth to whole lanes: 80 / 25 = 3.2 lanes, so 75 m
     preview.adjustSpacing(1);
     expected.spacingM = 25.0;
+    expected.depthM = 75.0;
     QCOMPARE(preview.spacing(), 25.0);
+    QCOMPARE(preview.depth(), 75.0);
+    QCOMPARE(preview.laneCount(), 4);
     comparePreviewToGenerator(preview, expected);
-    QVERIFY(preview.summary().startsWith(QStringLiteral("110×90 m, 25 m lanes")));
+    QVERIFY(preview.summary().startsWith(QStringLiteral("120×75 m, 25 m lanes")));
 
     QCOMPARE(changedSpy.count(), 3);
     // The latched pose never changes
@@ -148,19 +157,19 @@ void AutoGridPreviewTest::_clamping_data()
     QTest::addColumn<int>("steps");
     QTest::addColumn<double>("expected");
 
-    QTest::newRow("width +1") << 'W' << 100.0 << 100.0 << 20.0 << 1 << 110.0;
-    QTest::newRow("width -2") << 'W' << 100.0 << 100.0 << 20.0 << -2 << 80.0;
+    QTest::newRow("width +1") << 'W' << 100.0 << 100.0 << 20.0 << 1 << 120.0;
+    QTest::newRow("width -2") << 'W' << 100.0 << 100.0 << 20.0 << -2 << 60.0;
     QTest::newRow("width at max") << 'W' << 500.0 << 100.0 << 20.0 << 1 << 500.0;
-    QTest::newRow("width near max") << 'W' << 495.0 << 100.0 << 20.0 << 1 << 500.0;
+    QTest::newRow("width near max") << 'W' << 490.0 << 100.0 << 20.0 << 1 << 500.0;
     QTest::newRow("width at min") << 'W' << 10.0 << 100.0 << 20.0 << -1 << 10.0;
-    QTest::newRow("width near min") << 'W' << 15.0 << 100.0 << 20.0 << -1 << 10.0;
+    QTest::newRow("width near min") << 'W' << 25.0 << 100.0 << 20.0 << -1 << 10.0;
+    QTest::newRow("depth +1 lane") << 'D' << 100.0 << 100.0 << 20.0 << 1 << 120.0;
+    QTest::newRow("depth -2 lanes") << 'D' << 100.0 << 100.0 << 20.0 << -2 << 60.0;
     QTest::newRow("depth at max") << 'D' << 100.0 << 500.0 << 20.0 << 1 << 500.0;
-    QTest::newRow("depth near min") << 'D' << 100.0 << 15.0 << 2.0 << -1 << 10.0;
-    QTest::newRow("depth stops at spacing") << 'D' << 100.0 << 25.0 << 20.0 << -1 << 20.0;
-    QTest::newRow("depth at spacing") << 'D' << 100.0 << 20.0 << 20.0 << -1 << 20.0;
+    QTest::newRow("depth at whole-lane max") << 'D' << 100.0 << 480.0 << 30.0 << 1 << 480.0;
+    QTest::newRow("depth at one spacing") << 'D' << 100.0 << 20.0 << 20.0 << -1 << 20.0;
+    QTest::newRow("depth at whole-lane min") << 'D' << 100.0 << 10.0 << 2.0 << -1 << 10.0;
     QTest::newRow("spacing +1") << 's' << 100.0 << 100.0 << 20.0 << 1 << 25.0;
-    QTest::newRow("spacing stops at depth") << 's' << 100.0 << 22.0 << 20.0 << 1 << 22.0;
-    QTest::newRow("spacing at depth") << 's' << 100.0 << 20.0 << 20.0 << 1 << 20.0;
     QTest::newRow("spacing at max") << 's' << 100.0 << 500.0 << 100.0 << 1 << 100.0;
     QTest::newRow("spacing near min") << 's' << 100.0 << 100.0 << 5.0 << -1 << 2.0;
     QTest::newRow("spacing at min") << 's' << 100.0 << 100.0 << 2.0 << -1 << 2.0;
@@ -197,7 +206,9 @@ void AutoGridPreviewTest::_clamping()
             QCOMPARE(preview.spacing(), expected);
             break;
     }
-    QVERIFY(preview.spacing() <= preview.depth());
+    // Depth stays a whole number of lane spacings
+    QCOMPARE(std::fmod(preview.depth(), preview.spacing()), 0.0);
+    QCOMPARE(preview.laneCount(), qRound(preview.depth() / preview.spacing()) + 1);
     QVERIFY(preview.valid());
     // The values that weren't adjusted are unchanged
     QCOMPARE(preview.width(), (field == 'W') ? expected : width);
@@ -205,33 +216,57 @@ void AutoGridPreviewTest::_clamping()
     QCOMPARE(preview.spacing(), (field == 's') ? expected : spacing);
 }
 
-void AutoGridPreviewTest::_invalidShowsError()
+void AutoGridPreviewTest::_depthSnapsToWholeLanes()
 {
-    // The settings allow spacing > depth; the preview shows the error until it's adjusted
+    // The brief's example: settings D = 90, s = 20 opens at 100 m (6 lanes)
     GridGenerator::Params params = previewTestParams();
-    params.depthM = 50.0;
-    params.spacingM = 80.0;
+    params.depthM = 90.0;
     AutoGridPreview preview;
     preview.start(params, previewTestLimits);
-
-    QVERIFY(preview.active());
-    QVERIFY(!preview.valid());
-    QCOMPARE(preview.error(), GridGenerator::validate(params));
-    QCOMPARE(preview.confirmMessage(),
-             QStringLiteral("Can't start a grid: Lane spacing must not be more than the grid depth."));
-    QVERIFY(preview.summary().isEmpty());
-    QVERIFY(preview.path().isEmpty());
-    QVERIFY(preview.outline().isEmpty());
-    // Start grid is blocked until the values are valid
-    QVERIFY(!preview.requestConfirm());
-    QVERIFY(preview.editing());
-
-    preview.adjustSpacing(-1);
-    QCOMPARE(preview.spacing(), 50.0);
+    QCOMPARE(preview.depth(), 100.0);
+    QCOMPARE(preview.laneCount(), 6);
     QVERIFY(preview.valid());
-    QVERIFY(preview.error().isEmpty());
-    QVERIFY(!preview.path().isEmpty());
-    QVERIFY(preview.requestConfirm());
+    // Every lane is a full spacing apart: no clamped short last lane
+    const QList<double>& laneYs = preview.result().laneYs;
+    QCOMPARE(laneYs.count(), 6);
+    for (qsizetype i = 1; i < laneYs.count(); i++) {
+        QCOMPARE(laneYs[i] - laneYs[i - 1], 20.0);
+    }
+
+    // s 20 → 25 keeps 100 m (5 lanes); D + then adds one spacing
+    preview.adjustSpacing(1);
+    QCOMPARE(preview.spacing(), 25.0);
+    QCOMPARE(preview.depth(), 100.0);
+    QCOMPARE(preview.laneCount(), 5);
+    preview.adjustDepth(1);
+    QCOMPARE(preview.depth(), 125.0);
+    QCOMPARE(preview.laneCount(), 6);
+
+    // Nearest multiple: 85 / 20 = 4.25 lanes, so 80 m
+    params.depthM = 85.0;
+    preview.start(params, previewTestLimits);
+    QCOMPARE(preview.depth(), 80.0);
+
+    // Spacing above the settings' depth snaps to one spacing (two lanes) instead of an error
+    params.depthM = 50.0;
+    params.spacingM = 80.0;
+    preview.start(params, previewTestLimits);
+    QCOMPARE(preview.depth(), 80.0);
+    QCOMPARE(preview.laneCount(), 2);
+    QVERIFY(preview.valid());
+
+    // Within the settings' limits: the largest whole number of 30 m lanes in 500 m is 480 m
+    params.depthM = 500.0;
+    params.spacingM = 30.0;
+    preview.start(params, previewTestLimits);
+    QCOMPARE(preview.depth(), 480.0);
+    QCOMPARE(preview.depthMax(), 480.0);
+    // and the smallest at or above the 10 m minimum with 4 m lanes is 12 m
+    params.depthM = 10.0;
+    params.spacingM = 4.0;
+    preview.start(params, previewTestLimits);
+    QCOMPARE(preview.depth(), 12.0);
+    QCOMPARE(preview.depthMin(), 12.0);
 }
 
 void AutoGridPreviewTest::_validationLimitsBlockStart()

@@ -47,6 +47,17 @@ void AutoGridEditorUITest::_editAndConfirm()
     const QVariant savedMode = modeFact->rawValue();
     const auto restoreMode = qScopeGuard([modeFact, savedMode] { modeFact->setRawValue(savedMode); });
     modeFact->setRawValue(CustomSettings::SurveyDetection);
+    // D 90 isn't a whole number of 20 m lanes: the editor snaps it, and the setting stays
+    Fact* const depthFact = settings->gridDepth();
+    Fact* const spacingFact = settings->gridLaneSpacing();
+    const QVariant savedDepth = depthFact->rawValue();
+    const QVariant savedSpacing = spacingFact->rawValue();
+    const auto restoreCell = qScopeGuard([=] {
+        depthFact->setRawValue(savedDepth);
+        spacingFact->setRawValue(savedSpacing);
+    });
+    depthFact->setRawValue(90.0);
+    spacingFact->setRawValue(20.0);
 
     runWithMockLink(
         [] { return MockLink::startPX4MockLink(); },
@@ -58,6 +69,17 @@ void AutoGridEditorUITest::_editAndConfirm()
             }
             QVERIFY(preview->editing());
             QVERIFY(!preview->path().isEmpty());
+            QVERIFY(verifyText(QStringLiteral("autoGridDepthValue"), QStringLiteral("100 m (6 lanes)"),
+                               QStringLiteral("D 90 snapped to whole 20 m lanes")));
+
+            // Spacing 20 → 25 keeps 100 m (5 lanes); Depth + adds one spacing
+            QVERIFY(clickButton(QStringLiteral("autoGridSpacingPlus")));
+            QVERIFY(verifyText(QStringLiteral("autoGridDepthValue"), QStringLiteral("100 m (5 lanes)"),
+                               QStringLiteral("after Lane spacing +")));
+            QVERIFY(clickButton(QStringLiteral("autoGridDepthPlus")));
+            QVERIFY(verifyText(QStringLiteral("autoGridDepthValue"), QStringLiteral("125 m (6 lanes)"),
+                               QStringLiteral("after Depth +")));
+            QCOMPARE(settings->gridDepth()->rawValue().toDouble(), 90.0);
 
             // The panel's buttons edit this grid only
             const double width = settings->gridWidth()->rawValue().toDouble();

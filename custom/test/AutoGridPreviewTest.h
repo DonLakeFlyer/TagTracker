@@ -12,7 +12,7 @@ private slots:
     void _adjustRegenerates();
     void _clamping_data();
     void _clamping();
-    void _invalidShowsError();
+    void _depthSnapsToWholeLanes();
     void _validationLimitsBlockStart();
     void _stages();
     void _movedTooFar_data();

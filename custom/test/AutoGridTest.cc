@@ -502,11 +502,13 @@ void AutoGridTest::_previewLatchesAtTap()
     const double depth = settings->gridDepth()->rawValue().toDouble();
     const double spacing = settings->gridLaneSpacing()->rawValue().toDouble();
     preview->adjustWidth(2);
+    QCOMPARE(preview->width(), width + 2 * AutoGridPreview::WIDTH_STEP_M);
+    // Depth steps by one lane spacing, and a spacing change re-snaps it to whole lanes
     preview->adjustDepth(-1);
+    QCOMPARE(preview->depth(), depth - spacing);
     preview->adjustSpacing(1);
-    QCOMPARE(preview->width(), width + 20.0);
-    QCOMPARE(preview->depth(), depth - 10.0);
-    QCOMPARE(preview->spacing(), spacing + 5.0);
+    QCOMPARE(preview->spacing(), spacing + AutoGridPreview::SPACING_STEP_M);
+    QCOMPARE(std::fmod(preview->depth(), preview->spacing()), 0.0);
     QCOMPARE(settings->gridWidth()->rawValue().toDouble(), width);
     QCOMPARE(settings->gridDepth()->rawValue().toDouble(), depth);
     QCOMPARE(settings->gridLaneSpacing()->rawValue().toDouble(), spacing);

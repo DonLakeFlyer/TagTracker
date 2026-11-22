@@ -12,7 +12,8 @@
 /// Tap latches the pose and opens the editor panel (editing). Start grid opens the confirm slider (confirming).
 /// Sliding hands the params to the grid machine (confirmed), and the preview stays drawn until QGC draws the uploaded
 /// mission. Cancel at any point clears it. Width, depth and lane spacing change for this grid only, and every change
-/// regenerates the path, outline and confirm text. Pure: no vehicle, settings or UI access, and nothing is sent.
+/// regenerates the path, outline and confirm text. Depth is kept a whole number of lane spacings, so the last lane is
+/// never a clamped short one. Pure: no vehicle, settings or UI access, and nothing is sent.
 class AutoGridPreview : public QObject
 {
     Q_OBJECT
@@ -24,6 +25,7 @@ class AutoGridPreview : public QObject
     Q_PROPERTY(bool valid READ valid NOTIFY changed)
     Q_PROPERTY(double width READ width NOTIFY changed)
     Q_PROPERTY(double depth READ depth NOTIFY changed)
+    Q_PROPERTY(int laneCount READ laneCount NOTIFY changed)
     Q_PROPERTY(double spacing READ spacing NOTIFY changed)
     Q_PROPERTY(double widthMin READ widthMin NOTIFY changed)
     Q_PROPERTY(double widthMax READ widthMax NOTIFY changed)
@@ -50,16 +52,16 @@ public:
         double spacingMax = 0.0;
     };
 
-    static constexpr double WIDTH_STEP_M = 10.0;
-    static constexpr double DEPTH_STEP_M = 10.0;
+    /// Width is the lane length, so it steps independently of the spacing. Depth steps by one lane spacing.
+    static constexpr double WIDTH_STEP_M = 20.0;
     static constexpr double SPACING_STEP_M = 5.0;
     /// Confirm refuses when the vehicle is further than this from the latched origin
     static constexpr double MAX_ORIGIN_MOVE_M = 10.0;
 
     explicit AutoGridPreview(QObject* parent = nullptr);
 
-    /// Tap: latches the params (pose plus the settings' values), generates the grid and opens the editor. The values
-    /// are used as they are, so an invalid combination from the settings shows its error until it's adjusted.
+    /// Tap: latches the params (pose plus the settings' values), snaps the depth to whole lanes, generates the grid
+    /// and opens the editor. Other invalid values from the settings show their error until they're adjusted.
     void start(const GridGenerator::Params& latched, const Limits& limits);
 
     /// Start grid: closes the editor for the confirm slider. False (and no change) unless editing a valid grid.
@@ -71,8 +73,8 @@ public:
     /// Ends the preview (Cancel, slider cancelled or closed, refused confirm, or the uploaded mission is drawn).
     Q_INVOKABLE void clear();
 
-    /// While editing: steps the value by `steps` × its step, clamped to the limits and to spacing ≤ depth, then
-    /// regenerates.
+    /// While editing: steps the value by `steps` × its step (depth: × the lane spacing), clamped to the limits, then
+    /// regenerates. A spacing change re-snaps the depth to the nearest whole number of lanes within the limits.
     Q_INVOKABLE void adjustWidth(int steps);
     Q_INVOKABLE void adjustDepth(int steps);
     Q_INVOKABLE void adjustSpacing(int steps);
@@ -103,14 +105,18 @@ public:
 
     double widthMax() const { return _limits.widthMax; }
 
-    /// Effective: depth can't go below the lane spacing
+    /// Lanes flown, including the one at the origin: depth / spacing + 1
+    int laneCount() const;
+
+    /// Effective: the smallest whole number of lanes (at least one spacing) at or above the settings' minimum
     double depthMin() const;
 
-    double depthMax() const { return _limits.depthMax; }
+    /// Effective: the largest whole number of lanes at or below the settings' maximum
+    double depthMax() const;
 
     double spacingMin() const { return _limits.spacingMin; }
 
-    /// Effective: spacing can't go above the depth
+    /// Effective: one spacing must fit within the settings' depth maximum
     double spacingMax() const;
 
     QString summary() const { return valid() ? _result.summary : QString(); }
@@ -143,6 +149,8 @@ private:
     };
 
     void _adjust(double& value, int steps, double step, double low, double high);
+    /// Depth to the nearest whole number of lane spacings within depthMin()..depthMax()
+    void _snapDepth();
     void _regenerate();
 
     Stage _stage = Stage::Idle;
