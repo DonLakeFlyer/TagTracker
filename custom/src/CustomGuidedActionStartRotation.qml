@@ -16,6 +16,7 @@ GuidedToolStripAction {
     iconSource: "/res/action.svg"
     visible:    QGroundControl.settingsManager.customSettings.detectionFlightMode.rawValue === CustomSettings.ManualRotation
     enabled:    _activeVehicle && _activeVehicle.airborne && !QGroundControl.corePlugin.rotationInProgress
+                && !QGroundControl.corePlugin.gridInProgress
     actionID:   customController.actionStartRotation
 
     property var _activeVehicle: QGroundControl.multiVehicleManager.activeVehicle

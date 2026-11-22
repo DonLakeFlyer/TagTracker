@@ -13,6 +13,7 @@ QtObject {
     readonly property int actionClearMap:                    customActionStart + 8
     readonly property int actionDownloadLogs:               customActionStart + 9
     readonly property int actionCalibrationSweep:           customActionStart + 10
+    readonly property int actionStartGrid:                  customActionStart + 11
 
     readonly property string autoDetectionTitle:            qsTr("Go")
     readonly property string startDetectionTitle:           qsTr("Start Detection")
@@ -24,6 +25,7 @@ QtObject {
     readonly property string clearLogsTitle:                qsTr("Clear Logs")
     readonly property string clearMapTitle:                 qsTr("Clear Map")
     readonly property string calibrationSweepTitle:         qsTr("Calibration Sweep")
+    readonly property string startGridTitle:                qsTr("Grid")
 
     readonly property string autoDetectionMessage:          qsTr("Takeoff, rotate, return.")
     readonly property string startDetectionMessage:         qsTr("Start pulse detection for the specified tag(s).")
@@ -88,6 +90,12 @@ QtObject {
             confirmDialog.title = calibrationSweepTitle
             confirmDialog.message = calibrationSweepMessage
             break
+        case actionStartGrid:
+            confirmDialog.hideTrigger = true
+            confirmDialog.title = startGridTitle
+            // Built now from the live pose and settings
+            confirmDialog.message = QGroundControl.corePlugin.autoGridConfirmMessage()
+            break
         default:
             return false;
         }
@@ -126,6 +134,9 @@ QtObject {
             break
         case actionCalibrationSweep:
             QGroundControl.corePlugin.calibrationSweep()
+            break
+        case actionStartGrid:
+            QGroundControl.corePlugin.startAutoGrid()
             break
         default:
             return false;

@@ -249,6 +249,67 @@ SettingsPage {
         }
     }
 
+    // The Grid action is only offered in Survey Detection
+    QGCGroupBox {
+        Layout.fillWidth:   true
+        heading:            qsTr("Auto Grid")
+        visible:            !_isPythonMode
+
+        LabelledFactTextField {
+            Layout.fillWidth:   true
+            label:              fact.shortDescription
+            fact:               _customSettings.gridWidth
+        }
+
+        LabelledFactTextField {
+            Layout.fillWidth:   true
+            label:              fact.shortDescription
+            fact:               _customSettings.gridDepth
+        }
+
+        LabelledFactTextField {
+            Layout.fillWidth:   true
+            label:              fact.shortDescription
+            fact:               _customSettings.gridLaneSpacing
+        }
+
+        LabelledFactComboBox {
+            Layout.fillWidth:   true
+            label:              fact.shortDescription
+            fact:               _customSettings.gridStartSide
+        }
+
+        LabelledFactTextField {
+            Layout.fillWidth:   true
+            label:              fact.shortDescription
+            fact:               _customSettings.gridCruiseSpeed
+        }
+
+        LabelledFactTextField {
+            Layout.fillWidth:   true
+            label:              fact.shortDescription
+            fact:               _customSettings.gridTurnSpeed
+        }
+
+        LabelledFactTextField {
+            Layout.fillWidth:   true
+            label:              fact.shortDescription
+            fact:               _customSettings.gridArcStep
+        }
+
+        LabelledFactTextField {
+            Layout.fillWidth:   true
+            label:              fact.shortDescription
+            fact:               _customSettings.gridAcceptanceRadius
+        }
+
+        LabelledFactTextField {
+            Layout.fillWidth:   true
+            label:              fact.shortDescription
+            fact:               _customSettings.gridEndLoiter
+        }
+    }
+
     QGCGroupBox {
         Layout.fillWidth:   true
         heading:            qsTr("Display")

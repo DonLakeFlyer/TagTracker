@@ -81,6 +81,11 @@ void CustomStateMachine::_cancelForUser()
 
 void CustomStateMachine::_flightModeChanged(const QString& flightMode)
 {
+    if (_flightModeChangeHandler && (_eventMode & CancelOnFlightModeChange)) {
+        _flightModeChangeHandler(flightMode);
+        return;
+    }
+
     const QString holdFlightMode = CustomPlugin::holdFlightMode(vehicle());
 
     if (_eventMode & CancelOnFlightModeChange && flightMode != holdFlightMode

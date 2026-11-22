@@ -21,6 +21,7 @@ ToolStrip {
             GuidedActionRTL { },
             GuidedActionPause { },
             CustomGuidedActionStartRotation { },
+            CustomGuidedActionStartGrid { },
             FlyViewAdditionalActionsButton { }
         ]
     }

@@ -48,6 +48,15 @@ public:
     DEFINE_SETTINGFACT(pythonK)
     DEFINE_SETTINGFACT(pythonFalseAlarmMode)
     DEFINE_SETTINGFACT(pythonFalseAlarmProbability)
+    DEFINE_SETTINGFACT(gridWidth)
+    DEFINE_SETTINGFACT(gridDepth)
+    DEFINE_SETTINGFACT(gridLaneSpacing)
+    DEFINE_SETTINGFACT(gridCruiseSpeed)
+    DEFINE_SETTINGFACT(gridTurnSpeed)
+    DEFINE_SETTINGFACT(gridStartSide)
+    DEFINE_SETTINGFACT(gridArcStep)
+    DEFINE_SETTINGFACT(gridEndLoiter)
+    DEFINE_SETTINGFACT(gridAcceptanceRadius)
 
     enum AntennaType {
         OmniAntenna = 0,
@@ -76,6 +85,13 @@ public:
         SurveyDetection = 2
     };
     Q_ENUM(DetectionFlightMode)
+
+    // Auto Grid start side: which way the first half lane goes
+    enum GridStartSide {
+        GridStartLeft = 0,
+        GridStartRight = 1
+    };
+    Q_ENUM(GridStartSide)
 
     bool isPythonMode() { return detectionFlightMode()->rawValue().toUInt() != SurveyDetection; }
 

@@ -64,6 +64,7 @@ public:
     Q_PROPERTY(double               minSNR                  MEMBER  _minSNR                     NOTIFY minSNRChanged)
     Q_PROPERTY(bool                 activeRotation          MEMBER  _activeRotation             NOTIFY activeRotationChanged)
     Q_PROPERTY(bool                 rotationInProgress      READ    rotationInProgress          NOTIFY rotationInProgressChanged)
+    Q_PROPERTY(bool                 gridInProgress          READ    gridInProgress              NOTIFY gridInProgressChanged)
     Q_PROPERTY(QmlObjectListModel*  rotationInfoList        READ    rotationInfoList          CONSTANT)
 
     CustomSettings*     customSettings  () { return _customSettings; }
@@ -78,6 +79,8 @@ public:
     double              priorBearingDeg() const { return _priorBearingDeg; }
     // True from the moment a rotation state machine starts until it finishes or is stopped
     bool                rotationInProgress() const { return _rotationInProgress; }
+    // True from the moment an Auto Grid machine starts until it finishes or is stopped
+    bool                gridInProgress() const { return _gridInProgress; }
     const CollectionStatus_t& lastCollectionStatus() const { return _lastCollectionStatus; }
     // Collection whose BEARING_RESULT has arrived (0 = none yet for the active collection)
     uint32_t            lastBearingCollectionId() const { return _lastBearingCollectionId; }
@@ -107,6 +110,9 @@ public:
     Q_INVOKABLE void saveLogs           (void);
     Q_INVOKABLE void cleanLogs          (void);
     Q_INVOKABLE void clearMap           (void);
+    /// Confirm text for the Grid action, built from the live pose and settings
+    Q_INVOKABLE QString autoGridConfirmMessage(void);
+    Q_INVOKABLE void startAutoGrid      (void);
 
     // Overrides from QGCCorePlugin
     void                init                    (void) final;
@@ -133,6 +139,7 @@ signals:
     void minSNRChanged                  (double minSNR);
     void activeRotationChanged          (bool activeRotation);
     void rotationInProgressChanged      (bool rotationInProgress);
+    void gridInProgressChanged          (bool gridInProgress);
     void pythonDetectorResultReceived   (uint32_t tagId);  // confirmed, low-confidence, or no-pulse
     void collectionStatusReceived       (uint32_t collectionId, uint32_t sliceId, uint32_t status, uint32_t errorCode);
     void bearingResultReceived          (uint32_t collectionId);
@@ -163,6 +170,9 @@ private:
     RotationInfo* _currentRotationInfo  (void) const;
     void    _startRotationMachine       (CustomStateMachine* stateMachine);
     void    _setRotationInProgress      (bool inProgress);
+    void    _setGridInProgress          (bool inProgress);
+    /// Shows an app message and returns false while an Auto Grid runs
+    bool    _validateNoGridInProgress   (void);
     void    _sendStopDetectionDirect    (void);
     void    _sendCollectionCancel       (void);
     void    _sendLogLevel               (void);
@@ -173,6 +183,7 @@ private:
     bool                    _activeRotation     = false;
     bool                    _rotationInProgress = false;
     QPointer<CustomStateMachine> _rotationMachine;
+    bool                    _gridInProgress     = false;
     uint32_t                _activeCollectionId = 0;
     CollectionStatus_t      _lastCollectionStatus {};
     uint32_t                _lastBearingCollectionId = 0;

@@ -16,6 +16,8 @@
 #include "ConditionalState.h"
 #include "SayState.h"
 #include "RotationInfo.h"
+#include "AutoGridStateMachine.h"
+#include "GridGenerator.h"
 
 #include "Vehicle.h"
 #include "FirmwarePlugin.h"
@@ -491,6 +493,9 @@ void CustomPlugin::autoDetection()
         qgcApp()->showAppMessage(tr("A rotation is already in progress"));
         return;
     }
+    if (!_validateNoGridInProgress()) {
+        return;
+    }
     if (!_validatePythonCollectionAllowed()) {
         return;
     }
@@ -562,6 +567,9 @@ void CustomPlugin::startRotation(void)
         qgcApp()->showAppMessage(tr("A rotation is already in progress"));
         return;
     }
+    if (!_validateNoGridInProgress()) {
+        return;
+    }
     if (!_validatePythonCollectionAllowed()) {
         return;
     }
@@ -612,6 +620,9 @@ void CustomPlugin::calibrationSweep(void)
     }
     if (_rotationInProgress) {
         qgcApp()->showAppMessage(tr("A rotation is already in progress"));
+        return;
+    }
+    if (!_validateNoGridInProgress()) {
         return;
     }
     if (!_validatePythonCollectionAllowed()) {
@@ -748,6 +759,78 @@ void CustomPlugin::_setRotationInProgress(bool inProgress)
         _rotationInProgress = inProgress;
         emit rotationInProgressChanged(inProgress);
     }
+}
+
+QString CustomPlugin::autoGridConfirmMessage(void)
+{
+    Vehicle* vehicle = MultiVehicleManager::instance()->activeVehicle();
+    QString error = AutoGridStateMachine::checkVehicle(vehicle);
+    GridGenerator::Result result;
+    if (error.isEmpty()) {
+        result = GridGenerator::generate(AutoGridStateMachine::latchParams(vehicle, _customSettings));
+        error = result.error;
+    }
+    if (!error.isEmpty()) {
+        // startAutoGrid() re-checks, so confirming anyway only shows this again
+        return tr("Can't start a grid: %1").arg(error);
+    }
+
+    QString message = tr("%1. The cell and the return path must be clear.").arg(result.summary);
+    if (_controllerStatus != ControllerStatusDetecting) {
+        message += QStringLiteral("\n") + tr("Warning: detection is not running.");
+    }
+    return message;
+}
+
+void CustomPlugin::startAutoGrid(void)
+{
+    qCDebug(CustomPluginLog) << "Auto Grid requested";
+
+    Vehicle* vehicle = MultiVehicleManager::instance()->activeVehicle();
+    if (const QString error = AutoGridStateMachine::checkVehicle(vehicle); !error.isEmpty()) {
+        qgcApp()->showAppMessage(error);
+        return;
+    }
+    if (_rotationInProgress) {
+        qgcApp()->showAppMessage(tr("A rotation is in progress"));
+        return;
+    }
+    if (_gridInProgress) {
+        qgcApp()->showAppMessage(tr("A grid is already in progress"));
+        return;
+    }
+
+    // Latched once: the mission is never regenerated after this (spec §9)
+    const GridGenerator::Params params = AutoGridStateMachine::latchParams(vehicle, _customSettings);
+    const GridGenerator::Result result = GridGenerator::generate(params);
+    if (!result.isValid()) {
+        qgcApp()->showAppMessage(tr("Grid not started: %1").arg(result.error));
+        return;
+    }
+    qCDebug(CustomPluginLog).noquote() << AutoGridStateMachine::logLine(params, result);
+
+    auto stateMachine = new AutoGridStateMachine(params, result, this);
+    _setGridInProgress(true);
+    connect(stateMachine, &QStateMachine::finished, this, [this]() { _setGridInProgress(false); });
+    connect(stateMachine, &QStateMachine::stopped,  this, [this]() { _setGridInProgress(false); });
+    stateMachine->start();
+}
+
+void CustomPlugin::_setGridInProgress(bool inProgress)
+{
+    if (_gridInProgress != inProgress) {
+        _gridInProgress = inProgress;
+        emit gridInProgressChanged(inProgress);
+    }
+}
+
+bool CustomPlugin::_validateNoGridInProgress()
+{
+    if (_gridInProgress) {
+        qgcApp()->showAppMessage(tr("A grid is in progress"));
+        return false;
+    }
+    return true;
 }
 
 void CustomPlugin::startDetection(void)
@@ -1275,7 +1358,8 @@ double CustomPlugin::normalizeHeading(double heading)
     if (heading < 0.0) {
         heading += 360.0;
     }
-    return heading;
+    // A tiny negative heading rounds up to exactly 360 above
+    return (heading >= 360.0) ? 0.0 : heading;
 }
 
 const char* CustomPlugin::controllerStatusString(int status)

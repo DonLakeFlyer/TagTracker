@@ -125,6 +125,7 @@ qgc_configure_target(CustomControlsModule)
 qgc_set_qt_resource_alias(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomGuidedActionAutoDetection.qml
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomGuidedActionStartRotation.qml
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomGuidedActionStartGrid.qml
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomGuidedActionStartStopDetection.qml
     ${CMAKE_CURRENT_SOURCE_DIR}/src/RotationRose.qml
     ${CMAKE_CURRENT_SOURCE_DIR}/src/SimpleRotationView.qml
@@ -139,6 +140,7 @@ qt_add_qml_module(CustomControlsModule
     QML_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomGuidedActionAutoDetection.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomGuidedActionStartRotation.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomGuidedActionStartGrid.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomGuidedActionStartStopDetection.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/src/RotationRose.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/src/SimpleRotationView.qml
@@ -186,6 +188,8 @@ set(CUSTOM_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/TunnelProtocolText.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/UavrtDetectorInfo.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/UavrtDetectorInfo.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/AutoGridStateMachine.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/AutoGridStateMachine.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/CustomState.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/CustomState.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/CustomStateMachine.cc
@@ -217,12 +221,16 @@ set(CUSTOM_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/StopDetectionState.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/TakeoffState.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/TakeoffState.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/UploadMissionState.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/UploadMissionState.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/YawSweepState.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/StateMachine/YawSweepState.h
 )
 
 if(QGC_BUILD_TESTING)
     list(APPEND CUSTOM_SOURCES
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/AutoGridTest.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/AutoGridTest.h
         ${CMAKE_CURRENT_SOURCE_DIR}/test/CustomStateMachineTest.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/test/CustomStateMachineTest.h
         ${CMAKE_CURRENT_SOURCE_DIR}/test/GridGeneratorTest.cc
@@ -244,6 +252,7 @@ if(QGC_BUILD_TESTING)
     )
 
     include(QGCTest)
+    add_qgc_test(AutoGridTest LABELS Unit)
     add_qgc_test(CustomStateMachineTest LABELS Unit)
     add_qgc_test(GridGeneratorTest LABELS Unit)
     add_qgc_test(OperationProgressTest LABELS Unit)
