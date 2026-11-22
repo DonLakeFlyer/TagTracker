@@ -312,7 +312,7 @@ void GridGeneratorTest::_defaultShape()
         }
     }
     QCOMPARE(pointIndex, result.points.size());
-    QCOMPARE(result.summary, QStringLiteral("100×100 m, 20 m lanes, ~2.4 min, alt 30 m"));
+    QCOMPARE(result.summary, QStringLiteral("100×100 m, 20 m lanes, ~2.6 min, alt 30 m"));
 }
 
 void GridGeneratorTest::_cellToCoordinate_data()

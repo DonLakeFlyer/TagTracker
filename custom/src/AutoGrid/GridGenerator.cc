@@ -248,12 +248,12 @@ Result generate(const Params& params)
 
 QString summaryLine(const Params& params, const Estimates& estimates)
 {
-    // Flight time only. Whether to add the end loiter is spec §12's open question; change it here.
+    // Flight plus the end loiter: the time until the vehicle starts returning (decided 2026-11-22)
     return QStringLiteral("%1×%2 m, %3 m lanes, ~%4 min, alt %5 m")
         .arg(QString::number(params.widthM, 'g', 6))
         .arg(QString::number(params.depthM, 'g', 6))
         .arg(QString::number(params.spacingM, 'g', 6))
-        .arg(QString::number(estimates.flightTimeS / 60.0, 'f', 1))
+        .arg(QString::number(estimates.totalTimeS / 60.0, 'f', 1))
         .arg(QString::number(params.altitudeM, 'f', 0));
 }
 

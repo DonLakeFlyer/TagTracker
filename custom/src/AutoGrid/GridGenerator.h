@@ -120,7 +120,7 @@ struct Result
 /// origin.atDistanceAndAzimuth(hypot(n, e), atan2(e, n)).
 [[nodiscard]] QGeoCoordinate cellToCoordinate(const QGeoCoordinate& origin, double headingDeg, double x, double y);
 
-/// Confirm slider text, e.g. "100×100 m, 20 m lanes, ~2.4 min, alt 60 m". The time excludes the end loiter.
+/// Confirm slider text, e.g. "100×100 m, 20 m lanes, ~2.6 min, alt 60 m". The time is flight plus the end loiter.
 [[nodiscard]] QString summaryLine(const Params& params, const Estimates& estimates);
 
 /// Items shaped for PlanManager::writeMissionItems on PX4, which drops index 0 as the home item and shifts every
