@@ -36,8 +36,9 @@ jobs:
       QT_ANDROID_ABIS: arm64-v8a
       QT_ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/custom/deploy/android/debug.keystore
       QT_ANDROID_KEYSTORE_ALIAS: androiddebugkey
-      QT_ANDROID_KEYSTORE_STORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-      QT_ANDROID_KEYSTORE_KEY_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      # Pull requests never receive the signing password, so they sign with a throwaway keystore
+      QT_ANDROID_KEYSTORE_STORE_PASS: ${{ github.event_name != 'pull_request' && secrets.ANDROID_KEYSTORE_PASSWORD || '' }}
+      QT_ANDROID_KEYSTORE_KEY_PASS: ${{ github.event_name != 'pull_request' && secrets.ANDROID_KEYSTORE_PASSWORD || '' }}
 
     steps:
       - name: Checkout repo
@@ -59,6 +60,22 @@ jobs:
 
       - name: Install host build dependencies
         uses: ./.github/actions/install-dependencies
+
+      # PR runs get no signing password, which leaves apksigner prompting on closed stdin. Other events fail fast.
+      - name: Create Debug Keystore
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          keytool -genkey -v \
+            -keystore "${RUNNER_TEMP}/debug.keystore" \
+            -storepass android -alias androiddebugkey -keypass android \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+          {
+            echo "QT_ANDROID_KEYSTORE_PATH=${RUNNER_TEMP}/debug.keystore"
+            echo "QT_ANDROID_KEYSTORE_ALIAS=androiddebugkey"
+            echo "QT_ANDROID_KEYSTORE_STORE_PASS=android"
+            echo "QT_ANDROID_KEYSTORE_KEY_PASS=android"
+          } >> "$GITHUB_ENV"
 
       - name: CMake configure
         uses: ./.github/actions/cmake-configure
